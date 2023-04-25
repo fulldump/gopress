@@ -3,5 +3,5 @@ run:
 	go run main.go
 
 build:
-	go build -o bin/ main.go
+	CGO_ENABLED=0 go build -o bin/gopress main.go
 
