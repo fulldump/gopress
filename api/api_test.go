@@ -35,6 +35,15 @@ func TestHappyPath(t *testing.T) {
 				body := resp2.BodyJson().([]any)
 				biff.AssertEqual(body[0].(map[string]any)["id"], "hello-world")
 			})
+			a.Alternative("create article - already exist", func(a *biff.A) {
+				resp := api.Request("POST", "/v1/articles").WithBodyJson(JSON{
+					"id":    "hello-world",
+					"title": "Hello world",
+				}).Do()
+
+				body := *resp.BodyJsonMap()
+				biff.AssertEqual(body["error"], "article id 'hello-world' already exists")
+			})
 		})
 
 		a.Alternative("list articles - empty list", func(a *biff.A) {
