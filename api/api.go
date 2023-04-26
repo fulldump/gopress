@@ -31,6 +31,14 @@ func NewApi() *box.B {
 
 	b := box.NewBox()
 
+	b.WithInterceptors(func(next box.H) box.H {
+		return func(ctx context.Context) {
+			r := box.GetRequest(ctx)
+			log.Println(r.Method, r.URL.String())
+			next(ctx)
+		}
+	})
+
 	templateHome, err := template.New("").Parse(templates.Home)
 	if err != nil {
 		panic(err) // todo: handle this properly
