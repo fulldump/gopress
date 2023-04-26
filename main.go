@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/fulldump/goconfig"
@@ -31,6 +31,6 @@ func main() {
 		Handler: a,
 	}
 
-	fmt.Println("Listening on", server.Addr)
+	log.Println("Listening on", server.Addr)
 	server.ListenAndServe()
 }

@@ -35,7 +35,14 @@ func NewApi(articles map[string]*Article) *box.B {
 	b.WithInterceptors(func(next box.H) box.H {
 		return func(ctx context.Context) {
 			r := box.GetRequest(ctx)
-			log.Println(r.Method, r.URL.String())
+
+			action := box.GetBoxContext(ctx).Action
+			actionName := ""
+			if action != nil {
+				actionName = action.Name
+			}
+
+			log.Println(r.Method, r.URL.String(), actionName)
 			next(ctx)
 		}
 	})
@@ -56,7 +63,7 @@ func NewApi(articles map[string]*Article) *box.B {
 		if err != nil {
 			log.Println("Error rendering home:", err.Error())
 		}
-	})
+	}).WithName("RenderHome")
 
 	templateArticle, err := template.New("").Parse(templates.Article)
 	if err != nil {
