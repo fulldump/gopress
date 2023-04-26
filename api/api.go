@@ -27,7 +27,9 @@ type ArticleShort struct {
 
 func NewApi() *box.B {
 
-	articles := map[string]*Article{}
+	articles := map[string]*Article{
+		"hello": hello,
+	}
 
 	b := box.NewBox()
 
