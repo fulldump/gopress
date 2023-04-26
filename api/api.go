@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"html/template"
 	"log"
 	"net/http"
@@ -136,8 +137,25 @@ func NewApi(articles map[string]*Article) *box.B {
 		return article
 	})
 
-	b.Handle("PATCH", "/v1/articles/{articleId}", func(w http.ResponseWriter, r *http.Request) string {
-		return "todo: modify article"
+	b.Handle("PATCH", "/v1/articles/{articleId}", func(w http.ResponseWriter, r *http.Request, ctx context.Context) any {
+		articleId := box.GetUrlParameter(ctx, "articleId")
+
+		article, exist := articles[articleId]
+		if !exist {
+			w.WriteHeader(http.StatusNotFound)
+			return JSON{
+				"error": "article not found",
+			}
+		}
+
+		err := json.NewDecoder(r.Body).Decode(&article)
+		if err != nil {
+			return JSON{
+				"error": "could not read JSON",
+			}
+		}
+
+		return article
 	})
 
 	b.Handle("DELETE", "/v1/articles/{articleId}", func(w http.ResponseWriter, ctx context.Context) any {

@@ -68,6 +68,17 @@ func TestHappyPath(t *testing.T) {
 					biff.AssertEqual(resp.StatusCode, 404)
 				})
 			})
+			a.Alternative("modify article - content", func(a *biff.A) {
+				resp := api.Request("PATCH", "/v1/articles/hello-world").
+					WithBodyJson(JSON{
+						"content": "new content!",
+					}).Do()
+
+				biff.AssertEqual(resp.StatusCode, 200)
+				body := *resp.BodyJsonMap()
+				biff.AssertEqual(body["title"], "Hello world")
+				biff.AssertEqual(body["content"], "new content!")
+			})
 		})
 
 		a.Alternative("list articles - empty list", func(a *biff.A) {
