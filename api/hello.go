@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-var hello = &Article{
+var Hello = &Article{
 	Title: "Primeros pasos",
 	Content: `
 Bienvenido a GoPress.org, el sistema de blog gratuito escrito en golang y hackeable.

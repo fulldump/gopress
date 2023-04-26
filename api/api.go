@@ -25,11 +25,9 @@ type ArticleShort struct {
 	Title string `json:"title"`
 }
 
-func NewApi() *box.B {
+type JSON map[string]any
 
-	articles := map[string]*Article{
-		"hello": hello,
-	}
+func NewApi(articles map[string]*Article) *box.B {
 
 	b := box.NewBox()
 
@@ -123,8 +121,19 @@ func NewApi() *box.B {
 		return newArticle
 	})
 
-	b.Handle("GET", "/v1/articles/{articleId}", func(w http.ResponseWriter, r *http.Request) string {
-		return "todo: get article"
+	b.Handle("GET", "/v1/articles/{articleId}", func(ctx context.Context, w http.ResponseWriter) any {
+
+		articleId := box.GetUrlParameter(ctx, "articleId")
+
+		article, exist := articles[articleId]
+		if !exist {
+			w.WriteHeader(http.StatusNotFound)
+			return JSON{
+				"error": "article not found",
+			}
+		}
+
+		return article
 	})
 
 	b.Handle("PATCH", "/v1/articles/{articleId}", func(w http.ResponseWriter, r *http.Request) string {

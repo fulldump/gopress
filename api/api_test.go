@@ -8,13 +8,12 @@ import (
 	"github.com/fulldump/biff"
 )
 
-type JSON = map[string]any
-
 func TestHappyPath(t *testing.T) {
 
 	biff.Alternative("Setup gopress", func(a *biff.A) {
 
-		h := NewApi()
+		articles := map[string]*Article{}
+		h := NewApi(articles)
 		api := apitest.NewWithHandler(h)
 
 		a.Alternative("create article", func(a *biff.A) {
@@ -44,11 +43,25 @@ func TestHappyPath(t *testing.T) {
 				body := *resp.BodyJsonMap()
 				biff.AssertEqual(body["error"], "article id 'hello-world' already exists")
 			})
+			a.Alternative("retrieve article", func(a *biff.A) {
+				resp := api.Request("GET", "/v1/articles/hello-world").Do()
+
+				body := *resp.BodyJsonMap()
+				biff.AssertEqual(body["title"], "Hello world")
+			})
 		})
 
 		a.Alternative("list articles - empty list", func(a *biff.A) {
 			resp := api.Request("GET", "/v1/articles").Do()
 			biff.AssertEqual(len(resp.BodyJson().([]any)), 0)
+		})
+
+		a.Alternative("retrieve article - not found", func(a *biff.A) {
+			resp := api.Request("GET", "/v1/articles/invented").Do()
+
+			biff.AssertEqual(resp.StatusCode, 404)
+			body := *resp.BodyJsonMap()
+			biff.AssertEqual(body["error"], "article not found")
 		})
 
 	})

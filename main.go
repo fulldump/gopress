@@ -9,7 +9,11 @@ import (
 
 func main() {
 
-	a := api.NewApi()
+	articles := map[string]*api.Article{
+		"hello": api.Hello,
+	}
+
+	a := api.NewApi(articles)
 
 	server := http.Server{
 		Addr:    ":9955",
