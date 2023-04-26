@@ -1,10 +1,15 @@
 package api
 
 import (
+	"context"
+	"html/template"
+	"log"
 	"net/http"
 	"time"
 
 	"github.com/fulldump/box"
+
+	"gopress/templates"
 )
 
 type Article struct {
@@ -25,6 +30,49 @@ func NewApi() *box.B {
 	articles := map[string]*Article{}
 
 	b := box.NewBox()
+
+	templateHome, err := template.New("").Parse(templates.Home)
+	if err != nil {
+		panic(err) // todo: handle this properly
+	}
+
+	b.Handle("GET", "/", func(w http.ResponseWriter) {
+		// todo: limit page size to 10
+		// todo: sort by date DESC
+
+		err := templateHome.ExecuteTemplate(w, "", map[string]any{
+			"articles": articles,
+		})
+
+		if err != nil {
+			log.Println("Error rendering home:", err.Error())
+		}
+	})
+
+	templateArticle, err := template.New("").Parse(templates.Article)
+	if err != nil {
+		panic(err) // todo: handle this properly
+	}
+
+	b.Handle("GET", "/articles/{articleId}", func(w http.ResponseWriter, ctx context.Context) {
+
+		articleId := box.GetUrlParameter(ctx, "articleId")
+
+		article, exist := articles[articleId]
+		if !exist {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte("Article not found"))
+			return
+		}
+
+		err := templateArticle.ExecuteTemplate(w, "", map[string]any{
+			"article": article,
+		})
+
+		if err != nil {
+			log.Println("Error rendering home:", err.Error())
+		}
+	})
 
 	b.Handle("GET", "/v1/articles", func() any {
 

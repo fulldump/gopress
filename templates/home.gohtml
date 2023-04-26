@@ -1,0 +1,14 @@
+<html>
+<head></head>
+<body>
+    <h1>GoPress.org</h1>
+    {{ range $i, $article := .articles  }}
+
+        <article>
+            <h1><a href="/articles/{{ $i }}">{{ .Title }}</a></h1>
+            <div style="font-size: 80%;">{{ .CreatedOn }}</div>
+        </article>
+
+    {{ end }}
+</body>
+</html>
