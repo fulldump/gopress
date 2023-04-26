@@ -140,8 +140,21 @@ func NewApi(articles map[string]*Article) *box.B {
 		return "todo: modify article"
 	})
 
-	b.Handle("DELETE", "/v1/articles/{articleId}", func(w http.ResponseWriter, r *http.Request) string {
-		return "todo: delete article"
+	b.Handle("DELETE", "/v1/articles/{articleId}", func(w http.ResponseWriter, ctx context.Context) any {
+
+		articleId := box.GetUrlParameter(ctx, "articleId")
+
+		article, exist := articles[articleId]
+		if !exist {
+			w.WriteHeader(http.StatusNotFound)
+			return JSON{
+				"error": "article not found",
+			}
+		}
+
+		delete(articles, articleId)
+
+		return article
 	})
 
 	b.Handle("POST", "/v1/articles/{articleId}/publish", func(w http.ResponseWriter, r *http.Request) string {

@@ -49,6 +49,25 @@ func TestHappyPath(t *testing.T) {
 				body := *resp.BodyJsonMap()
 				biff.AssertEqual(body["title"], "Hello world")
 			})
+			a.Alternative("delete article", func(a *biff.A) {
+				resp := api.Request("DELETE", "/v1/articles/hello-world").Do()
+
+				biff.AssertEqual(resp.StatusCode, 200)
+				body := *resp.BodyJsonMap()
+				biff.AssertEqual(body["title"], "Hello world")
+
+				a.Alternative("list articles - after delete", func(a *biff.A) {
+					resp := api.Request("GET", "/v1/articles").Do()
+
+					biff.AssertEqual(resp.StatusCode, 200)
+					biff.AssertEqualJson(resp.BodyJson(), []any{})
+				})
+				a.Alternative("retrieve article - after delete", func(a *biff.A) {
+					resp := api.Request("GET", "/v1/articles/hello-world").Do()
+
+					biff.AssertEqual(resp.StatusCode, 404)
+				})
+			})
 		})
 
 		a.Alternative("list articles - empty list", func(a *biff.A) {
@@ -58,6 +77,14 @@ func TestHappyPath(t *testing.T) {
 
 		a.Alternative("retrieve article - not found", func(a *biff.A) {
 			resp := api.Request("GET", "/v1/articles/invented").Do()
+
+			biff.AssertEqual(resp.StatusCode, 404)
+			body := *resp.BodyJsonMap()
+			biff.AssertEqual(body["error"], "article not found")
+		})
+
+		a.Alternative("delete article - not found", func(a *biff.A) {
+			resp := api.Request("DELETE", "/v1/articles/invented").Do()
 
 			biff.AssertEqual(resp.StatusCode, 404)
 			body := *resp.BodyJsonMap()
