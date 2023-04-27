@@ -1,16 +1,42 @@
 <html>
 <head>
     <title>GoPress.org</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      a {
+        color: dodgerblue;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+
+      h1 {
+        text-align: center;
+      }
+
+      .workspace {
+        max-width: 600px;
+        padding: 16px;
+        margin: 0 auto;
+      }
+    </style>
 </head>
 <body>
-    <h1>GoPress.org</h1>
-    {{ range $i, $article := .articles  }}
 
-        <article>
-            <h1><a href="/articles/{{ $i }}">{{ .Title }}</a></h1>
-            <div style="font-size: 80%;">{{ .CreatedOn }}</div>
-        </article>
+    <div class="workspace">
 
-    {{ end }}
+        <h1>GoPress.org</h1>
+        {{ range $i, $article := .articles  }}
+
+            <article>
+                <h2><a href="/articles/{{ $i }}">{{ .Title }}</a></h2>
+                <div style="font-size: 80%;">{{ .CreatedOn }}</div>
+            </article>
+
+        {{ end }}
+
+    </div>
+
 </body>
 </html>

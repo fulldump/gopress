@@ -80,10 +80,20 @@
 		</div>
 	</div>
 
+	<div v-else style="text-align: center; padding: 16px;">
+		<button @click="createArticle();">Create new article</button>
+	</div>
 
 </div>
 
 <script>
+
+	function uuidv4() {
+		return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+						(c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+		);
+	}
+
 	new Vue({
 		el: "#app",
 		data() {
@@ -127,6 +137,21 @@
 				fetch('/v1/articles/'+encodeURIComponent(id), {method: 'PATCH', body: JSON.stringify(params)})
 								.finally(() => {
 									that.saving--;
+								})
+			},
+			createArticle() {
+				const id = uuidv4();
+				const body = {
+					"id": id,
+					"title": "New article",
+				};
+				let that = this;
+				fetch('/v1/articles', {method: 'POST', body: JSON.stringify(body)})
+								.then(resp => resp.json())
+								.then(article => {
+									article.id = id;
+									that.articles.push(article);
+									that.selected = article;
 								})
 			},
 		},

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/fulldump/box"
+	"github.com/google/uuid"
 
 	"gopress/statics"
 	"gopress/templates"
@@ -111,6 +112,10 @@ func NewApi(articles map[string]*Article, staticsDir string) *box.B {
 	}
 
 	b.Handle("POST", "/v1/articles", func(input *CreateArticleRequest) any {
+
+		if input.Id == "" {
+			input.Id = uuid.New().String()
+		}
 
 		if _, exist := articles[input.Id]; exist {
 			return map[string]interface{}{

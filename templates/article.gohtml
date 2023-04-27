@@ -1,14 +1,38 @@
 <html>
 <head>
     <title>{{ .article.Title }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      a {
+        color: dodgerblue;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+
+      h1 {
+        text-align: center;
+      }
+
+      .workspace {
+        max-width: 600px;
+        padding: 16px;
+        margin: 0 auto;
+      }
+    </style>
 </head>
 <body>
-    <h1><a href="/">GoPress.org</a></h1>
 
-    <article>
-        <h1>{{ .article.Title }}</h1>
-        <div>{{ .article.Content }}</div>
-    </article>
+    <div class="workspace">
+        <h1><a href="/">GoPress.org</a></h1>
+
+        <article>
+            <h2>{{ .article.Title }}</h2>
+            <div style="white-space: pre-wrap;">{{ .article.Content }}</div>
+        </article>
+    </div>
+
 
 </body>
 </html>
