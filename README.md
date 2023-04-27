@@ -13,3 +13,6 @@ A disfrutar!
 
 Recuerda desinstalar WordPress para liberar recursos y aumentar tu seguridad.
 
+databaseId: fc84637c-6c31-400d-a312-7ec6de39fd2d
+Key: b76f9c1a-93fa-4988-84ee-cd761cee66f3
+Secret: 52392c50-a2dc-4902-a492-062b210e5839
