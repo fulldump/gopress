@@ -50,7 +50,7 @@
 			>
 				<div style="font-weight: bold;">{{ article.title }}</div>
 				<div style="font-size: 80%;">
-					<a style="color: dodgerblue;" :href="'/articles/'+ article.id " target="_blank">/articles/{{ article.id }}</a> 🧷
+					<a style="color: dodgerblue;" :href="'/articles/'+ article.url " target="_blank">/articles/{{ article.url }}</a> 🧷
 				</div>
 			</div>
 
@@ -69,6 +69,14 @@
 							@keypress.enter="patchArticle(selected.id, {title: selected.title})"
 							@focusout="patchArticle(selected.id, {title: selected.title})"
 							style="box-sizing: border-box; width: 100%; font-weight: bold; font-size: 120%;"
+			>
+			<input
+							type="text"
+							v-model="selected.url"
+							@keypress.enter="patchArticle(selected.id, {url: selected.url})"
+							@focusout="patchArticle(selected.id, {url: selected.url})"
+							placeholder="friendly-url-style"
+							style="color: forestgreen; box-sizing: border-box; width: 100%; font-weight: bold; font-family: monospace;"
 			>
 			<textarea
 							rows="20"

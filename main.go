@@ -29,21 +29,9 @@ func main() {
 	}
 	goconfig.Read(c)
 
-	articles := map[string]*api.Article{
-		"hello": api.Hello,
-		"hello2": {
-			Title:   "Two",
-			Content: "222",
-		},
-		"hello3": {
-			Title:   "Three",
-			Content: "333",
-		},
-	}
-
 	db := inceptiondb.NewClient(c.Inception)
 
-	a := api.NewApi(articles, c.Statics, db)
+	a := api.NewApi(c.Statics, db)
 
 	server := http.Server{
 		Addr:    c.Addr,

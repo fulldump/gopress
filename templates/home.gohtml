@@ -30,7 +30,7 @@
         {{ range $i, $article := .articles  }}
 
             <article>
-                <h2><a href="/articles/{{ $i }}">{{ .Title }}</a></h2>
+                <h2><a href="/articles/{{ .Url }}">{{ .Title }}</a></h2>
                 <div style="font-size: 80%;">{{ .CreatedOn }}</div>
             </article>
 

@@ -15,9 +15,7 @@ func TestHappyPath(t *testing.T) {
 	biff.Alternative("Setup gopress", func(a *biff.A) {
 
 		db := inceptiondb.NewClient(inceptiondb.Config{})
-
-		articles := map[string]*Article{}
-		h := NewApi(articles, "", db)
+		h := NewApi("", db)
 		api := apitest.NewWithHandler(h)
 
 		a.Alternative("create article", func(a *biff.A) {

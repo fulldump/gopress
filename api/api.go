@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/fulldump/box"
@@ -19,6 +20,7 @@ import (
 
 type Article struct {
 	Id      string `json:"id"` // todo: this is part of persistence layer/logic
+	Url     string `json:"url"`
 	Title   string `json:"title"`
 	Content string `json:"content"`
 
@@ -29,11 +31,12 @@ type Article struct {
 type ArticleShort struct {
 	Id    string `json:"id"`
 	Title string `json:"title"`
+	Url   string `json:"url"`
 }
 
 type JSON map[string]any
 
-func NewApi(x map[string]*Article, staticsDir string, db *inceptiondb.Client) *box.B {
+func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 
 	b := box.NewBox()
 
@@ -83,14 +86,14 @@ func NewApi(x map[string]*Article, staticsDir string, db *inceptiondb.Client) *b
 		panic(err) // todo: handle this properly
 	}
 
-	b.Handle("GET", "/articles/{articleId}", func(w http.ResponseWriter, ctx context.Context) {
+	b.Handle("GET", "/articles/{articleUrl}", func(w http.ResponseWriter, ctx context.Context) {
 
-		articleId := box.GetUrlParameter(ctx, "articleId")
+		articleUrl := box.GetUrlParameter(ctx, "articleUrl")
 
 		article := &Article{}
 		err := db.FindOne("articles", inceptiondb.FindQuery{
 			Filter: JSON{
-				"id": articleId,
+				"url": articleUrl,
 			},
 		}, article)
 		if err != nil {
@@ -117,6 +120,7 @@ func NewApi(x map[string]*Article, staticsDir string, db *inceptiondb.Client) *b
 			result = append(result, &ArticleShort{
 				Id:    article.Id,
 				Title: article.Title,
+				Url:   article.Url,
 			})
 		})
 
@@ -137,6 +141,7 @@ func NewApi(x map[string]*Article, staticsDir string, db *inceptiondb.Client) *b
 		newArticle := &Article{
 			Id:        input.Id,
 			Title:     input.Title,
+			Url:       Slug(input.Title) + "-" + uuid.New().String(),
 			Content:   "Start here",
 			CreatedOn: time.Now(),
 			Published: false,
@@ -244,4 +249,11 @@ func NewApi(x map[string]*Article, staticsDir string, db *inceptiondb.Client) *b
 	b.Handle("GET", "/*", statics.ServeStatics(staticsDir)).WithName("serveStatics")
 
 	return b
+}
+
+func Slug(s string) string {
+	s = strings.ToLower(s)
+	s = strings.ReplaceAll(s, " ", "-")
+
+	return s
 }
