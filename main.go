@@ -10,7 +10,8 @@ import (
 )
 
 type Config struct {
-	Addr string `usage:"Server http address"`
+	Addr    string `usage:"Server http address"`
+	Statics string `usage:"Use a directory to serve statics or even a http server"`
 }
 
 func main() {
@@ -22,9 +23,17 @@ func main() {
 
 	articles := map[string]*api.Article{
 		"hello": api.Hello,
+		"hello2": {
+			Title:   "Two",
+			Content: "222",
+		},
+		"hello3": {
+			Title:   "Three",
+			Content: "333",
+		},
 	}
 
-	a := api.NewApi(articles)
+	a := api.NewApi(articles, c.Statics)
 
 	server := http.Server{
 		Addr:    c.Addr,

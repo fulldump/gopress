@@ -13,7 +13,7 @@ func TestHappyPath(t *testing.T) {
 	biff.Alternative("Setup gopress", func(a *biff.A) {
 
 		articles := map[string]*Article{}
-		h := NewApi(articles)
+		h := NewApi(articles, "")
 		api := apitest.NewWithHandler(h)
 
 		a.Alternative("create article", func(a *biff.A) {

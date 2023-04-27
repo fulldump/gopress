@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>GoPress.org - Admin</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<script src="https://cdn.jsdelivr.net/npm/vue@2.7.14"></script>
+
+	<style>
+		html, body {
+			font-family: sans-serif;
+		}
+
+		#app {
+			max-width: 600px;
+			padding: 16px;
+			margin: 0 auto;
+		}
+
+		.list-item {
+			border: solid transparent 1px;
+			padding: 4px;
+		}
+
+		.list-item:hover,
+		.list-item.selected {
+			cursor: pointer;
+			border-color: dodgerblue;
+		}
+
+		.list-item.selected {
+			margin-left: 40px;
+		}
+
+	</style>
+</head>
+<body>
+
+<div id="app">
+
+	<h1 style="text-align: center;">Articles</h1>
+
+	<div>
+		<button v-if="selected != null" @click="selected=null" style="float: left; height: 42px; border: none; background-color: transparent;">back</button>
+		<div>
+			<div
+							v-for="article in articles"
+							v-if="selected == null || selected.id == article.id"
+							class="list-item" :class="{ selected: selected && selected.id == article.id }"
+							@click="selected = article; fetchSelected()"
+			>
+				<div style="font-weight: bold;">{{ article.title }}</div>
+				<div style="font-size: 80%;">
+					<a style="color: dodgerblue;" :href="'/articles/'+ article.id " target="_blank">/articles/{{ article.id }}</a> 🧷
+				</div>
+			</div>
+
+		</div>
+	</div>
+
+
+	<div v-if="selected">
+		<div style="height: 20px; text-align: center; padding: 4px;">
+			<span v-if="saving" style="background-color: lightyellow; padding: 4px 16px; font-size: 80%; font-weight: bold; border-radius: 3px; box-shadow: 2px 2px 2px rgba(0,0,0,0.15)">Saving...</span>
+		</div>
+		<div>
+			<input
+							type="text"
+							v-model="selected.title"
+							@keypress.enter="patchArticle(selected.id, {title: selected.title})"
+							@focusout="patchArticle(selected.id, {title: selected.title})"
+							style="box-sizing: border-box; width: 100%; font-weight: bold; font-size: 120%;"
+			>
+			<textarea
+							rows="20"
+							v-model="selected.content"
+							style="box-sizing: border-box; width: 100%;"
+							@keypress.enter="patchArticle(selected.id, {content: selected.content})"
+							@focusout="patchArticle(selected.id, {content: selected.content})"
+			></textarea>
+		</div>
+	</div>
+
+
+</div>
+
+<script>
+	new Vue({
+		el: "#app",
+		data() {
+			return {
+				message: 'Hello Vue!',
+				selected: null,
+				articles: [],
+				saving: 0,
+			}
+		},
+		created() {
+			console.log('created');
+			this.fetchArticles();
+		},
+		methods: {
+			fetchArticles() {
+				fetch('/v1/articles')
+								.then(resp => resp.json())
+								.then(articles => {
+									this.articles = articles;
+								})
+			},
+			fetchSelected() {
+				let that = this;
+				let id = this.selected.id;
+				fetch('/v1/articles/'+encodeURIComponent(this.selected.id))
+								.then(resp => resp.json())
+								.then(article => {
+									// if (id != article.id) return;
+									console.log('set things');
+									for (let k in article) {
+										Vue.set(that.selected, k, article[k]);
+										// that.selected[k] = article[k]
+									}
+								});
+			},
+			patchArticle(id, params) {
+				// todo: spinner saving
+				this.saving++;
+				let that = this;
+				fetch('/v1/articles/'+encodeURIComponent(id), {method: 'PATCH', body: JSON.stringify(params)})
+								.finally(() => {
+									that.saving--;
+								})
+			},
+		},
+	})
+</script>
+
+
+
+</body>
+</html>

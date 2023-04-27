@@ -10,6 +10,7 @@ import (
 
 	"github.com/fulldump/box"
 
+	"gopress/statics"
 	"gopress/templates"
 )
 
@@ -28,7 +29,7 @@ type ArticleShort struct {
 
 type JSON map[string]any
 
-func NewApi(articles map[string]*Article) *box.B {
+func NewApi(articles map[string]*Article, staticsDir string) *box.B {
 
 	b := box.NewBox()
 
@@ -185,6 +186,9 @@ func NewApi(articles map[string]*Article) *box.B {
 	b.Handle("POST", "/v1/articles/{articleId}/publish", func(w http.ResponseWriter, r *http.Request) string {
 		return "todo: publish article"
 	})
+
+	// Mount statics
+	b.Handle("GET", "/*", statics.ServeStatics(staticsDir)).WithName("serveStatics")
 
 	return b
 }
