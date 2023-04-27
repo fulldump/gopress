@@ -31,6 +31,38 @@
 			margin-left: 40px;
 		}
 
+		.button {
+			border: solid black 2px;
+			border-radius: 3px;
+			padding: 8px 32px;
+			color: black;
+			background-color: white;
+			cursor: pointer;
+			opacity: 80%;
+			font-weight: bold;
+		}
+
+		.button:hover {
+			opacity: 100%;
+		}
+
+		.button-small {
+			padding: 2px 16px;
+			font-size: 80%;
+		}
+
+		.button-blue {
+			color: white;
+			background-color: dodgerblue;
+			border-color: #176dc2;
+		}
+
+		.button-red {
+			color: white;
+			background-color: #d90000;
+			border-color: #b30000;
+		}
+
 	</style>
 </head>
 <body>
@@ -60,6 +92,7 @@
 
 	<div v-if="selected">
 		<div style="height: 20px; text-align: center; padding: 4px;">
+			<button class="button button-small button-red" style="float: right;" @click="deleteArticle(selected.id)">Delete article</button>
 			<span v-if="saving" style="background-color: lightyellow; padding: 4px 16px; font-size: 80%; font-weight: bold; border-radius: 3px; box-shadow: 2px 2px 2px rgba(0,0,0,0.15)">Saving...</span>
 		</div>
 		<div>
@@ -89,7 +122,7 @@
 	</div>
 
 	<div v-else style="text-align: center; padding: 16px;">
-		<button @click="createArticle();">Create new article</button>
+		<button class="button button-blue" @click="createArticle();">Create new article</button>
 	</div>
 
 </div>
@@ -160,6 +193,20 @@
 									article.id = id;
 									that.articles.push(article);
 									that.selected = article;
+								})
+			},
+			deleteArticle(id) {
+				if (!confirm("Are you sure to delete this article?")) return;
+				let that = this;
+				fetch('/v1/articles/'+encodeURIComponent(id), {method: 'DELETE'})
+								.then(resp => {
+									that.selected = null;
+									for (k in that.articles) {
+										if (that.articles[k].id == id) {
+											that.articles.splice(k, 1);
+											return
+										}
+									}
 								})
 			},
 		},
