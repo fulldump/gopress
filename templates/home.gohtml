@@ -26,6 +26,17 @@
 
     <div class="workspace">
 
+        <div style="float: right;">
+            <div id="login">
+                <a href="/auth/login">Login</a>
+            </div>
+            <div id="logout" style="display:none;">
+                <img id="user_picture" src="" style="border-radius: 50%; height: 32px; vertical-align: middle;">
+                <span id="user_nick" style="font-weight: bold;"></span>
+                <a href="/auth/logout">Logout</a>
+            </div>
+        </div>
+
         <h1>GoPress.org</h1>
         {{ range $i, $article := .articles  }}
 
@@ -37,6 +48,20 @@
         {{ end }}
 
     </div>
+
+    <script>
+        function id(s) {
+            return document.getElementById(s);
+        }
+
+        fetch('/auth/me').then(resp => resp.json()).then(me => {
+            if (me.error) return;
+            id('login').style.display = 'none';
+            id('logout').style.display = 'block';
+            id('user_picture').setAttribute('src', me.picture);
+            id('user_nick').innerText = me.nick;
+        })
+    </script>
 
 </body>
 </html>
