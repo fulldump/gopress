@@ -1,0 +1,21 @@
+a {
+  color: dodgerblue;
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+h1 {
+  text-align: center;
+}
+
+.workspace {
+  max-width: 600px;
+  padding: 16px;
+  margin: 0 auto;
+}
+
+.workspace > h1 {
+  margin: 0;
+}
