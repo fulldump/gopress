@@ -13,6 +13,7 @@ import (
 	"github.com/fulldump/box"
 	"github.com/google/uuid"
 
+	"gopress/glueauth"
 	"gopress/inceptiondb"
 	"gopress/statics"
 	"gopress/templates"
@@ -24,8 +25,11 @@ type Article struct {
 	Title   string `json:"title"`
 	Content string `json:"content"`
 
-	CreatedOn time.Time `json:"createdOn"`
-	Published bool      `json:"published"` // todo: use date to program publishment in the future
+	CreatedOn     time.Time `json:"createdOn"`
+	Published     bool      `json:"published"` // todo: use date to program publishment in the future
+	AuthorId      string    `json:"author_id"`
+	AuthorNick    string    `json:"author_nick"`
+	AuthorPicture string    `json:"author_picture"`
 }
 
 type ArticleShort struct {
@@ -112,11 +116,20 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 		}
 	}).WithName("RenderArticle")
 
-	b.Handle("GET", "/v1/articles", func() any {
+	b.Group("/v1").WithInterceptors(glueauth.Require)
+
+	b.Handle("GET", "/v1/articles", func(ctx context.Context) any {
+
+		auth := glueauth.GetAuth(ctx)
+		query := inceptiondb.FindQuery{
+			Limit: 1000,
+			Filter: JSON{
+				"author_id": auth.User.ID,
+			},
+		}
 
 		result := []*ArticleShort{}
-
-		db.FindAll("articles", inceptiondb.FindQuery{Limit: 1000}, func(article *Article) {
+		db.FindAll("articles", query, func(article *Article) {
 			result = append(result, &ArticleShort{
 				Id:    article.Id,
 				Title: article.Title,
@@ -132,19 +145,24 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 		Title string `json:"title"`
 	}
 
-	b.Handle("POST", "/v1/articles", func(input *CreateArticleRequest) any {
+	b.Handle("POST", "/v1/articles", func(input *CreateArticleRequest, ctx context.Context) any {
 
 		if input.Id == "" {
 			input.Id = uuid.New().String()
 		}
 
+		auth := glueauth.GetAuth(ctx)
+
 		newArticle := &Article{
-			Id:        input.Id,
-			Title:     input.Title,
-			Url:       Slug(input.Title) + "-" + uuid.New().String(),
-			Content:   "Start here",
-			CreatedOn: time.Now(),
-			Published: false,
+			Id:            input.Id,
+			Title:         input.Title,
+			AuthorId:      auth.User.ID,
+			AuthorNick:    auth.User.Nick,
+			AuthorPicture: auth.User.Picture,
+			Url:           Slug(input.Title) + "-" + uuid.New().String(),
+			Content:       "Start here",
+			CreatedOn:     time.Now(),
+			Published:     false,
 		}
 
 		err := db.Insert("articles", newArticle)
@@ -162,10 +180,13 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 
 		articleId := box.GetUrlParameter(ctx, "articleId")
 
+		auth := glueauth.GetAuth(ctx)
+
 		article := &Article{}
 		err := db.FindOne("articles", inceptiondb.FindQuery{
 			Filter: JSON{
-				"id": articleId,
+				"id":        articleId,
+				"author_id": auth.User.ID,
 			},
 		}, article)
 		if err != nil {
@@ -180,11 +201,14 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 	b.Handle("PATCH", "/v1/articles/{articleId}", func(w http.ResponseWriter, r *http.Request, ctx context.Context) any {
 		articleId := box.GetUrlParameter(ctx, "articleId")
 
+		auth := glueauth.GetAuth(ctx)
+
 		article := &Article{}
 
 		err := db.FindOne("articles", inceptiondb.FindQuery{
 			Filter: JSON{
-				"id": articleId,
+				"id":        articleId,
+				"author_id": auth.User.ID,
 			},
 		}, article)
 		if err != nil {
@@ -204,7 +228,8 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 
 		_, err = db.Patch("articles", inceptiondb.PatchQuery{
 			Filter: JSON{
-				"id": articleId,
+				"id":        articleId,
+				"author_id": auth.User.ID,
 			},
 			Patch: article,
 		})
@@ -222,9 +247,12 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 
 		articleId := box.GetUrlParameter(ctx, "articleId")
 
+		auth := glueauth.GetAuth(ctx)
+
 		r, err := db.Remove("articles", inceptiondb.FindQuery{
 			Filter: JSON{
-				"id": articleId,
+				"id":        articleId,
+				"author_id": auth,
 			},
 		})
 		if err != nil {

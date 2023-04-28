@@ -24,7 +24,8 @@
 
             <article>
                 <h2><a href="/articles/{{ .Url }}">{{ .Title }}</a></h2>
-                <div style="font-size: 80%;">{{ .CreatedOn }}</div>
+                <div style="font-size: 80%;">Created on {{ .CreatedOn }}</div>
+                <div style="font-size: 80%;">Created by {{ .AuthorNick }}</div>
             </article>
 
         {{ end }}

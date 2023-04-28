@@ -129,6 +129,8 @@
 
 <script>
 
+	let fakeHeaders = {'X-Glue-Authentication':'{"user":{"id":"user1"}}'}; // todo: just for testing
+
 	function uuidv4() {
 		return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
 						(c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
@@ -147,11 +149,18 @@
 		},
 		created() {
 			console.log('created');
+
 			this.fetchArticles();
+
+			// todo: just for testing
+			fetch("/auth/me").then(resp => resp.json()).then(user => {
+				fakeHeaders['X-Glue-Authentication'] = JSON.stringify({"user":user});
+				this.fetchArticles();
+			})
 		},
 		methods: {
 			fetchArticles() {
-				fetch('/v1/articles')
+				fetch('/v1/articles', {headers: fakeHeaders})
 								.then(resp => resp.json())
 								.then(articles => {
 									this.articles = articles;
@@ -160,7 +169,7 @@
 			fetchSelected() {
 				let that = this;
 				let id = this.selected.id;
-				fetch('/v1/articles/'+encodeURIComponent(this.selected.id))
+				fetch('/v1/articles/'+encodeURIComponent(this.selected.id), {headers: fakeHeaders})
 								.then(resp => resp.json())
 								.then(article => {
 									// if (id != article.id) return;
@@ -175,7 +184,7 @@
 				// todo: spinner saving
 				this.saving++;
 				let that = this;
-				fetch('/v1/articles/'+encodeURIComponent(id), {method: 'PATCH', body: JSON.stringify(params)})
+				fetch('/v1/articles/'+encodeURIComponent(id), {method: 'PATCH', body: JSON.stringify(params), headers: fakeHeaders})
 								.finally(() => {
 									that.saving--;
 								})
@@ -187,7 +196,7 @@
 					"title": "New article",
 				};
 				let that = this;
-				fetch('/v1/articles', {method: 'POST', body: JSON.stringify(body)})
+				fetch('/v1/articles', {method: 'POST', body: JSON.stringify(body), headers: fakeHeaders})
 								.then(resp => resp.json())
 								.then(article => {
 									article.id = id;
@@ -198,7 +207,7 @@
 			deleteArticle(id) {
 				if (!confirm("Are you sure to delete this article?")) return;
 				let that = this;
-				fetch('/v1/articles/'+encodeURIComponent(id), {method: 'DELETE'})
+				fetch('/v1/articles/'+encodeURIComponent(id), {method: 'DELETE', headers: fakeHeaders})
 								.then(resp => {
 									that.selected = null;
 									for (k in that.articles) {
