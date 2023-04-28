@@ -252,7 +252,7 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 		r, err := db.Remove("articles", inceptiondb.FindQuery{
 			Filter: JSON{
 				"id":        articleId,
-				"author_id": auth,
+				"author_id": auth.User.ID,
 			},
 		})
 		if err != nil {
