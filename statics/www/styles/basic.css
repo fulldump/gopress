@@ -21,14 +21,15 @@ h1 {
 }
 
 .details {
-  color: gray;
-  font-size: 80%;
+  color: black;
+  font-size: 90%;
   padding: 8px 0;
 }
 
 .details .avatar {
   display: inline-block;
-  height: 24px;
+  height: 32px;
+  width: 32px;
   border-radius: 50%;
   float: left;
   margin-right: 8px;

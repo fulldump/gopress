@@ -1,4 +1,5 @@
-<html>
+<!DOCTYPE html>
+<html lang="es">
 <head>
     <title>{{ .article.Title }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -27,8 +28,8 @@
                 {{ if .AuthorPicture }}
                     <img class="avatar" src="{{ .AuthorPicture }}" alt="Author picture">
                 {{ end }}
-                <div style="font-size: 80%;">Created on {{ .article.CreatedOn }}</div>
-                <div style="font-size: 80%;">Created by {{ .article.AuthorNick }}</div>
+                <div>Created on {{ .article.CreatedOn }}</div>
+                <div>Created by {{ .article.AuthorNick }}</div>
             </div>
             <div style="white-space: pre-wrap;">{{ .article.Content }}</div>
         </article>
