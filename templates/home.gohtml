@@ -23,9 +23,14 @@
         {{ range $i, $article := .articles  }}
 
             <article>
-                <h2><a href="/articles/{{ .Url }}">{{ .Title }}</a></h2>
-                <div style="font-size: 80%;">Created on {{ .CreatedOn }}</div>
-                <div style="font-size: 80%;">Created by {{ .AuthorNick }}</div>
+                <h2 style="margin-bottom: 0;"><a href="/articles/{{ .Url }}">{{ .Title }}</a></h2>
+                <div class="details">
+                    {{ if .AuthorPicture }}
+                        <img class="avatar" src="{{ .AuthorPicture }}" alt="Author picture">
+                    {{ end }}
+                    <div style="font-size: 80%;">Created on {{ .CreatedOn }}</div>
+                    <div style="font-size: 80%;">Created by {{ .AuthorNick }}</div>
+                </div>
             </article>
 
         {{ end }}

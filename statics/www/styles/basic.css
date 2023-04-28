@@ -19,3 +19,17 @@ h1 {
 .workspace > h1 {
   margin: 0;
 }
+
+.details {
+  color: gray;
+  font-size: 80%;
+  padding: 8px 0;
+}
+
+.details .avatar {
+  display: inline-block;
+  height: 24px;
+  border-radius: 50%;
+  float: left;
+  margin-right: 8px;
+}

@@ -22,7 +22,14 @@
         <h1><a href="/">GoPress.org</a></h1>
 
         <article>
-            <h2>{{ .article.Title }}</h2>
+            <h2 style="margin-bottom: 0;">{{ .article.Title }}</h2>
+            <div class="details">
+                {{ if .AuthorPicture }}
+                    <img class="avatar" src="{{ .AuthorPicture }}" alt="Author picture">
+                {{ end }}
+                <div style="font-size: 80%;">Created on {{ .article.CreatedOn }}</div>
+                <div style="font-size: 80%;">Created by {{ .article.AuthorNick }}</div>
+            </div>
             <div style="white-space: pre-wrap;">{{ .article.Content }}</div>
         </article>
     </div>
