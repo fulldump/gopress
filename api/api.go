@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"html/template"
 	"io"
 	"log"
@@ -115,6 +116,31 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 			log.Println("Error rendering home:", err.Error())
 		}
 	}).WithName("RenderArticle")
+
+	b.Handle("GET", "/sitemap.xml", func(w http.ResponseWriter) {
+
+		w.Header().Set("content-type", "text/xml; charset=UTF-8")
+		// Begin XML
+		w.Write([]byte(xml.Header))
+		w.Write([]byte(`<urlset xmlns="http://www.google.com/schemas/sitemap/0.9">` + "\n"))
+
+		// Article pages
+		params := inceptiondb.FindQuery{
+			Limit: 9999,
+		}
+		db.FindAll("articles", params, func(article *Article) {
+			w.Write([]byte(`    <url>
+        <loc>https://gopress.org/articles/` + article.Url + `</loc>
+        <lastmod>` + article.CreatedOn.Format("2006-01-02") + `</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.4</priority>
+    </url>`))
+		})
+
+		// End XML
+		w.Write([]byte(`</urlset>`))
+
+	}).WithName("Sitemap")
 
 	b.Group("/v1").WithInterceptors(glueauth.Require)
 
