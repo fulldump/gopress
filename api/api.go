@@ -117,12 +117,55 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 		}
 	}).WithName("RenderArticle")
 
+	templateUser, err := template.New("").Parse(templates.User)
+	if err != nil {
+		panic(err) // todo: handle this properly
+	}
+
+	b.Handle("GET", "/user/{userId}", func(w http.ResponseWriter, ctx context.Context) {
+		// todo: limit page size to 10
+		// todo: sort by date DESC
+
+		userId := box.GetUrlParameter(ctx, "userId")
+
+		userNick := userId
+		params := inceptiondb.FindQuery{
+			Limit: 1000,
+			Filter: JSON{
+				"author_id": userId,
+			},
+		}
+		list := map[string]*Article{}
+		db.FindAll("articles", params, func(article *Article) {
+			list[article.Id] = article
+			userNick = article.AuthorNick
+		}) // todo: handle error properly
+		if len(list) == 0 {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte("User not found"))
+			return
+		}
+
+		err := templateUser.ExecuteTemplate(w, "", map[string]any{
+			"userId":   userId,
+			"userNick": userNick,
+			"articles": list,
+		})
+
+		if err != nil {
+			log.Println("Error rendering home:", err.Error())
+		}
+	}).WithName("RenderHome")
+
 	b.Handle("GET", "/sitemap.xml", func(w http.ResponseWriter) {
 
 		w.Header().Set("content-type", "text/xml; charset=UTF-8")
 		// Begin XML
 		w.Write([]byte(xml.Header))
 		w.Write([]byte(`<urlset xmlns="http://www.google.com/schemas/sitemap/0.9">` + "\n"))
+
+		// Collect users
+		users := map[string]*Article{}
 
 		// Article pages
 		params := inceptiondb.FindQuery{
@@ -135,7 +178,25 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
         <changefreq>weekly</changefreq>
         <priority>0.4</priority>
     </url>`))
+
+			lastArticle, exist := users[article.AuthorId]
+			if !exist {
+				users[article.AuthorId] = article
+			} else if article.CreatedOn.UnixNano() > lastArticle.CreatedOn.UnixNano() {
+				users[article.AuthorId] = article
+			}
+
 		})
+
+		// User pages
+		for userId, article := range users {
+			w.Write([]byte(`    <url>
+        <loc>https://gopress.org/user/` + userId + `</loc>
+        <lastmod>` + article.CreatedOn.Format("2006-01-02") + `</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.4</priority>
+    </url>`))
+		}
 
 		// End XML
 		w.Write([]byte(`</urlset>`))

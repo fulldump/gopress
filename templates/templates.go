@@ -7,3 +7,6 @@ var Home string
 
 //go:embed article.gohtml
 var Article string
+
+//go:embed user.gohtml
+var User string

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <title>GoPress.org</title>
+    <title>{{ .userNick }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="/styles/basic.css">
 </head>
@@ -20,7 +20,7 @@
             </div>
         </div>
 
-        <h1>GoPress.org</h1>
+        <h1>{{ .userNick }}</h1>
         {{ range $i, $article := .articles  }}
 
             <article>
@@ -30,7 +30,7 @@
                         <img class="avatar" src="{{ .AuthorPicture }}" alt="Author picture">
                     {{ end }}
                     <div>Created on {{ .CreatedOn }}</div>
-                    <div>Created by <a href="/user/{{ .AuthorId }}">{{ .AuthorNick }}</a></div>
+                    <div>Created by {{ .AuthorNick }}</div>
                 </div>
             </article>
 
