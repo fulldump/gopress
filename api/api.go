@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -108,8 +109,23 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 			return
 		}
 
+		words := strings.SplitN(article.Content, " ", 10)
+		title := "@" + article.AuthorNick + ": " + strings.Join(words[0:len(words)-1], " ") + "..."
+		selfUrl := `https://gopress.org/user/` + url.PathEscape(article.AuthorId)
+
+		description := article.Content
+		max_description := 150
+		if len(description) > max_description {
+			description = article.Content[0:max_description] + "..."
+		}
+
 		err = templateArticle.ExecuteTemplate(w, "", map[string]any{
 			"article": article,
+
+			"og_title":       title,
+			"og_url":         selfUrl,
+			"og_image":       article.AuthorPicture,
+			"og_description": description,
 		})
 
 		if err != nil {

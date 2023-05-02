@@ -4,6 +4,15 @@
     <title>{{ .article.Title }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="/styles/basic.css">
+
+    <meta property="og:title" content="{{ .og_title }}" />
+    <meta property="og:url" content="{{ .og_url }}" />
+    <meta property="og:image" content="{{ .og_image }}" />
+    <meta property="og:site_name" content="Goose, la red social libre" />
+    <meta property="og:description" content="{{ .og_description }}" />
+
+    <meta name="twitter:card" content="summary" />
+
 </head>
 <body>
 
