@@ -22,22 +22,29 @@ import (
 )
 
 type Article struct {
-	Id      string `json:"id"` // todo: this is part of persistence layer/logic
-	Url     string `json:"url"`
-	Title   string `json:"title"`
-	Content string `json:"content"`
+	Id string `json:"id"` // todo: this is part of persistence layer/logic
+
+	ArticleUserFields
 
 	CreatedOn     time.Time `json:"createdOn"`
+	PublishOn     time.Time `json:"publishOn"`
 	Published     bool      `json:"published"` // todo: use date to program publishment in the future
 	AuthorId      string    `json:"author_id"`
 	AuthorNick    string    `json:"author_nick"`
 	AuthorPicture string    `json:"author_picture"`
 }
 
+type ArticleUserFields struct {
+	Url     string `json:"url"`
+	Title   string `json:"title"`
+	Content string `json:"content"`
+}
+
 type ArticleShort struct {
-	Id    string `json:"id"`
-	Title string `json:"title"`
-	Url   string `json:"url"`
+	Id        string `json:"id"`
+	Title     string `json:"title"`
+	Url       string `json:"url"`
+	Published bool   `json:"published"`
 }
 
 type JSON map[string]any
@@ -72,8 +79,15 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 		// todo: limit page size to 10
 		// todo: sort by date DESC
 
+		query := inceptiondb.FindQuery{
+			Limit: 1000,
+			Filter: JSON{
+				"published": true,
+			},
+		}
+
 		list := map[string]*Article{}
-		db.FindAll("articles", inceptiondb.FindQuery{Limit: 1000}, func(article *Article) {
+		db.FindAll("articles", query, func(article *Article) {
 			list[article.Id] = article
 			//			list = append(list, article)
 		}) // todo: handle error properly
@@ -99,7 +113,8 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 		article := &Article{}
 		err := db.FindOne("articles", inceptiondb.FindQuery{
 			Filter: JSON{
-				"url": articleUrl,
+				"url":       articleUrl,
+				"published": true,
 			},
 		}, article)
 		if err != nil {
@@ -149,6 +164,7 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 			Limit: 1000,
 			Filter: JSON{
 				"author_id": userId,
+				"published": true,
 			},
 		}
 		list := map[string]*Article{}
@@ -234,9 +250,10 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 		result := []*ArticleShort{}
 		db.FindAll("articles", query, func(article *Article) {
 			result = append(result, &ArticleShort{
-				Id:    article.Id,
-				Title: article.Title,
-				Url:   article.Url,
+				Id:        article.Id,
+				Title:     article.Title,
+				Url:       article.Url,
+				Published: article.Published,
 			})
 		})
 
@@ -258,14 +275,16 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 
 		newArticle := &Article{
 			Id:            input.Id,
-			Title:         input.Title,
 			AuthorId:      auth.User.ID,
 			AuthorNick:    auth.User.Nick,
 			AuthorPicture: auth.User.Picture,
-			Url:           Slug(input.Title) + "-" + uuid.New().String(),
-			Content:       "Start here",
 			CreatedOn:     time.Now(),
 			Published:     false,
+			ArticleUserFields: ArticleUserFields{
+				Title:   input.Title,
+				Url:     Slug(input.Title) + "-" + uuid.New().String(),
+				Content: "Start here",
+			},
 		}
 
 		err := db.Insert("articles", newArticle)
@@ -301,6 +320,12 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 		return article
 	}).WithName("GetArticle")
 
+	type PatchInput struct {
+		Url     string `json:"url"`
+		Title   string `json:"title"`
+		Content string `json:"content"`
+	}
+
 	b.Handle("PATCH", "/v1/articles/{articleId}", func(w http.ResponseWriter, r *http.Request, ctx context.Context) any {
 		articleId := box.GetUrlParameter(ctx, "articleId")
 
@@ -321,7 +346,7 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 			}
 		}
 
-		err = json.NewDecoder(r.Body).Decode(&article)
+		err = json.NewDecoder(r.Body).Decode(&article.ArticleUserFields)
 		if err != nil {
 			log.Println("patch article: json decode:", err.Error())
 			return JSON{
@@ -372,9 +397,82 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 		return nil
 	}).WithName("DeleteArticle")
 
-	b.Handle("POST", "/v1/articles/{articleId}/publish", func(w http.ResponseWriter, r *http.Request) string {
-		return "todo: publish article"
+	b.Handle("POST", "/v1/articles/{articleId}/publish", func(w http.ResponseWriter, r *http.Request, ctx context.Context) any {
+
+		articleId := box.GetUrlParameter(ctx, "articleId")
+		auth := glueauth.GetAuth(ctx)
+
+		filter := JSON{
+			"id":        articleId,
+			"author_id": auth.User.ID,
+		}
+
+		article := &Article{}
+		err := db.FindOne("articles", inceptiondb.FindQuery{
+			Filter: filter,
+		}, article)
+		if err != nil {
+			log.Println("publish article: db find:", err.Error())
+			return JSON{
+				"error": "could not read from data storage",
+			}
+		}
+
+		article.Published = true
+		article.PublishOn = time.Now()
+
+		_, err = db.Patch("articles", inceptiondb.PatchQuery{
+			Filter: filter,
+			Patch:  article,
+		})
+		if err != nil {
+			log.Println("publish article: db patch:", err.Error())
+			return JSON{
+				"error": "could not write to data storage",
+			}
+		}
+
+		return article
+
 	}).WithName("PublishArticle")
+
+	b.Handle("POST", "/v1/articles/{articleId}/unpublish", func(w http.ResponseWriter, r *http.Request, ctx context.Context) any {
+
+		articleId := box.GetUrlParameter(ctx, "articleId")
+		auth := glueauth.GetAuth(ctx)
+
+		filter := JSON{
+			"id":        articleId,
+			"author_id": auth.User.ID,
+		}
+
+		article := &Article{}
+		err := db.FindOne("articles", inceptiondb.FindQuery{
+			Filter: filter,
+		}, article)
+		if err != nil {
+			log.Println("unpublish article: db find:", err.Error())
+			return JSON{
+				"error": "could not read from data storage",
+			}
+		}
+
+		article.Published = false
+
+		_, err = db.Patch("articles", inceptiondb.PatchQuery{
+			Filter: filter,
+			Patch:  article,
+		})
+		if err != nil {
+			log.Println("unpublish article: db patch:", err.Error())
+			return JSON{
+				"error": "could not write to data storage",
+			}
+		}
+
+		return article
+
+	}).WithName("UnpublishArticle")
 
 	// Mount statics
 	b.Handle("GET", "/*", statics.ServeStatics(staticsDir)).WithName("serveStatics")

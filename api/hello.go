@@ -5,8 +5,9 @@ import (
 )
 
 var Hello = &Article{
-	Title: "Primeros pasos",
-	Content: `
+	ArticleUserFields: ArticleUserFields{
+		Title: "Primeros pasos",
+		Content: `
 Bienvenido a GoPress.org, el sistema de blog gratuito escrito en golang y hackeable.
 
 Si estás leyendo este artículo es que ya has completado con éxito los siguientes pasos:
@@ -20,6 +21,7 @@ A disfrutar!
 
 Recuerda desinstalar WordPress para liberar recursos y aumentar tu seguridad.
 	`,
+	},
 	CreatedOn: time.Date(2023, 04, 26, 00, 51, 00, 00, time.UTC),
 	Published: true,
 }
