@@ -32,6 +32,13 @@ type Article struct {
 	AuthorId      string    `json:"author_id"`
 	AuthorNick    string    `json:"author_nick"`
 	AuthorPicture string    `json:"author_picture"`
+
+	Stats ArticleStats `json:"stats"`
+}
+
+type ArticleStats struct {
+	Views uint64 `json:"views"` // total number of views
+	//	Impressions uint64 `json:"impressions"` // total number of impressions
 }
 
 type ArticleUserFields struct {
@@ -41,10 +48,11 @@ type ArticleUserFields struct {
 }
 
 type ArticleShort struct {
-	Id        string `json:"id"`
-	Title     string `json:"title"`
-	Url       string `json:"url"`
-	Published bool   `json:"published"`
+	Id        string       `json:"id"`
+	Title     string       `json:"title"`
+	Url       string       `json:"url"`
+	Published bool         `json:"published"`
+	Stats     ArticleStats `json:"stats"`
 }
 
 type JSON map[string]any
@@ -110,12 +118,14 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 
 		articleUrl := box.GetUrlParameter(ctx, "articleUrl")
 
+		filter := JSON{
+			"url":       articleUrl,
+			"published": true,
+		}
+
 		article := &Article{}
 		err := db.FindOne("articles", inceptiondb.FindQuery{
-			Filter: JSON{
-				"url":       articleUrl,
-				"published": true,
-			},
+			Filter: filter,
 		}, article)
 		if err != nil {
 			log.Println("render article: db find:", err.Error())
@@ -145,7 +155,25 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 
 		if err != nil {
 			log.Println("Error rendering home:", err.Error())
+			return
 		}
+
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Println("RenderArticle: db patch:", r)
+				}
+			}()
+			db.Patch("articles", inceptiondb.PatchQuery{
+				Filter: filter,
+				Patch: JSON{
+					"stats": JSON{
+						"views": article.Stats.Views + 1,
+					},
+				},
+			})
+		}()
+
 	}).WithName("RenderArticle")
 
 	templateUser, err := template.New("").Parse(templates.User)
@@ -254,6 +282,7 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 				Title:     article.Title,
 				Url:       article.Url,
 				Published: article.Published,
+				Stats:     article.Stats,
 			})
 		})
 

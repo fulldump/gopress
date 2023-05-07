@@ -99,8 +99,11 @@
 							class="list-item" :class="{ selected: selected && selected.id == article.id }"
 							@click="selected = article; fetchSelected()"
 			>
-				<div v-if="article.published" class="badge badge-green" style="float: right;">Published</div>
-				<div v-if="!article.published" class="badge" style="float: right;">Draft</div>
+				<div style="float: right; text-align: right;">
+					<div v-if="article.published" class="badge badge-green" style="float: right;">Published</div>
+					<div v-if="!article.published" class="badge" style="float: right;">Draft</div>
+					<div style="font-size: 80%;">views: {{ article.stats.views }}</div>
+				</div>
 				<div style="font-weight: bold;">{{ article.title }}</div>
 				<div style="font-size: 80%;">
 					<a style="color: dodgerblue;" :href="'/articles/'+ article.url " target="_blank">/articles/{{ article.url }}</a> 🧷
