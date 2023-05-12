@@ -42,9 +42,10 @@ type ArticleStats struct {
 }
 
 type ArticleUserFields struct {
-	Url     string `json:"url"`
-	Title   string `json:"title"`
-	Content string `json:"content"`
+	Url     string   `json:"url"`
+	Title   string   `json:"title"`
+	Content string   `json:"content"`
+	Tags    []string `json:"tags"`
 }
 
 type ArticleShort struct {
@@ -53,6 +54,7 @@ type ArticleShort struct {
 	Url       string       `json:"url"`
 	Published bool         `json:"published"`
 	Stats     ArticleStats `json:"stats"`
+	Tags      []string     `json:"tags"`
 }
 
 type JSON map[string]any
@@ -217,6 +219,83 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 		}
 	}).WithName("RenderHome")
 
+	templateTag, err := template.New("").Parse(templates.Tag)
+	if err != nil {
+		panic(err) // todo: handle this properly
+	}
+
+	b.Handle("GET", "/tag/{tag}", func(w http.ResponseWriter, ctx context.Context) {
+		// todo: limit page size to 10
+		// todo: sort by date DESC
+
+		tag := box.GetUrlParameter(ctx, "tag")
+
+		params := inceptiondb.FindQuery{
+			Limit: 1000,
+			Filter: JSON{
+				"tags":      tag,
+				"published": true,
+			},
+		}
+		list := map[string]*Article{}
+		db.FindAll("articles", params, func(article *Article) {
+			list[article.Id] = article
+		}) // todo: handle error properly
+		if len(list) == 0 {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte("User not found"))
+			return
+		}
+
+		err := templateTag.ExecuteTemplate(w, "", map[string]any{
+			"tag":      tag,
+			"articles": list,
+		})
+
+		if err != nil {
+			log.Println("Error rendering home:", err.Error())
+		}
+	}).WithName("RenderHome")
+
+	b.Handle("GET", "/user/{userId}/tag/{tag}", func(w http.ResponseWriter, ctx context.Context) {
+		// todo: limit page size to 10
+		// todo: sort by date DESC
+
+		userId := box.GetUrlParameter(ctx, "userId")
+		tag := box.GetUrlParameter(ctx, "tag")
+		userNick := userId
+
+		params := inceptiondb.FindQuery{
+			Limit: 1000,
+			Filter: JSON{
+				"author_id": userId,
+				"tags":      tag,
+				"published": true,
+			},
+		}
+		list := map[string]*Article{}
+		db.FindAll("articles", params, func(article *Article) {
+			list[article.Id] = article
+			userNick = article.AuthorNick
+		}) // todo: handle error properly
+		if len(list) == 0 {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte("User not found"))
+			return
+		}
+
+		err := templateUser.ExecuteTemplate(w, "", map[string]any{
+			"tag":      tag,
+			"userId":   userId,
+			"userNick": userNick,
+			"articles": list,
+		})
+
+		if err != nil {
+			log.Println("Error rendering home:", err.Error())
+		}
+	}).WithName("RenderHome")
+
 	b.Handle("GET", "/sitemap.xml", func(w http.ResponseWriter) {
 
 		w.Header().Set("content-type", "text/xml; charset=UTF-8")
@@ -283,6 +362,7 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 				Url:       article.Url,
 				Published: article.Published,
 				Stats:     article.Stats,
+				Tags:      article.Tags,
 			})
 		})
 
@@ -348,12 +428,6 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 
 		return article
 	}).WithName("GetArticle")
-
-	type PatchInput struct {
-		Url     string `json:"url"`
-		Title   string `json:"title"`
-		Content string `json:"content"`
-	}
 
 	b.Handle("PATCH", "/v1/articles/{articleId}", func(w http.ResponseWriter, r *http.Request, ctx context.Context) any {
 		articleId := box.GetUrlParameter(ctx, "articleId")

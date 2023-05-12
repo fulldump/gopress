@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <title>{{ .userNick }}</title>
+    <title>{{ .tag }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="/styles/basic.css">
 </head>
@@ -20,10 +20,9 @@
             </div>
         </div>
 
-        <h1>{{ .userNick }}
-            {{ if .tag }}
-            <a href="/tag/{{ .tag }}" class="tag" style="font-size: 50%; vertical-align: -8px;">{{ .tag }}</a>
-            {{ end }}
+        <h1>
+            GoPress.org
+            <a href="/" class="tag" style="font-size: 50%; vertical-align: -8px;">&lt; all &gt;</a>
         </h1>
         {{ range $i, $article := .articles  }}
 
@@ -36,11 +35,11 @@
                     <div>Created on {{ .CreatedOn }}</div>
                     <div>Created by <a href="/user/{{ .AuthorId }}">{{ .AuthorNick }}</a></div>
                     {{ if .Tags }}
-                        <div>
-                            {{ range $j, $tag := .Tags }}
-                                <a class="tag" href="/user/{{ $.userId }}/tag/{{ $tag }}">{{ $tag }}</a>
-                            {{ end }}
-                        </div>
+                    <div>
+                        {{ range $j, $tag := .Tags }}
+                            <a class="tag" href="/tag/{{ $tag }}">{{ $tag }}</a>
+                        {{ end }}
+                    </div>
                     {{ end }}
                     <div>Views {{ .Stats.Views }}</div>
                 </div>

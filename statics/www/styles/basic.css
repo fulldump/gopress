@@ -10,6 +10,21 @@ h1 {
   text-align: center;
 }
 
+.tag {
+  color: deepskyblue;
+  background-color: white;
+  border: solid 1px;
+  padding: 0 8px;
+  border-radius: 4px;
+  text-decoration: none !important;
+}
+
+.tag:hover {
+  color: white;
+  background-color: deepskyblue;
+  border-color: deepskyblue;
+}
+
 .workspace {
   max-width: 600px;
   padding: 16px;

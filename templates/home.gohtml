@@ -31,6 +31,13 @@
                     {{ end }}
                     <div>Created on {{ .CreatedOn }}</div>
                     <div>Created by <a href="/user/{{ .AuthorId }}">{{ .AuthorNick }}</a></div>
+                    {{ if .Tags }}
+                    <div>
+                        {{ range $j, $tag := .Tags }}
+                            <a class="tag" href="/tag/{{ $tag }}">{{ $tag }}</a>
+                        {{ end }}
+                    </div>
+                    {{ end }}
                     <div>Views {{ .Stats.Views }}</div>
                 </div>
             </article>

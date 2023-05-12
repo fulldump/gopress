@@ -137,6 +137,14 @@
 							placeholder="friendly-url-style"
 							style="color: forestgreen; box-sizing: border-box; width: 100%; font-weight: bold; font-family: monospace;"
 			>
+			<input
+							type="text"
+							v-model="selected._tags"
+							@keypress.enter="patchArticle(selected.id, {tags: selected.tags})"
+							@focusout="patchArticle(selected.id, {tags: selected.tags})"
+							placeholder="tags, comma separated"
+							style="color: deepskyblue; box-sizing: border-box; width: 100%; font-weight: bold; font-family: monospace;"
+			>
 			<textarea
 							rows="20"
 							v-model="selected.content"
@@ -198,6 +206,8 @@
 				fetch('/v1/articles/'+encodeURIComponent(this.selected.id), {headers: fakeHeaders})
 								.then(resp => resp.json())
 								.then(article => {
+									if (!article.tags) article.tags = [];
+									article._tags = article.tags.join(", ")
 									// if (id != article.id) return;
 									console.log('set things');
 									for (let k in article) {
@@ -208,6 +218,15 @@
 			},
 			patchArticle(id, params) {
 				// todo: spinner saving
+
+				if (params.tags) {
+
+					params.tags = this.selected._tags.split(",")
+									.map(tag => tag.trim()) // todo: normalize case?
+									.filter(tag => tag.length > 0)
+									.sort(); // todo: sort by tag?
+				}
+
 				this.saving++;
 				let that = this;
 				fetch('/v1/articles/'+encodeURIComponent(id), {method: 'PATCH', body: JSON.stringify(params), headers: fakeHeaders})

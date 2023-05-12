@@ -39,6 +39,13 @@
                 {{ end }}
                 <div>Created on {{ .article.CreatedOn }}</div>
                 <div>Created by {{ .article.AuthorNick }}</div>
+                {{ if .article.Tags }}
+                    <div>
+                        {{ range $j, $tag := .article.Tags }}
+                            <a class="tag" href="/tag/{{ $tag }}">{{ $tag }}</a>
+                        {{ end }}
+                    </div>
+                {{ end }}
                 <div>Views {{ .article.Stats.Views }}</div>
             </div>
             <div style="white-space: pre-wrap;">{{ .article.Content }}</div>

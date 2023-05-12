@@ -10,3 +10,6 @@ var Article string
 
 //go:embed user.gohtml
 var User string
+
+//go:embed tag.gohtml
+var Tag string
