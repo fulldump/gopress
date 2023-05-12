@@ -305,35 +305,55 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 
 		// Collect users
 		users := map[string]*Article{}
+		tags := map[string]*Article{}
 
 		// Article pages
 		params := inceptiondb.FindQuery{
 			Limit: 9999,
+			Filter: JSON{
+				"published": true,
+			},
 		}
 		db.FindAll("articles", params, func(article *Article) {
 			w.Write([]byte(`    <url>
         <loc>https://gopress.org/articles/` + article.Url + `</loc>
-        <lastmod>` + article.CreatedOn.Format("2006-01-02") + `</lastmod>
+        <lastmod>` + article.CreatedOn.UTC().Format("2006-01-02") + `</lastmod>
         <changefreq>weekly</changefreq>
-        <priority>0.4</priority>
+        <priority>0.6</priority>
     </url>`))
 
-			lastArticle, exist := users[article.AuthorId]
-			if !exist {
-				users[article.AuthorId] = article
-			} else if article.CreatedOn.UnixNano() > lastArticle.CreatedOn.UnixNano() {
-				users[article.AuthorId] = article
+			{
+				lastArticle, exist := users[article.AuthorId]
+				if !exist || article.CreatedOn.After(lastArticle.CreatedOn) {
+					users[article.AuthorId] = article
+				}
 			}
 
+			for _, tag := range article.Tags {
+				lastArticle, exist := tags[tag]
+				if !exist || article.CreatedOn.After(lastArticle.CreatedOn) {
+					tags[tag] = article
+				}
+			}
 		})
 
 		// User pages
 		for userId, article := range users {
 			w.Write([]byte(`    <url>
         <loc>https://gopress.org/user/` + userId + `</loc>
-        <lastmod>` + article.CreatedOn.Format("2006-01-02") + `</lastmod>
-        <changefreq>weekly</changefreq>
+        <lastmod>` + article.CreatedOn.UTC().Format("2006-01-02") + `</lastmod>
+        <changefreq>daily</changefreq>
         <priority>0.4</priority>
+    </url>`))
+		}
+
+		// Tag pages
+		for tag, lastArticle := range tags {
+			w.Write([]byte(`    <url>
+        <loc>https://gopress.org/tag/` + tag + `</loc>
+        <lastmod>` + lastArticle.CreatedOn.UTC().Format("2006-01-02") + `</lastmod>
+        <changefreq>hourly</changefreq>
+        <priority>0.2</priority>
     </url>`))
 		}
 
