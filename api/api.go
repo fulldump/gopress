@@ -69,7 +69,7 @@ type File struct {
 
 	Name string `json:"name"`
 	Size int64  `json:"size"`
-	Mime string `json:"mime bson:"mime"`
+	Mime string `json:"mime"`
 
 	CreatedOn time.Time `json:"createdOn"`
 }
