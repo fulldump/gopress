@@ -7,6 +7,7 @@ import (
 	"github.com/fulldump/apitest"
 	"github.com/fulldump/biff"
 
+	"gopress/filestorage/localfilestore"
 	"gopress/inceptiondb"
 )
 
@@ -17,7 +18,11 @@ func TestHappyPath(t *testing.T) {
 		db := inceptiondb.NewClient(inceptiondb.Config{
 			Base: "https://inceptiondb.io/v1/collections",
 		})
-		h := NewApi("", db)
+
+		fs, err := localfilestore.New(t.TempDir())
+		biff.AssertNil(err)
+
+		h := NewApi("", db, fs)
 		api := apitest.NewWithHandler(h)
 
 		a.Alternative("create article", func(a *biff.A) {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
+	"fmt"
 	"html/template"
 	"io"
 	"log"
@@ -15,6 +17,7 @@ import (
 	"github.com/fulldump/box"
 	"github.com/google/uuid"
 
+	"gopress/filestorage"
 	"gopress/glueauth"
 	"gopress/inceptiondb"
 	"gopress/statics"
@@ -57,9 +60,23 @@ type ArticleShort struct {
 	Tags      []string     `json:"tags"`
 }
 
+type File struct {
+	Id string `json:"id"` // todo: this is part of persistence layer/logic
+
+	AuthorId      string `json:"author_id"`
+	AuthorNick    string `json:"author_nick"`
+	AuthorPicture string `json:"author_picture"`
+
+	Name string `json:"name"`
+	Size int64  `json:"size"`
+	Mime string `json:"mime bson:"mime"`
+
+	CreatedOn time.Time `json:"createdOn"`
+}
+
 type JSON map[string]any
 
-func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
+func NewApi(staticsDir string, db *inceptiondb.Client, fs filestorage.Filestorager) *box.B {
 
 	b := box.NewBox()
 
@@ -296,6 +313,31 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 		}
 	}).WithName("RenderHome")
 
+	b.Handle("GET", "/files/{fileId}", func(w http.ResponseWriter, ctx context.Context) error {
+
+		fileId := box.GetUrlParameter(ctx, "fileId")
+
+		file := &File{}
+
+		err := db.FindOne("files", inceptiondb.FindQuery{Filter: JSON{"id": fileId}}, file)
+		if err != nil {
+			log.Println(err.Error())
+			return errors.New("file not found")
+		}
+
+		r, err := fs.OpenReader(fileId)
+		if err != nil {
+			log.Println(err.Error())
+			return errors.New("file not found")
+		}
+
+		w.Header().Set("Content-Type", file.Mime) // todo: only if not empty?
+
+		io.Copy(w, r) // todo: handle error properly
+
+		return nil
+	})
+
 	b.Handle("GET", "/sitemap.xml", func(w http.ResponseWriter) {
 
 		w.Header().Set("content-type", "text/xml; charset=UTF-8")
@@ -397,7 +439,7 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 	b.Handle("POST", "/v1/articles", func(input *CreateArticleRequest, ctx context.Context) any {
 
 		if input.Id == "" {
-			input.Id = uuid.New().String()
+			input.Id = "article_" + uuid.New().String()
 		}
 
 		auth := glueauth.GetAuth(ctx)
@@ -597,6 +639,139 @@ func NewApi(staticsDir string, db *inceptiondb.Client) *box.B {
 
 	}).WithName("UnpublishArticle")
 
+	type UploadFileOutput struct {
+		Files []*File `json:"files"`
+	}
+
+	var ErrorUploadFilesMultipart = errors.New("multipart method is required")
+	var maxUploadBytes = int64(25 * 1024 * 1024)
+	var ErrorMaxUploadSize = errors.New(fmt.Sprintf("file size should be less than %d bytes", maxUploadBytes))
+
+	var ErrorPersistenceWrite = errors.New("unexpected internal error writing to persistence layer")
+	var ErrorPersistenceRead = errors.New("unexpected internal error reading from persistence layer")
+
+	b.Handle("POST", "/v1/files", func(w http.ResponseWriter, r *http.Request, ctx context.Context) (*UploadFileOutput, error) {
+
+		auth := glueauth.GetAuth(ctx)
+
+		response := &UploadFileOutput{
+			Files: []*File{},
+		}
+
+		m, err := r.MultipartReader()
+		if err != nil {
+			log.Println(err.Error())
+			return nil, ErrorUploadFilesMultipart
+		}
+
+		for {
+			part, err := m.NextPart()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Println(err.Error())
+				break // todo: previously was continue (too risky?)
+			}
+
+			name := part.FormName()
+			mime := part.Header.Get("Content-Type")
+			log.Printf("Name: %s; Mime: %s", name, mime)
+
+			fileId := "file_" + uuid.New().String()
+
+			w, err := fs.OpenWriter(fileId)
+			if err != nil {
+				log.Println(err.Error())
+				return nil, ErrorPersistenceWrite
+			}
+
+			n, err := copyMaxBytes(w, part, maxUploadBytes)
+			if err != nil {
+				log.Println(err.Error())
+				return nil, ErrorPersistenceWrite
+			}
+			if n == maxUploadBytes {
+				log.Println(ErrorMaxUploadSize)
+				return nil, ErrorMaxUploadSize
+			}
+
+			now := time.Now().UTC()
+
+			file := &File{
+				Id:            fileId,
+				AuthorId:      auth.User.ID,
+				AuthorNick:    auth.User.Nick,
+				AuthorPicture: auth.User.Picture,
+				Name:          name,
+				Size:          n,
+				Mime:          mime,
+				CreatedOn:     now,
+			}
+			response.Files = append(response.Files, file)
+
+			err = db.Insert("files", file)
+			if err != nil {
+				log.Println(err.Error())
+				return nil, ErrorPersistenceWrite
+			}
+
+		}
+
+		return response, nil
+	}).WithName("UploadFile")
+
+	b.Handle("GET", "/v1/files", func(w http.ResponseWriter, r *http.Request, ctx context.Context) ([]*File, error) {
+
+		auth := glueauth.GetAuth(ctx)
+
+		response := []*File{}
+
+		query := inceptiondb.FindQuery{
+			Limit: 1000,
+			Filter: JSON{
+				"author_id": auth.User.ID,
+			},
+		}
+
+		db.FindAll("files", query, func(file *File) {
+			response = append(response, file)
+		})
+
+		return response, nil
+	}).WithName("ListFiles")
+
+	b.Handle("GET", "/v1/files/{{fileId}}", func(w http.ResponseWriter, r *http.Request, ctx context.Context) (*File, error) {
+
+		fileId := box.GetUrlParameter(ctx, "fileId")
+		auth := glueauth.GetAuth(ctx)
+
+		query := inceptiondb.FindQuery{
+			Limit: 1000,
+			Filter: JSON{
+				"id":        fileId,
+				"author_id": auth.User.ID,
+			},
+		}
+
+		response := &File{}
+
+		err := db.FindOne("files", query, response)
+		if err != nil {
+			log.Println(err.Error())
+			return nil, ErrorPersistenceRead
+		}
+
+		return response, nil
+	}).WithName("RetrieveFile")
+
+	b.Handle("DELETE", "/v1/files/{{fileId}}", func(w http.ResponseWriter, r *http.Request, ctx context.Context) (*File, error) {
+
+		// TODO: implement this!!!
+
+		return nil, nil
+	}).WithName("DeleteFile")
+
 	// Mount statics
 	b.Handle("GET", "/*", statics.ServeStatics(staticsDir)).WithName("serveStatics")
 
@@ -608,4 +783,21 @@ func Slug(s string) string {
 	s = strings.ReplaceAll(s, " ", "-")
 
 	return s
+}
+
+func copyMaxBytes(w io.WriteCloser, r io.ReadCloser, max int64) (int64, error) {
+
+	n, err := io.CopyN(w, r, max)
+	if err == io.EOF {
+		// All is OK
+	} else if err != nil {
+		return n, err
+	}
+
+	err = w.Close()
+	if err != nil {
+		return 0, err
+	}
+
+	return n, nil
 }
