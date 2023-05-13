@@ -62,10 +62,9 @@ new Vue({
 							})
 		},
 		uploadFiles() {
+			const that = this;
 			const formData = new FormData();
-
 			const inputFiles = document.getElementById('input_files');
-
 			for (const [i, file] of Array.from(inputFiles.files).entries()) {
 				formData.append(file.name, file);
 			}
@@ -74,6 +73,7 @@ new Vue({
 							.then(resp => resp.json())
 							.then( p => {
 								//console.log("Finished!!", p)
+								that.fetchFiles();
 							});
 
 		},
