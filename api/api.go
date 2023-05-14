@@ -856,7 +856,21 @@ func editorjs2HTML(data []byte) (string, error) {
 			json.Unmarshal(block.Data, &header) // todo: handle error properly
 			fmt.Fprintf(result, "<p>%s</p>\n", header.Text)
 		case "image":
-			// todo
+			image := struct {
+				Caption string
+				File    struct {
+					Url string
+				}
+				Stretched      bool
+				WithBackground bool
+				WithBorder     bool
+			}{}
+			json.Unmarshal(block.Data, &image) // todo: handle error properly
+			fmt.Fprintf(result, `<figure style="text-align: center;"><img src="%s" alt="%s"><figcaption>%s</figcaption></figure>`+"\n",
+				image.File.Url, image.Caption, image.Caption)
+
+			// todo: escape: html.EscapeString()
+
 		case "list":
 			list := struct {
 				Style string
