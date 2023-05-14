@@ -742,7 +742,7 @@ func NewApi(staticsDir string, db *inceptiondb.Client, fs filestorage.Filestorag
 
 			"success": 1,
 			"file": JSON{
-				"url": "http://localhost:9955/files/" + response.Files[0].Id,
+				"url": "/files/" + response.Files[0].Id,
 			},
 		}, nil
 
