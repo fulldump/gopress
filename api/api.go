@@ -45,10 +45,16 @@ type ArticleStats struct {
 }
 
 type ArticleUserFields struct {
-	Url     string   `json:"url"`
-	Title   string   `json:"title"`
-	Content string   `json:"content"`
-	Tags    []string `json:"tags"`
+	Url         string        `json:"url"`
+	Title       string        `json:"title"`
+	Content     Content       `json:"content"`
+	ContentHTML template.HTML `json:"content_html"` // it works like a cache
+	Tags        []string      `json:"tags"`
+}
+
+type Content struct {
+	Type string          `json:"type"`
+	Data json.RawMessage `json:"data"`
 }
 
 type ArticleShort struct {
@@ -153,14 +159,16 @@ func NewApi(staticsDir string, db *inceptiondb.Client, fs filestorage.Filestorag
 			return
 		}
 
-		words := strings.SplitN(article.Content, " ", 10)
+		// TODO: preprocess html tags to remove
+
+		words := strings.SplitN(string(article.ContentHTML), " ", 10)
 		title := "@" + article.AuthorNick + ": " + strings.Join(words[0:len(words)-1], " ") + "..."
 		selfUrl := `https://gopress.org/user/` + url.PathEscape(article.AuthorId)
 
-		description := article.Content
+		description := article.ContentHTML
 		max_description := 150
 		if len(description) > max_description {
-			description = article.Content[0:max_description] + "..."
+			description = article.ContentHTML[0:max_description] + "..."
 		}
 
 		err = templateArticle.ExecuteTemplate(w, "", map[string]any{
@@ -452,9 +460,9 @@ func NewApi(staticsDir string, db *inceptiondb.Client, fs filestorage.Filestorag
 			CreatedOn:     time.Now(),
 			Published:     false,
 			ArticleUserFields: ArticleUserFields{
-				Title:   input.Title,
-				Url:     Slug(input.Title) + "-" + uuid.New().String(),
-				Content: "Start here",
+				Title: input.Title,
+				Url:   Slug(input.Title) + "-" + uuid.New().String(),
+				// Content: // todo: some default value?,
 			},
 		}
 
@@ -518,6 +526,14 @@ func NewApi(staticsDir string, db *inceptiondb.Client, fs filestorage.Filestorag
 				"error": "could not read JSON",
 			}
 		}
+
+		contentHtml, err := editorjs2HTML(article.Content.Data)
+		if err != nil {
+			return JSON{
+				"error": "invalid payload to transform from editorjs 2 html",
+			}
+		}
+		article.ContentHTML = template.HTML(contentHtml)
 
 		_, err = db.Patch("articles", inceptiondb.PatchQuery{
 			Filter: JSON{
@@ -650,7 +666,7 @@ func NewApi(staticsDir string, db *inceptiondb.Client, fs filestorage.Filestorag
 	var ErrorPersistenceWrite = errors.New("unexpected internal error writing to persistence layer")
 	var ErrorPersistenceRead = errors.New("unexpected internal error reading from persistence layer")
 
-	b.Handle("POST", "/v1/files", func(w http.ResponseWriter, r *http.Request, ctx context.Context) (*UploadFileOutput, error) {
+	b.Handle("POST", "/v1/files", func(w http.ResponseWriter, r *http.Request, ctx context.Context) (any, error) {
 
 		auth := glueauth.GetAuth(ctx)
 
@@ -718,7 +734,18 @@ func NewApi(staticsDir string, db *inceptiondb.Client, fs filestorage.Filestorag
 
 		}
 
-		return response, nil
+		w.WriteHeader(http.StatusCreated)
+
+		// return response, nil
+
+		return JSON{
+
+			"success": 1,
+			"file": JSON{
+				"url": "http://localhost:9955/files/" + response.Files[0].Id,
+			},
+		}, nil
+
 	}).WithName("UploadFile")
 
 	b.Handle("GET", "/v1/files", func(w http.ResponseWriter, r *http.Request, ctx context.Context) ([]*File, error) {
@@ -800,4 +827,95 @@ func copyMaxBytes(w io.WriteCloser, r io.ReadCloser, max int64) (int64, error) {
 	}
 
 	return n, nil
+}
+
+func editorjs2HTML(data []byte) (string, error) {
+
+	e := &EditorJs{}
+	err := json.Unmarshal(data, &e)
+	if err != nil {
+		return "", err
+	}
+
+	result := &strings.Builder{}
+
+	for _, block := range e.Blocks {
+
+		switch block.Type {
+		case "header":
+			header := struct {
+				Level int
+				Text  string
+			}{}
+			json.Unmarshal(block.Data, &header) // todo: handle error properly
+			fmt.Fprintf(result, "<h%d>%s</h%d>\n", header.Level, header.Text, header.Level)
+		case "paragraph":
+			header := struct {
+				Text string
+			}{}
+			json.Unmarshal(block.Data, &header) // todo: handle error properly
+			fmt.Fprintf(result, "<p>%s</p>\n", header.Text)
+		case "image":
+			// todo
+		case "list":
+			list := struct {
+				Style string
+				Items []string
+			}{}
+			json.Unmarshal(block.Data, &list) // todo: handle error properly
+			tag := "ul"
+			if list.Style == "ordered" {
+				tag = "ol"
+			}
+			fmt.Fprintf(result, "<%s>\n", tag)
+			for _, item := range list.Items {
+				fmt.Fprintf(result, "<li>%s</li>\n", item)
+			}
+			fmt.Fprintf(result, "</%s>\n", tag)
+		case "checklist":
+			// todo
+		case "quote":
+			// todo
+		case "warning":
+			// todo
+		case "delimiter":
+			// todo
+		case "linkTool":
+			// todo
+		case "table":
+			// todo
+		case "raw":
+			// todo
+		case "attaches":
+			// todo
+		case "embed":
+			embed := struct {
+				Caption string
+				Embed   string
+				Height  int
+				Service string
+				Source  string
+				Width   int
+			}{}
+			json.Unmarshal(block.Data, &embed) // todo: handle error properly
+			fmt.Fprintf(result, `<iframe style="width:100%%;" height="%d" frameborder="0" allowfullscreen="" src="%s" class="embed-tool__content"></iframe>`+"\n",
+
+				embed.Height, embed.Embed)
+
+		}
+	}
+
+	return result.String(), nil
+}
+
+type EditorJs struct {
+	Blocks []*Block `json:"blocks"`
+	// time
+	// version
+}
+
+type Block struct {
+	Id   string          `json:"id"`
+	Type string          `json:"type"`
+	Data json.RawMessage `json:"data"`
 }

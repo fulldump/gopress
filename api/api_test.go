@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
 	"testing"
 
@@ -112,5 +113,55 @@ func TestHappyPath(t *testing.T) {
 		})
 
 	})
+
+}
+
+func TestEditorJs(t *testing.T) {
+
+	for _, c := range []struct {
+		block  JSON
+		output string
+	}{
+		{
+			block: JSON{
+				"type": "header",
+				"data": JSON{
+					"level": 2,
+					"text":  "My title",
+				},
+			},
+			output: "<h2>My title</h2>\n",
+		},
+		{
+			block: JSON{
+				"type": "paragraph",
+				"data": JSON{
+					"text": "My paragraph",
+				},
+			},
+			output: "<p>My paragraph</p>\n",
+		},
+		{
+			block: JSON{
+				"type": "list",
+				"data": JSON{
+					"style": "ordered",
+					"items": []string{"one", "two"},
+				},
+			},
+			output: "<ol>\n<li>one</li>\n<li>two</li>\n</ol>\n",
+		},
+	} {
+
+		t.Run(c.block["type"].(string), func(t *testing.T) {
+			data, marshalErr := json.Marshal(JSON{"blocks": []JSON{c.block}})
+			biff.AssertNil(marshalErr)
+
+			output, editor2htmlErr := editorjs2HTML(data)
+			biff.AssertNil(editor2htmlErr)
+			biff.AssertEqual(output, c.output)
+		})
+
+	}
 
 }

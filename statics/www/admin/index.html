@@ -86,6 +86,41 @@
 </head>
 <body>
 
+
+<!-- Load Tools -->
+<!--
+ You can upload Tools to your project's directory and connect them by relative links.
+
+ Also you can load each Tool from CDN or use NPM/Yarn packages.
+
+ Read more at Tools Connection doc:
+ https://editorjs.io/getting-started#tools-connection
+ -->
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/header@latest"></script><!-- Header -->
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/simple-image@latest"></script><!-- Image -->
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/delimiter@latest"></script><!-- Delimiter -->
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/list@latest"></script><!-- List -->
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/checklist@latest"></script><!-- Checklist -->
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/quote@latest"></script><!-- Quote -->
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/code@latest"></script><!-- Code -->
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/embed@latest"></script><!-- Embed -->
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/table@latest"></script><!-- Table -->
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/link@latest"></script><!-- Link -->
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/warning@latest"></script><!-- Warning -->
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/raw@2.4.0/dist/bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/underline@1.1.0/dist/bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/marker@latest"></script><!-- Marker -->
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/inline-code@latest"></script><!-- Inline Code -->
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/image@2.8.1/dist/bundle.min.js"></script>
+<!-- TODO: https://www.jsdelivr.com/package/npm/@editorjs/attaches-->
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/attaches@1.3.0/dist/bundle.min.js"></script>
+
+<!-- Load Editor.js's Core -->
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest"></script>
+
+
+
+
 <div id="app">
 
 	<h1 style="text-align: center;">Articles</h1>
@@ -97,7 +132,7 @@
 							v-for="article in articles"
 							v-if="selected == null || selected.id == article.id"
 							class="list-item" :class="{ selected: selected && selected.id == article.id }"
-							@click="selected = article; fetchSelected()"
+							@click="selectArticle(article);"
 			>
 				<div style="float: right; text-align: right;">
 					<div v-if="article.published" class="badge badge-green" style="float: right;">Published</div>
@@ -146,12 +181,14 @@
 							style="color: deepskyblue; box-sizing: border-box; width: 100%; font-weight: bold; font-family: monospace;"
 			>
 			<textarea
+							v-if="false"
 							rows="20"
 							v-model="selected.content"
 							style="box-sizing: border-box; width: 100%;"
 							@keypress.enter="patchArticle(selected.id, {content: selected.content})"
 							@focusout="patchArticle(selected.id, {content: selected.content})"
 			></textarea>
+			<div id="editorjs"></div>
 		</div>
 	</div>
 
@@ -186,8 +223,6 @@
 			}
 		},
 		created() {
-			console.log('created');
-
 			this.fetchArticles();
 
 			// todo: just for testing
@@ -204,16 +239,15 @@
 									this.articles = articles;
 								})
 			},
-			fetchSelected() {
+			async fetchSelected() {
 				let that = this;
 				let id = this.selected.id;
-				fetch('/v1/articles/'+encodeURIComponent(this.selected.id), {headers: fakeHeaders})
+				return fetch('/v1/articles/'+encodeURIComponent(this.selected.id), {headers: fakeHeaders})
 								.then(resp => resp.json())
 								.then(article => {
 									if (!article.tags) article.tags = [];
 									article._tags = article.tags.join(", ")
 									// if (id != article.id) return;
-									console.log('set things');
 									for (let k in article) {
 										Vue.set(that.selected, k, article[k]);
 										// that.selected[k] = article[k]
@@ -224,7 +258,6 @@
 				// todo: spinner saving
 
 				if (params.tags) {
-
 					params.tags = this.selected._tags.split(",")
 									.map(tag => tag.trim()) // todo: normalize case?
 									.filter(tag => tag.length > 0)
@@ -250,7 +283,7 @@
 								.then(article => {
 									article.id = id;
 									that.articles.push(article);
-									that.selected = article;
+									that.selectArticle(article)
 								})
 			},
 			deleteArticle(id) {
@@ -285,6 +318,157 @@
 										that.selected = article;
 									});
 			},
+			save2() {
+				let that = this;
+				this.editor.save()
+								.then((savedData) => {
+									that.patchArticle(that.selected.id, {content: {type:"editorjs", data:savedData}})
+								})
+								.catch((error) => {
+									console.error('Saving error', error);
+								});
+			},
+			async selectArticle(article) {
+				let that = this;
+				this.selected = article;
+				await this.fetchSelected();
+				this.editor = new EditorJS({
+
+					placeholder: 'Let`s write an awesome story!',
+					autofocus: true,
+
+
+
+					/**
+					 * Enable/Disable the read only mode
+					 */
+					readOnly: false,
+
+					/**
+					 * Wrapper of Editor
+					 */
+					holder: 'editorjs',
+
+					/**
+					 * Common Inline Toolbar settings
+					 * - if true (or not specified), the order from 'tool' property will be used
+					 * - if an array of tool names, this order will be used
+					 */
+					// inlineToolbar: ['link', 'marker', 'bold', 'italic'],
+					// inlineToolbar: true,
+
+					/**
+					 * Tools list
+					 */
+					tools: {
+						/**
+						 * Each Tool is a Plugin. Pass them via 'class' option with necessary settings {@link docs/tools.md}
+						 */
+						header: {
+							class: Header,
+							inlineToolbar: ['marker', 'link'],
+							config: {
+								placeholder: 'Header'
+							},
+							shortcut: 'CMD+SHIFT+H'
+						},
+
+						/**
+						 * Or pass class directly without any configuration
+						 */
+						image: SimpleImage,
+
+						list: {
+							class: List,
+							inlineToolbar: true,
+							shortcut: 'CMD+SHIFT+L'
+						},
+
+						checklist: {
+							class: Checklist,
+							inlineToolbar: true,
+						},
+
+						quote: {
+							class: Quote,
+							inlineToolbar: true,
+							config: {
+								quotePlaceholder: 'Enter a quote',
+								captionPlaceholder: 'Quote\'s author',
+							},
+							shortcut: 'CMD+SHIFT+O'
+						},
+
+						warning: Warning,
+
+						marker: {
+							class: Marker,
+							shortcut: 'CMD+SHIFT+M'
+						},
+
+						code: {
+							class: CodeTool,
+							shortcut: 'CMD+SHIFT+C'
+						},
+
+						delimiter: Delimiter,
+
+						inlineCode: {
+							class: InlineCode,
+							shortcut: 'CMD+SHIFT+C'
+						},
+
+						linkTool: LinkTool,
+
+						embed: Embed,
+
+						table: {
+							class: Table,
+							inlineToolbar: true,
+							shortcut: 'CMD+ALT+T'
+						},
+
+						raw: RawTool,
+
+						underline: Underline,
+
+						image: {
+							class: ImageTool,
+							config: {
+								endpoints: {
+									byFile: '/v1/files', // Your backend file uploader endpoint
+									byUrl: 'http://localhost:9955/fetchUrl', // Your endpoint that provides uploading by Url
+								},
+								additionalRequestHeaders: fakeHeaders,
+							}
+						},
+
+						attaches: {
+							class: AttachesTool,
+							config: {
+								endpoint: '/v1/files',
+								additionalRequestHeaders: fakeHeaders,
+							}
+						},
+
+					},
+
+					/**
+					 * This Tool will be used as default
+					 */
+					// defaultBlock: 'paragraph',
+
+					/**
+					 * Initial Editor data
+					 */
+					data: that.selected.content.data,
+					onReady: function () {
+					},
+					onChange: function (api, event) {
+						that.save2();
+					}
+				});
+			}
 		},
 	})
 </script>

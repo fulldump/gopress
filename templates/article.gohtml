@@ -29,10 +29,10 @@
             </div>
         </div>
 
-        <h1><a href="/">GoPress.org</a></h1>
+        <div class="logo"><a href="/">GoPress.org</a></div>
 
         <article>
-            <h2 style="margin-bottom: 0;">{{ .article.Title }}</h2>
+            <h1 style="font-size: 200%; margin-bottom: 0;">{{ .article.Title }}</h1>
             <div class="details">
                 {{ if .AuthorPicture }}
                     <img class="avatar" src="{{ .AuthorPicture }}" alt="Author picture">
@@ -48,7 +48,7 @@
                 {{ end }}
                 <div>Views {{ .article.Stats.Views }}</div>
             </div>
-            <div style="white-space: pre-wrap;">{{ .article.Content }}</div>
+            <div>{{ .article.ContentHTML }}</div>
         </article>
     </div>
 

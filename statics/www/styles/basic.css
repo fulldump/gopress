@@ -6,7 +6,9 @@ a:hover {
   text-decoration: underline;
 }
 
-h1 {
+.logo {
+  font-size: 250%;
+  font-weight: bold;
   text-align: center;
 }
 
@@ -26,7 +28,7 @@ h1 {
 }
 
 .workspace {
-  max-width: 600px;
+  max-width: 800px;
   padding: 16px;
   margin: 0 auto;
 }

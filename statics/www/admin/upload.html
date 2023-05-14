@@ -37,7 +37,7 @@ const fakeHeaders = {
 	'X-Glue-Authentication': '{"user":{"email":"gerardooscarjt@gmail.com","id":"user-0b654fad-8b74-4431-81d7-a016aa47e29e"}}',
 };
 
-new Vue({
+const app = new Vue({
 	el: "#app",
 	data() {
 		return {
@@ -76,6 +76,9 @@ new Vue({
 								that.fetchFiles();
 							});
 
+		},
+		sayHello() {
+			console.log("HELLO!");
 		},
 	},
 })
