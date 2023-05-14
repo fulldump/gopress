@@ -37,6 +37,21 @@ a:hover {
   margin: 0;
 }
 
+article code.code-block {
+  display: block;
+  font-family: Menlo, Monaco, Consolas, Courier New, monospace;
+  color: #41314e;
+  line-height: 1.6em;
+  font-size: 12px;
+  background: #f8f7fa;
+  border: 1px solid #f1f1f4;
+  white-space: pre;
+  word-wrap: normal;
+  overflow-x: auto;
+  resize: vertical;
+  padding: 4px;
+}
+
 .details {
   color: black;
   font-size: 90%;

@@ -898,8 +898,19 @@ func editorjs2HTML(data []byte) (string, error) {
 			// todo
 		case "table":
 			// todo
+		case "code":
+			code := struct {
+				Code string
+			}{}
+			json.Unmarshal(block.Data, &code) // todo: handle error properly
+			fmt.Fprintf(result, `<code class="code-block">%s</code>`+"\n", code.Code)
+
 		case "raw":
-			// todo
+			raw := struct {
+				Html string
+			}{}
+			json.Unmarshal(block.Data, &raw) // todo: handle error properly
+			result.WriteString(raw.Html)
 		case "attaches":
 			// todo
 		case "embed":
