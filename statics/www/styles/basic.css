@@ -67,3 +67,104 @@ article code.code-block {
   margin-right: 8px;
   margin-bottom: 24px;
 }
+
+/* Editor style */
+.inline-code {
+  background: rgba(250, 239, 240, 0.78);
+  color: #b44437;
+  padding: 3px 4px;
+  border-radius: 5px;
+  margin: 0 1px;
+  font-family: inherit;
+  font-size: 0.86em;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+.table {
+  width: 100%;
+}
+
+.table td,
+.table th {
+  text-align: left;
+}
+
+figure.quote {
+  max-width: 600px;
+  margin: 20px auto;
+}
+
+figure.quote blockquote {
+  font-size: 25px;
+  margin: 0;
+  padding-top: 20px;
+  padding-bottom: 20px;
+  padding-left: 50px;
+  color: #666;
+  background: url(/img/comillas.png) no-repeat left top;
+}
+
+figure.quote blockquote p {
+  margin: 0;
+}
+
+figure.quote figcaption {
+  text-align: right;
+}
+
+figure.warning {
+  max-width: 600px;
+  margin: 20px auto;
+  background-color: lightyellow;
+  border: solid darkorange 1px;
+  border-radius: 6px;
+  padding: 8px;
+}
+
+figure.warning figcaption{
+  font-weight: bold;
+  font-size: 150%;
+  color: darkorange;
+}
+
+figure.warning blockquote {
+  font-size: 120%;
+}
+
+.attaches {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.attaches a {
+  display: block;
+  border: solid #a8d6ff 1px;
+  border-radius: 4px;
+  padding: 8px;
+  margin: 4px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.attaches a:hover {
+  border-color: dodgerblue;
+}
+
+.image {
+  margin: 20px 0;
+}
+
+.image img {
+  max-width: 100%;
+  display: block;
+  margin: 0 auto;
+}
+
+.image.image-withborder .border {
+  border: solid silver 1px;
+}
+
+.image.image-stretched img {
+  width: 100%;
+}

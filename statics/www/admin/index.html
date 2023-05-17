@@ -418,7 +418,13 @@
 							shortcut: 'CMD+SHIFT+C'
 						},
 
-						linkTool: LinkTool,
+						linkTool: {
+							class: LinkTool,
+							config: {
+								endpoint: '/editor/helperFetchUrl', // Your backend endpoint for url data fetching,
+								headers: fakeHeaders,
+							}
+						},
 
 						embed: Embed,
 

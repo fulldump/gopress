@@ -16,10 +16,13 @@ import (
 
 	"github.com/fulldump/box"
 	"github.com/google/uuid"
+	opengraph "github.com/otiai10/opengraph/v2"
+	"golang.org/x/net/html"
 
 	"gopress/filestorage"
 	"gopress/glueauth"
 	"gopress/inceptiondb"
+	"gopress/lib/safeurl"
 	"gopress/statics"
 	"gopress/templates"
 )
@@ -799,6 +802,44 @@ func NewApi(staticsDir string, db *inceptiondb.Client, fs filestorage.Filestorag
 		return nil, nil
 	}).WithName("DeleteFile")
 
+	b.Handle("GET", "/editor/helperFetchUrl", func(w http.ResponseWriter, r *http.Request) any {
+
+		link := r.URL.Query().Get("url")
+
+		err := safeurl.AssertSafeUrl(link)
+		if err != nil {
+			log.Println(err)
+			w.WriteHeader(http.StatusBadRequest)
+			return JSON{"success": 0}
+		}
+
+		intent := opengraph.Intent{
+			Context:    r.Context(),
+			HTTPClient: http.DefaultClient,
+			// Strict:      true,
+			// TrustedTags: []string{"meta", "title"},
+		}
+		ogp, err := opengraph.Fetch(link, intent)
+		if err != nil {
+			log.Println(err)
+			w.WriteHeader(http.StatusBadRequest)
+			return JSON{"success": 0}
+		}
+
+		return JSON{
+			"success": 1,
+			"link":    link,
+			"meta": JSON{
+				"title":       ogp.Title,
+				"description": ogp.Description,
+				"image": JSON{
+					"url": ogp.Image,
+				},
+			},
+		}
+
+	}).WithName("helperFetchUrl")
+
 	// Mount statics
 	b.Handle("GET", "/*", statics.ServeStatics(staticsDir)).WithName("serveStatics")
 
@@ -849,12 +890,14 @@ func editorjs2HTML(data []byte) (string, error) {
 			}{}
 			json.Unmarshal(block.Data, &header) // todo: handle error properly
 			fmt.Fprintf(result, "<h%d>%s</h%d>\n", header.Level, header.Text, header.Level)
+
 		case "paragraph":
 			header := struct {
 				Text string
 			}{}
 			json.Unmarshal(block.Data, &header) // todo: handle error properly
 			fmt.Fprintf(result, "<p>%s</p>\n", header.Text)
+
 		case "image":
 			image := struct {
 				Caption string
@@ -866,8 +909,20 @@ func editorjs2HTML(data []byte) (string, error) {
 				WithBorder     bool
 			}{}
 			json.Unmarshal(block.Data, &image) // todo: handle error properly
-			fmt.Fprintf(result, `<figure style="text-align: center;"><img src="%s" alt="%s"><figcaption>%s</figcaption></figure>`+"\n",
-				image.File.Url, image.Caption, image.Caption)
+
+			class := []string{"image"}
+			if image.WithBorder {
+				class = append(class, "image-withborder")
+			}
+			if image.Stretched {
+				class = append(class, "image-stretched")
+			}
+			if image.WithBackground {
+				class = append(class, "image-withbackground")
+			}
+
+			fmt.Fprintf(result, `<figure class="%s" style="text-align: center;"><div class="border"><img src="%s" alt="%s"></div><figcaption>%s</figcaption></figure>`+"\n",
+				strings.Join(class, " "), image.File.Url, image.Caption, image.Caption)
 
 			// todo: escape: html.EscapeString()
 
@@ -886,24 +941,92 @@ func editorjs2HTML(data []byte) (string, error) {
 				fmt.Fprintf(result, "<li>%s</li>\n", item)
 			}
 			fmt.Fprintf(result, "</%s>\n", tag)
+
 		case "checklist":
-			// todo
+			checklist := struct {
+				Items []struct {
+					Checked bool
+					Text    string
+				}
+			}{}
+			json.Unmarshal(block.Data, &checklist) // todo: handle error properly
+
+			fmt.Fprintf(result, `<div class="checklist">`)
+			for _, item := range checklist.Items {
+				fmt.Fprintf(result, `<div class="checklist-item">`)
+				if item.Checked {
+					fmt.Fprintf(result, `<input type="checkbox" checked disabled>`)
+				} else {
+					fmt.Fprintf(result, `<input type="checkbox" disabled>`)
+				}
+				fmt.Fprint(result, " ", item.Text)
+				fmt.Fprintf(result, `</div>`)
+			}
+			fmt.Fprintf(result, `</div>`)
+
 		case "quote":
-			// todo
+			quote := struct {
+				Caption   string
+				Text      string
+				Alignment string
+			}{}
+			json.Unmarshal(block.Data, &quote) // todo: handle error properly
+
+			fmt.Fprintf(result, `<figure class="quote">
+    <blockquote>
+        <p>%s</p>
+    </blockquote>
+    <figcaption><cite>%s</cite></figcaption>
+</figure>`, quote.Text, quote.Caption)
+
 		case "warning":
-			// todo
+			warning := struct {
+				Title   string
+				Message string
+			}{}
+			json.Unmarshal(block.Data, &warning) // todo: handle error properly
+
+			fmt.Fprintf(result, `<figure class="warning">
+    <figcaption>⚠️ %s</figcaption>
+    <blockquote>
+        <p>%s</p>
+    </blockquote>
+</figure>`, warning.Title, warning.Message)
+
 		case "delimiter":
-			// todo
+
+			fmt.Fprintf(result, `<hr>`+"\n")
+
 		case "linkTool":
 			// todo
+
 		case "table":
-			// todo
+			table := struct {
+				WithHeadings bool
+				Content      [][]string
+			}{}
+			json.Unmarshal(block.Data, &table) // todo: handle error properly
+
+			fmt.Fprintf(result, `<table class="table">`+"\n")
+			for i, row := range table.Content {
+				fmt.Fprintf(result, `<tr>`+"\n")
+				for _, col := range row {
+					if i == 0 && table.WithHeadings {
+						fmt.Fprintf(result, `<th>%s</th>`+"\n", col)
+					} else {
+						fmt.Fprintf(result, `<td>%s</td>`+"\n", col)
+					}
+				}
+				fmt.Fprintf(result, `</tr>`+"\n")
+			}
+			fmt.Fprintf(result, `</table>`+"\n")
+
 		case "code":
 			code := struct {
 				Code string
 			}{}
 			json.Unmarshal(block.Data, &code) // todo: handle error properly
-			fmt.Fprintf(result, `<code class="code-block">%s</code>`+"\n", code.Code)
+			fmt.Fprintf(result, `<code class="code-block">%s</code>`+"\n", html.EscapeString(code.Code))
 
 		case "raw":
 			raw := struct {
@@ -911,8 +1034,18 @@ func editorjs2HTML(data []byte) (string, error) {
 			}{}
 			json.Unmarshal(block.Data, &raw) // todo: handle error properly
 			result.WriteString(raw.Html)
+
 		case "attaches":
-			// todo
+			attaches := struct {
+				Title string
+				File  struct {
+					Url string
+				}
+			}{}
+			json.Unmarshal(block.Data, &attaches) // todo: handle error properly
+
+			fmt.Fprintf(result, `<div class="attaches"><a href="%s" target="_blank">📎 %s</a></div>`, attaches.File.Url, attaches.Title)
+
 		case "embed":
 			embed := struct {
 				Caption string
@@ -923,10 +1056,17 @@ func editorjs2HTML(data []byte) (string, error) {
 				Width   int
 			}{}
 			json.Unmarshal(block.Data, &embed) // todo: handle error properly
-			fmt.Fprintf(result, `<iframe style="width:100%%;" height="%d" frameborder="0" allowfullscreen="" src="%s" class="embed-tool__content"></iframe>`+"\n",
 
-				embed.Height, embed.Embed)
+			if embed.Service == "twitch-video" || embed.Service == "twitch-channel" {
+				embed.Embed += "&parent=gopress.org"
+			}
 
+			fmt.Fprintf(result, `<figure style="text-align: center;">`)
+			fmt.Fprintf(result, `<iframe style="width:100%%;" height="%d" frameborder="0" allowfullscreen="" src="%s" class="embed-tool__content" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`+"\n", embed.Height, embed.Embed)
+			fmt.Fprintf(result, `<figcaption>`)
+			fmt.Fprintf(result, embed.Caption)
+			fmt.Fprintf(result, `</figcaption>`)
+			fmt.Fprintf(result, `</figure>`)
 		}
 	}
 
