@@ -30,6 +30,11 @@ type Client struct {
 type JSON = map[string]interface{}
 
 func NewClient(config Config) *Client {
+
+	if config.DatabaseID != "" {
+		config.Base += "/databases/" + url.PathEscape(config.DatabaseID)
+	}
+
 	return &Client{
 		config:     config,
 		HttpClient: DefaultHttpClient, // set default http client
@@ -42,7 +47,7 @@ var ErrorUnauthorized = errors.New("unauthorized, missing credentials")
 var ErrorUnexpected = errors.New("unexpected error")
 
 func (c *Client) CreateCollection(name string) error {
-	endpoint := c.config.Base + "/databases/" + c.config.DatabaseID + "/collections"
+	endpoint := c.config.Base + "/collections"
 
 	payload, err := json.Marshal(JSON{
 		"name": name,
@@ -131,7 +136,7 @@ func (a *ApiError) UnmarshalJSON(i []byte) error {
 
 func (c *Client) CreateIndex(collection string, options *IndexOptions) error {
 
-	endpoint := c.config.Base + "/databases/" + c.config.DatabaseID + "/collections/" + collection + ":createIndex"
+	endpoint := c.config.Base + "/collections/" + collection + ":createIndex"
 
 	payload, err := json.Marshal(options)
 	if err != nil {
@@ -193,7 +198,7 @@ func (c *Client) Insert(collection string, document interface{}) error {
 		return err
 	}
 
-	endpoint := c.config.Base + "/databases/" + url.PathEscape(c.config.DatabaseID) + "/collections/" + url.PathEscape(collection) + ":insert"
+	endpoint := c.config.Base + "/collections/" + url.PathEscape(collection) + ":insert"
 	req, err := http.NewRequest("POST", endpoint, bytes.NewReader(payload))
 	if err != nil {
 		return err
@@ -251,7 +256,7 @@ func (c *Client) Find(collection string, query FindQuery) (io.ReadCloser, error)
 		return nil, err // todo: wrap error
 	}
 
-	endpoint := c.config.Base + "/databases/" + url.PathEscape(c.config.DatabaseID) + "/collections/" + url.PathEscape(collection) + ":find"
+	endpoint := c.config.Base + "/collections/" + url.PathEscape(collection) + ":find"
 
 	req, err := http.NewRequest("POST", endpoint, bytes.NewReader(payload))
 	if err != nil {
@@ -330,7 +335,7 @@ func (c *Client) Remove(collection string, query FindQuery) (io.ReadCloser, erro
 		return nil, err // todo: wrap error
 	}
 
-	endpoint := c.config.Base + "/databases/" + url.PathEscape(c.config.DatabaseID) + "/collections/" + url.PathEscape(collection) + ":remove"
+	endpoint := c.config.Base + "/collections/" + url.PathEscape(collection) + ":remove"
 
 	req, err := http.NewRequest("POST", endpoint, bytes.NewReader(payload))
 	if err != nil {
@@ -382,7 +387,7 @@ func (c *Client) Patch(collection string, query PatchQuery) (io.ReadCloser, erro
 		return nil, err // todo: wrap error
 	}
 
-	endpoint := c.config.Base + "/databases/" + url.PathEscape(c.config.DatabaseID) + "/collections/" + url.PathEscape(collection) + ":patch"
+	endpoint := c.config.Base + "/collections/" + url.PathEscape(collection) + ":patch"
 
 	req, err := http.NewRequest("POST", endpoint, bytes.NewReader(payload))
 	if err != nil {
@@ -441,7 +446,7 @@ type GetCollectionInfo struct {
 
 func (c *Client) GetCollection(collection string) (*GetCollectionInfo, error) {
 
-	endpoint := c.config.Base + "/databases/" + url.PathEscape(c.config.DatabaseID) + "/collections/" + url.PathEscape(collection)
+	endpoint := c.config.Base + "/collections/" + url.PathEscape(collection)
 
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {

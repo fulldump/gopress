@@ -1,36 +1,17 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"net/http"
-	"os"
-
 	"github.com/fulldump/goconfig"
 
-	"gopress/api"
-	"gopress/filestorage"
-	"gopress/filestorage/googlefilestore"
-	"gopress/filestorage/localfilestore"
-	"gopress/inceptiondb"
+	"gopress/bootstrap"
+	inceptiondbclient "gopress/inceptiondb"
 )
-
-type Config struct {
-	Addr      string `usage:"Server http address"`
-	Statics   string `usage:"Use a directory to serve statics or even a http server"`
-	Inception inceptiondb.Config
-
-	// Storage
-	GoogleCloudStorage googlefilestore.GoogleCloudStorage
-	LocalStorage       string `usage:"Images directory"`
-	StorageType        string `usage:"Select storage backend: 'GoogleCloud' for GoogleCloudStorage, otherwise local storage"`
-}
 
 func main() {
 
-	c := &Config{
+	c := &bootstrap.Config{
 		Addr: "127.0.0.1:9955",
-		Inception: inceptiondb.Config{
+		Inception: inceptiondbclient.Config{
 			Base:       "https://saas.inceptiondb.io/v1",
 			DatabaseID: "fc84637c-6c31-400d-a312-7ec6de39fd2d",
 			ApiKey:     "b76f9c1a-93fa-4988-84ee-cd761cee66f3",
@@ -38,39 +19,25 @@ func main() {
 		},
 		StorageType:  "local", // todo: remove for clarity?
 		LocalStorage: "./storage/",
+		Standalone: bootstrap.Standalone{
+			Enabled: false,
+			Inception: bootstrap.InceptionStandaloneConfig{
+				Addr: "127.0.0.1:9090",
+				Dir:  "./database/",
+			},
+		},
 	}
 	goconfig.Read(c)
 
-	// Database
-	db := inceptiondb.NewClient(c.Inception)
+	runners := []bootstrap.Runner{}
 
-	// File storage
-	var fs filestorage.Filestorager
-	var err error
-
-	if c.StorageType == "GoogleCloud" {
-		fmt.Println("GoogleCloud")
-		fs, err = googlefilestore.New(c.GoogleCloudStorage)
-		if err != nil {
-			fmt.Println("ERROR: ", err)
-			os.Exit(-1)
-		}
-	} else {
-		fmt.Println("Local: ", c.LocalStorage)
-		fs, err = localfilestore.New(c.LocalStorage)
-		if err != nil {
-			fmt.Println("ERROR: can not initialize LocalStorage:", err)
-			os.Exit(-1)
-		}
+	if c.Standalone.Enabled {
+		runners = append(runners, bootstrap.InceptionDB(c.Standalone.Inception))
+		c.Inception.Base = "http://" + c.Standalone.Inception.Addr + "/v1"
+		c.Inception.DatabaseID = ""
 	}
 
-	a := api.NewApi(c.Statics, db, fs)
+	runners = append(runners, bootstrap.Gopress(c))
 
-	server := http.Server{
-		Addr:    c.Addr,
-		Handler: a,
-	}
-
-	log.Println("Listening on", server.Addr)
-	server.ListenAndServe()
+	bootstrap.Run(runners...)
 }
