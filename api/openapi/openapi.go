@@ -81,7 +81,7 @@ func Spec(api *box.B) JSON {
 		"openapi": "3.0.0",
 		"info": JSON{
 			"version": "1",
-			"title":   "Fincaman",
+			"title":   "Gopress",
 		},
 		"servers": []JSON{
 			{

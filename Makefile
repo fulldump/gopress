@@ -6,7 +6,7 @@ FLAGS = -ldflags "\
 
 .PHONY: run
 run:
-	go run $(FLAGS) main.go
+	STATICS=statics/www/ go run $(FLAGS) main.go
 
 .PHONY: build
 build:

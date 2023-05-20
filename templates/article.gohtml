@@ -42,7 +42,7 @@
                 {{ if .article.Tags }}
                     <div>
                         {{ range $j, $tag := .article.Tags }}
-                            <a class="tag" href="/tag/{{ $tag }}">{{ $tag }}</a>
+                            <a class="tag" href="/user/{{ $.article.AuthorNick }}/tag/{{ $tag }}">{{ $tag }}</a>
                         {{ end }}
                     </div>
                 {{ end }}

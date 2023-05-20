@@ -138,18 +138,58 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 		}
 	}).WithName("RenderHome")
 
+	templateUser, err := template.New("").Parse(templates.User)
+	if err != nil {
+		panic(err) // todo: handle this properly
+	}
+
+	b.Handle("GET", "/user/{userNick}", func(w http.ResponseWriter, ctx context.Context) {
+		// todo: limit page size to 10
+		// todo: sort by date DESC
+
+		userNick := box.GetUrlParameter(ctx, "userNick")
+
+		params := inceptiondb.FindQuery{
+			Limit: 1000,
+			Filter: JSON{
+				"author_nick": userNick,
+				"published":   true,
+			},
+		}
+		list := map[string]*Article{}
+		db.FindAll("articles", params, func(article *Article) {
+			list[article.Id] = article
+		}) // todo: handle error properly
+		if len(list) == 0 {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte("User not found"))
+			return
+		}
+
+		err := templateUser.ExecuteTemplate(w, "", map[string]any{
+			"userNick": userNick,
+			"articles": list,
+		})
+
+		if err != nil {
+			log.Println("Error rendering home:", err.Error())
+		}
+	}).WithName("RenderHome")
+
 	templateArticle, err := template.New("").Parse(templates.Article)
 	if err != nil {
 		panic(err) // todo: handle this properly
 	}
 
-	b.Handle("GET", "/articles/{articleUrl}", func(w http.ResponseWriter, ctx context.Context) {
+	b.Handle("GET", "/user/{userNick}/article/{articleUrl}", func(w http.ResponseWriter, ctx context.Context) {
 
+		userNick := box.GetUrlParameter(ctx, "userNick")
 		articleUrl := box.GetUrlParameter(ctx, "articleUrl")
 
 		filter := JSON{
-			"url":       articleUrl,
-			"published": true,
+			"author_nick": userNick,
+			"url":         articleUrl,
+			"published":   true,
 		}
 
 		article := &Article{}
@@ -207,47 +247,6 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 
 	}).WithName("RenderArticle")
 
-	templateUser, err := template.New("").Parse(templates.User)
-	if err != nil {
-		panic(err) // todo: handle this properly
-	}
-
-	b.Handle("GET", "/user/{userId}", func(w http.ResponseWriter, ctx context.Context) {
-		// todo: limit page size to 10
-		// todo: sort by date DESC
-
-		userId := box.GetUrlParameter(ctx, "userId")
-
-		userNick := userId
-		params := inceptiondb.FindQuery{
-			Limit: 1000,
-			Filter: JSON{
-				"author_id": userId,
-				"published": true,
-			},
-		}
-		list := map[string]*Article{}
-		db.FindAll("articles", params, func(article *Article) {
-			list[article.Id] = article
-			userNick = article.AuthorNick
-		}) // todo: handle error properly
-		if len(list) == 0 {
-			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte("User not found"))
-			return
-		}
-
-		err := templateUser.ExecuteTemplate(w, "", map[string]any{
-			"userId":   userId,
-			"userNick": userNick,
-			"articles": list,
-		})
-
-		if err != nil {
-			log.Println("Error rendering home:", err.Error())
-		}
-	}).WithName("RenderHome")
-
 	templateTag, err := template.New("").Parse(templates.Tag)
 	if err != nil {
 		panic(err) // todo: handle this properly
@@ -286,20 +285,19 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 		}
 	}).WithName("RenderHome")
 
-	b.Handle("GET", "/user/{userId}/tag/{tag}", func(w http.ResponseWriter, ctx context.Context) {
+	b.Handle("GET", "/user/{userNick}/tag/{tag}", func(w http.ResponseWriter, ctx context.Context) {
 		// todo: limit page size to 10
 		// todo: sort by date DESC
 
-		userId := box.GetUrlParameter(ctx, "userId")
+		userNick := box.GetUrlParameter(ctx, "userNick")
 		tag := box.GetUrlParameter(ctx, "tag")
-		userNick := userId
 
 		params := inceptiondb.FindQuery{
 			Limit: 1000,
 			Filter: JSON{
-				"author_id": userId,
-				"tags":      tag,
-				"published": true,
+				"author_nick": userNick,
+				"tags":        tag,
+				"published":   true,
 			},
 		}
 		list := map[string]*Article{}
@@ -315,7 +313,6 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 
 		err := templateUser.ExecuteTemplate(w, "", map[string]any{
 			"tag":      tag,
-			"userId":   userId,
 			"userNick": userNick,
 			"articles": list,
 		})
@@ -370,7 +367,7 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 		}
 		db.FindAll("articles", params, func(article *Article) {
 			w.Write([]byte(`    <url>
-        <loc>https://gopress.org/articles/` + article.Url + `</loc>
+        <loc>https://gopress.org/user/` + article.AuthorNick + `/article/` + article.Url + `</loc>
         <lastmod>` + article.CreatedOn.UTC().Format("2006-01-02") + `</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
@@ -392,9 +389,9 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 		})
 
 		// User pages
-		for userId, article := range users {
+		for _, article := range users {
 			w.Write([]byte(`    <url>
-        <loc>https://gopress.org/user/` + userId + `</loc>
+        <loc>https://gopress.org/user/` + article.AuthorNick + `</loc>
         <lastmod>` + article.CreatedOn.UTC().Format("2006-01-02") + `</lastmod>
         <changefreq>daily</changefreq>
         <priority>0.4</priority>

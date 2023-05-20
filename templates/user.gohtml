@@ -28,17 +28,17 @@
         {{ range $i, $article := .articles  }}
 
             <article>
-                <h2 style="margin-bottom: 0;"><a href="/articles/{{ .Url }}">{{ .Title }}</a></h2>
+                <h2 style="margin-bottom: 0;"><a href="/user/{{ .AuthorNick }}/article/{{ .Url }}">{{ .Title }}</a></h2>
                 <div class="details">
                     {{ if .AuthorPicture }}
                         <img class="avatar" src="{{ .AuthorPicture }}" alt="Author picture">
                     {{ end }}
                     <div>Created on {{ .CreatedOn }}</div>
-                    <div>Created by <a href="/user/{{ .AuthorId }}">{{ .AuthorNick }}</a></div>
+                    <div>Created by <a href="/user/{{ .AuthorNick }}">{{ .AuthorNick }}</a></div>
                     {{ if .Tags }}
                         <div>
                             {{ range $j, $tag := .Tags }}
-                                <a class="tag" href="/user/{{ $.userId }}/tag/{{ $tag }}">{{ $tag }}</a>
+                                <a class="tag" href="/user/{{ $article.AuthorNick }}/tag/{{ $tag }}">{{ $tag }}</a>
                             {{ end }}
                         </div>
                     {{ end }}

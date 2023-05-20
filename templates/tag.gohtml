@@ -27,7 +27,7 @@
         {{ range $i, $article := .articles  }}
 
             <article>
-                <h2 style="margin-bottom: 0;"><a href="/articles/{{ .Url }}">{{ .Title }}</a></h2>
+                <h2 style="margin-bottom: 0;"><a href="/user/{{ .AuthorNick }}/article/{{ .Url }}">{{ .Title }}</a></h2>
                 <div class="details">
                     {{ if .AuthorPicture }}
                         <img class="avatar" src="{{ .AuthorPicture }}" alt="Author picture">
