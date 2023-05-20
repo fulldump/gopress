@@ -85,7 +85,7 @@ type File struct {
 
 type JSON map[string]any
 
-func NewApi(staticsDir string, db *inceptiondb.Client, fs filestorage.Filestorager) *box.B {
+func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.Filestorager) *box.B {
 
 	b := box.NewBox()
 
@@ -842,6 +842,11 @@ func NewApi(staticsDir string, db *inceptiondb.Client, fs filestorage.Filestorag
 		}
 
 	}).WithName("helperFetchUrl")
+
+	// release
+	b.Handle("GET", "/version", func() string {
+		return version
+	}).WithName("Version")
 
 	// Mount statics
 	b.Handle("GET", "/*", statics.ServeStatics(staticsDir)).WithName("serveStatics")

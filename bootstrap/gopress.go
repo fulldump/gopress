@@ -14,7 +14,7 @@ import (
 	inceptiondbclient "gopress/inceptiondb"
 )
 
-func Gopress(c *Config) Runner {
+func Gopress(c *Config, version string) Runner {
 	// Database
 	db := inceptiondbclient.NewClient(c.Inception)
 
@@ -38,7 +38,7 @@ func Gopress(c *Config) Runner {
 		}
 	}
 
-	a := api.NewApi(c.Statics, db, fs)
+	a := api.NewApi(c.Statics, version, db, fs)
 
 	server := http.Server{
 		Addr:    c.Addr,

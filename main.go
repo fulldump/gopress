@@ -47,7 +47,7 @@ func main() {
 		c.Inception.DatabaseID = ""
 	}
 
-	runners = append(runners, bootstrap.Gopress(c))
+	runners = append(runners, bootstrap.Gopress(c, VERSION))
 
 	bootstrap.Run(runners...)
 }

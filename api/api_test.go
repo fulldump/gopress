@@ -23,7 +23,7 @@ func TestHappyPath(t *testing.T) {
 		fs, err := localfilestore.New(t.TempDir())
 		biff.AssertNil(err)
 
-		h := NewApi("", db, fs)
+		h := NewApi("", "test-version", db, fs)
 		api := apitest.NewWithHandler(h)
 
 		a.Alternative("create article", func(a *biff.A) {
