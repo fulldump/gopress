@@ -168,3 +168,26 @@ figure.warning blockquote {
 .image.image-stretched img {
   width: 100%;
 }
+
+.footer {
+  margin-top: 32px;
+  min-height: 64px;
+  border-top: solid silver 1px;
+  text-align: center;
+  padding: 16px;
+  color: gray;
+  font-size: 100%;
+}
+
+.footer .icon {
+  vertical-align: middle;
+  height: 24px;
+}
+
+.footer a {
+  color: inherit;
+}
+
+.footer a:hover {
+  color: dodgerblue;
+}
