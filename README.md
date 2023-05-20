@@ -2,6 +2,18 @@
 
 Bienvenido a GoPress.org, el sistema de blog gratuito escrito en golang y hackeable.
 
+
+## Cómo arrancarlo
+
+Descarga la última versión de [releases](https://github.com/fulldump/gopress/releases) y
+arráncalo en stand alone:
+
+```
+./gopress --standalone.enabled=1
+```
+
+## Desarrollo en tu máquina
+
 Para arrancarlo en tu máquina asegúrate de tener go instalado y sigue estos pasos:
 
 1. git clone https://github.com/fulldump/gopress.git
