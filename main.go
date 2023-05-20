@@ -1,11 +1,16 @@
 package main
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/fulldump/goconfig"
 
 	"gopress/bootstrap"
 	inceptiondbclient "gopress/inceptiondb"
 )
+
+var VERSION = "dev"
 
 func main() {
 
@@ -28,6 +33,11 @@ func main() {
 		},
 	}
 	goconfig.Read(c)
+
+	if c.Version {
+		fmt.Println(VERSION)
+		os.Exit(0)
+	}
 
 	runners := []bootstrap.Runner{}
 

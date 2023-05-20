@@ -16,6 +16,8 @@ type Config struct {
 	GoogleCloudStorage googlefilestore.GoogleCloudStorage
 	LocalStorage       string `usage:"Images directory"`
 	StorageType        string `usage:"Select storage backend: 'GoogleCloud' for GoogleCloudStorage, otherwise local storage"`
+
+	Version bool `usage:"Show version and exit"`
 }
 
 type Standalone struct {
