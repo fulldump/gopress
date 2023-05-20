@@ -465,7 +465,10 @@ func NewApi(staticsDir string, db *inceptiondb.Client, fs filestorage.Filestorag
 			ArticleUserFields: ArticleUserFields{
 				Title: input.Title,
 				Url:   Slug(input.Title) + "-" + uuid.New().String(),
-				// Content: // todo: some default value?,
+				Content: Content{
+					Type: "editorjs",
+					Data: json.RawMessage("{}"),
+				},
 			},
 		}
 
