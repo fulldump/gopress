@@ -19,6 +19,7 @@ import (
 	opengraph "github.com/otiai10/opengraph/v2"
 	"golang.org/x/net/html"
 
+	"gopress/api/openapi"
 	"gopress/filestorage"
 	"gopress/glueauth"
 	"gopress/inceptiondb"
@@ -843,10 +844,17 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 
 	}).WithName("helperFetchUrl")
 
-	// release
+	// version
 	b.Handle("GET", "/version", func() string {
 		return version
 	}).WithName("Version")
+
+	// openapi
+	b.Handle("GET", "/openapi", func(w http.ResponseWriter) {
+		e := json.NewEncoder(w)
+		e.SetIndent("", "    ")
+		e.Encode(openapi.Spec(b))
+	}).WithName("OpenApi")
 
 	// Mount statics
 	b.Handle("GET", "/*", statics.ServeStatics(staticsDir)).WithName("serveStatics")
