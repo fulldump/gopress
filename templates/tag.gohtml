@@ -32,7 +32,7 @@
                     {{ if .AuthorPicture }}
                         <img class="avatar" src="{{ .AuthorPicture }}" alt="Author picture">
                     {{ end }}
-                    <div>Created on {{ .CreatedOn }}</div>
+                    <div>Published on {{ .PublishOn }}</div>
                     <div>Created by <a href="/user/{{ .AuthorId }}">{{ .AuthorNick }}</a></div>
                     {{ if .Tags }}
                     <div>

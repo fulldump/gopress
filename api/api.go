@@ -368,21 +368,21 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 		db.FindAll("articles", params, func(article *Article) {
 			w.Write([]byte(`    <url>
         <loc>https://gopress.org/user/` + article.AuthorNick + `/article/` + article.Url + `</loc>
-        <lastmod>` + article.CreatedOn.UTC().Format("2006-01-02") + `</lastmod>
+        <lastmod>` + article.PublishOn.UTC().Format("2006-01-02") + `</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
     </url>`))
 
 			{
 				lastArticle, exist := users[article.AuthorId]
-				if !exist || article.CreatedOn.After(lastArticle.CreatedOn) {
+				if !exist || article.PublishOn.After(lastArticle.PublishOn) {
 					users[article.AuthorId] = article
 				}
 			}
 
 			for _, tag := range article.Tags {
 				lastArticle, exist := tags[tag]
-				if !exist || article.CreatedOn.After(lastArticle.CreatedOn) {
+				if !exist || article.PublishOn.After(lastArticle.PublishOn) {
 					tags[tag] = article
 				}
 			}
@@ -392,7 +392,7 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 		for _, article := range users {
 			w.Write([]byte(`    <url>
         <loc>https://gopress.org/user/` + article.AuthorNick + `</loc>
-        <lastmod>` + article.CreatedOn.UTC().Format("2006-01-02") + `</lastmod>
+        <lastmod>` + article.PublishOn.UTC().Format("2006-01-02") + `</lastmod>
         <changefreq>daily</changefreq>
         <priority>0.4</priority>
     </url>`))
@@ -402,7 +402,7 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 		for tag, lastArticle := range tags {
 			w.Write([]byte(`    <url>
         <loc>https://gopress.org/tag/` + tag + `</loc>
-        <lastmod>` + lastArticle.CreatedOn.UTC().Format("2006-01-02") + `</lastmod>
+        <lastmod>` + lastArticle.PublishOn.UTC().Format("2006-01-02") + `</lastmod>
         <changefreq>hourly</changefreq>
         <priority>0.2</priority>
     </url>`))
