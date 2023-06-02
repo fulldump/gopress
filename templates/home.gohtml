@@ -20,10 +20,12 @@
             </div>
         </div>
 
-        <h1>GoPress.org</h1>
+        <h1 class="logo">
+            <a href="/">GoPress.org</a>
+        </h1>
         {{ range $i, $article := .articles  }}
 
-            <article>
+            <article class="list">
                 <h2 style="margin-bottom: 0;"><a href="/user/{{ .AuthorNick }}/article/{{ .Url }}">{{ .Title }}</a></h2>
                 <div class="details">
                     {{ if .AuthorPicture }}

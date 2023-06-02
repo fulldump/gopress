@@ -20,14 +20,18 @@
             </div>
         </div>
 
-        <h1>{{ .userNick }}
-            {{ if .tag }}
-            <a href="/tag/{{ .tag }}" class="tag" style="font-size: 50%; vertical-align: -8px;">{{ .tag }}</a>
-            {{ end }}
+        <h1 class="logo">
+            <a href="/user/{{ .userNick }}">{{ .userNick }}</a>
         </h1>
+        {{ if .tag }}
+        <div style="text-align: center;">
+            <a href="/tag/{{ .tag }}" class="tag" style="vertical-align: -8px;">{{ .tag }}</a>
+        </div>
+        {{ end }}
+
         {{ range $i, $article := .articles  }}
 
-            <article>
+            <article class="list">
                 <h2 style="margin-bottom: 0;"><a href="/user/{{ .AuthorNick }}/article/{{ .Url }}">{{ .Title }}</a></h2>
                 <div class="details">
                     {{ if .AuthorPicture }}

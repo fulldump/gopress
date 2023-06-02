@@ -32,10 +32,10 @@
         <div class="logo"><a href="/">GoPress.org</a></div>
 
         <article>
-            <h1 style="font-size: 200%; margin-bottom: 0;">{{ .article.Title }}</h1>
+            <h1>{{ .article.Title }}</h1>
             <div class="details">
-                {{ if .AuthorPicture }}
-                    <img class="avatar" src="{{ .AuthorPicture }}" alt="Author picture">
+                {{ if .article.AuthorPicture }}
+                    <img class="avatar" src="{{ .article.AuthorPicture }}" alt="Author picture">
                 {{ end }}
                 <div>Published on {{ .article.PublishOn }}</div>
                 <div>Created by {{ .article.AuthorNick }}</div>
