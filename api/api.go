@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -123,11 +124,14 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 			},
 		}
 
-		list := map[string]*Article{}
+		list := []*Article{}
 		db.FindAll("articles", query, func(article *Article) {
-			list[article.Id] = article
-			//			list = append(list, article)
+			list = append(list, article)
 		}) // todo: handle error properly
+
+		sort.Slice(list, func(i, j int) bool {
+			return list[i].PublishOn.Unix() > list[j].PublishOn.Unix()
+		})
 
 		err := templateHome.ExecuteTemplate(w, "", map[string]any{
 			"articles": list,
@@ -156,15 +160,19 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 				"published":   true,
 			},
 		}
-		list := map[string]*Article{}
+		list := []*Article{}
 		db.FindAll("articles", params, func(article *Article) {
-			list[article.Id] = article
+			list = append(list, article)
 		}) // todo: handle error properly
 		if len(list) == 0 {
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte("User not found"))
 			return
 		}
+
+		sort.Slice(list, func(i, j int) bool {
+			return list[i].PublishOn.Unix() > list[j].PublishOn.Unix()
+		})
 
 		err := templateUser.ExecuteTemplate(w, "", map[string]any{
 			"userNick": userNick,
@@ -265,15 +273,19 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 				"published": true,
 			},
 		}
-		list := map[string]*Article{}
+		list := []*Article{}
 		db.FindAll("articles", params, func(article *Article) {
-			list[article.Id] = article
+			list = append(list, article)
 		}) // todo: handle error properly
 		if len(list) == 0 {
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte("User not found"))
+			w.Write([]byte("Tag not found"))
 			return
 		}
+
+		sort.Slice(list, func(i, j int) bool {
+			return list[i].PublishOn.Unix() > list[j].PublishOn.Unix()
+		})
 
 		err := templateTag.ExecuteTemplate(w, "", map[string]any{
 			"tag":      tag,
@@ -300,9 +312,9 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 				"published":   true,
 			},
 		}
-		list := map[string]*Article{}
+		list := []*Article{}
 		db.FindAll("articles", params, func(article *Article) {
-			list[article.Id] = article
+			list = append(list, article)
 			userNick = article.AuthorNick
 		}) // todo: handle error properly
 		if len(list) == 0 {
@@ -310,6 +322,10 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 			w.Write([]byte("User not found"))
 			return
 		}
+
+		sort.Slice(list, func(i, j int) bool {
+			return list[i].PublishOn.Unix() > list[j].PublishOn.Unix()
+		})
 
 		err := templateUser.ExecuteTemplate(w, "", map[string]any{
 			"tag":      tag,
