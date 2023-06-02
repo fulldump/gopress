@@ -38,7 +38,7 @@
                     <img class="avatar" src="{{ .article.AuthorPicture }}" alt="Author picture">
                 {{ end }}
                 <div>Published on {{ .article.PublishOn }}</div>
-                <div>Created by {{ .article.AuthorNick }}</div>
+                <div>Created by <a href="/user/{{ .article.AuthorNick }}">{{ .article.AuthorNick }}</a></div>
                 {{ if .article.Tags }}
                     <div>
                         {{ range $j, $tag := .article.Tags }}
