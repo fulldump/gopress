@@ -213,14 +213,23 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 
 		// TODO: preprocess html tags to remove
 
-		words := strings.SplitN(string(article.ContentHTML), " ", 10)
-		title := "@" + article.AuthorNick + ": " + strings.Join(words[0:len(words)-1], " ") + "..."
+		max_words := 15
+		words := strings.SplitN(article.Title, " ", max_words)
+		words_trail := ""
+		if len(words) >= max_words {
+			words = words[0 : max_words-1]
+			words_trail = "..."
+		}
+		title := "@" + article.AuthorNick + ": " + strings.Join(words, " ") + words_trail
 		selfUrl := `https://gopress.org/user/` + url.PathEscape(article.AuthorId)
 
-		description := article.ContentHTML
+		content := string(article.ContentHTML)
+		content = html2text(content)
+		content = removeSpaces(content)
+		description := content
 		max_description := 150
 		if len(description) > max_description {
-			description = article.ContentHTML[0:max_description] + "..."
+			description = content[0:max_description] + "..."
 		}
 
 		err = templateArticle.ExecuteTemplate(w, "", map[string]any{
