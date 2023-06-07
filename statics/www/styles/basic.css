@@ -93,7 +93,20 @@ article h1 {
   letter-spacing: -0.011em;
   font-size: 42px;
   font-weight: 700;
-  margin-bottom: 32px;
+  margin-top: 24px;
+  padding-top: 16px;
+  padding-bottom: 40px;
+  margin-bottom: 0;
+
+  position: sticky;
+  top: 0;
+  background: white;
+  background: linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(255,255,255,1) 65%, rgba(255,255,255,0.0) 100%);
+}
+
+article h1::selection {
+  background: #333333;
+  color: white;
 }
 
 article h2 {
