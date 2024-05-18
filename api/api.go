@@ -16,11 +16,11 @@ import (
 	"time"
 
 	"github.com/fulldump/box"
+	"github.com/fulldump/box/boxopenapi"
 	"github.com/google/uuid"
 	opengraph "github.com/otiai10/opengraph/v2"
 	"golang.org/x/net/html"
 
-	"gopress/api/openapi"
 	"gopress/filestorage"
 	"gopress/glueauth"
 	"gopress/inceptiondb"
@@ -90,6 +90,10 @@ type JSON map[string]any
 func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.Filestorager) *box.B {
 
 	b := box.NewBox()
+
+	b.Handle("GET", "/hello", func(w http.ResponseWriter, r *http.Request) {
+
+	})
 
 	b.WithInterceptors(func(next box.H) box.H {
 		return func(ctx context.Context) {
@@ -872,10 +876,26 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 	}).WithName("Version")
 
 	// openapi
-	b.Handle("GET", "/openapi", func(w http.ResponseWriter) {
+	spec := boxopenapi.Spec(b)
+	spec.Info.Title = "GoPress"
+	spec.Info.Description = "A free blogging system in go"
+	spec.Info.Contact = &boxopenapi.Contact{
+		Url: "https://github.com/fulldump/gopress/issues/new",
+	}
+	b.Handle("GET", "/openapi.json", func(w http.ResponseWriter, r *http.Request) {
+
+		spec.Servers = []boxopenapi.Server{
+			{
+				Url: "https://" + r.Host,
+			},
+			{
+				Url: "http://" + r.Host,
+			},
+		}
+
 		e := json.NewEncoder(w)
 		e.SetIndent("", "    ")
-		e.Encode(openapi.Spec(b))
+		e.Encode(spec)
 	}).WithName("OpenApi")
 
 	// Mount statics
