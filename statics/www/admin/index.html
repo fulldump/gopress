@@ -3,7 +3,7 @@
 <head>
 	<title>GoPress.org - Admin</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<script src="https://cdn.jsdelivr.net/npm/vue@2.7.14"></script>
+	<script src="/lib/vue.2.7.14.js"></script>
 
 	<style>
 		html, body {
@@ -96,27 +96,25 @@
  Read more at Tools Connection doc:
  https://editorjs.io/getting-started#tools-connection
  -->
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/header@latest"></script><!-- Header -->
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/simple-image@latest"></script><!-- Image -->
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/delimiter@latest"></script><!-- Delimiter -->
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/list@latest"></script><!-- List -->
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/checklist@latest"></script><!-- Checklist -->
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/quote@latest"></script><!-- Quote -->
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/code@latest"></script><!-- Code -->
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/embed@latest"></script><!-- Embed -->
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/table@latest"></script><!-- Table -->
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/link@latest"></script><!-- Link -->
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/warning@latest"></script><!-- Warning -->
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/raw@2.4.0/dist/bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/underline@1.1.0/dist/bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/marker@latest"></script><!-- Marker -->
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/inline-code@latest"></script><!-- Inline Code -->
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/image@2.8.1/dist/bundle.min.js"></script>
-<!-- TODO: https://www.jsdelivr.com/package/npm/@editorjs/attaches-->
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/attaches@1.3.0/dist/bundle.min.js"></script>
-
+<script src="/lib/editorjs/header.js"></script><!-- Header -->
+<script src="/lib/editorjs/simple-image.js"></script><!-- Image -->
+<script src="/lib/editorjs/delimiter.js"></script><!-- Delimiter -->
+<script src="/lib/editorjs/list.js"></script><!-- List -->
+<script src="/lib/editorjs/checklist.js"></script><!-- Checklist -->
+<script src="/lib/editorjs/quote.js"></script><!-- Quote -->
+<script src="/lib/editorjs/code.js"></script><!-- Code -->
+<script src="/lib/editorjs/embed.js"></script><!-- Embed -->
+<script src="/lib/editorjs/table.js"></script><!-- Table -->
+<script src="/lib/editorjs/link.js"></script><!-- Link -->
+<script src="/lib/editorjs/warning.js"></script><!-- Warning -->
+<script src="/lib/editorjs/raw.js"></script>
+<script src="/lib/editorjs/underline.js"></script>
+<script src="/lib/editorjs/marker.js"></script><!-- Marker -->
+<script src="/lib/editorjs/inline-code.js"></script><!-- Inline Code -->
+<script src="/lib/editorjs/image.js"></script>
+<script src="/lib/editorjs/attaches.js"></script>
 <!-- Load Editor.js's Core -->
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest"></script>
+<script src="/lib/editorjs/editorjs.js"></script>
 
 
 
@@ -379,7 +377,7 @@
 						image: SimpleImage,
 
 						list: {
-							class: List,
+							class: EditorjsList,
 							inlineToolbar: true,
 							shortcut: 'CMD+SHIFT+L'
 						},
