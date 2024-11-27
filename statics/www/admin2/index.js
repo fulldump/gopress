@@ -134,7 +134,7 @@ const ListPosts = {
           </div>
           
           <div class="list-posts">
-            <div class="entry"  v-for="post in posts" :key="post.id" v-if="post.published">
+            <div class="entry"  v-for="post in posts" :key="post.id">
               <div v-if="isFilter('published') && post.published || isFilter('draft') && post.published == false " >
                             <div>{{ post.title }}</div>
               <div>{ { post.timestamp } }</div>
