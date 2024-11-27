@@ -1,10 +1,12 @@
 html, body {
   margin: 0;
   padding: 0;
+  font-family: sans-serif;
 }
 
-* {
-  color: blue;
+#page-list-posts {
+  min-height: 100vh;
+  background-color: #f6f7f7;
 }
 
 #page-list-posts .workspace {
@@ -13,26 +15,49 @@ html, body {
 }
 
 #page-list-posts .list-posts .entry {
-  border: solid red 1px;
+  border: solid rgb(220, 220, 222) 1px;
+  padding: 16px;
+  background-color: white;
+  margin-bottom: -1px;
 }
+
+#page-list-posts .list-posts .entry:hover {
+  color: rgb(100, 105, 112);
+  cursor: pointer;
+}
+
+#page-list-posts .list-posts .entry .entry-title{
+  font-weight: 600;
+  font-size: 20px;
+}
+
+
 
 .post-type-filter {
   border: solid silver 1px;
+  margin-bottom: 16px;
+  background-color: white;
 }
 
 .post-type-filter .nav {
   display: inline-block;
   min-width: 100px;
-  border: solid silver 1px;
-  padding: 8px;
+  border-right: solid rgb(220, 220, 222) 1px;
+  padding: 16px;
+  color: rgb(34, 113, 177);
+  text-decoration: none;
+  border-bottom: solid transparent 2px;
 }
 
 .post-type-filter .nav.router-link-active {
-  font-weight: bold;
+  color: black;
+  border-bottom-color: black;
 }
 
 .post-type-filter .nav .counter {
-  border: solid silver 1px;
-  border-radius: 8px;
-  padding: 2px;
+  color: rgb(44, 51, 56);
+  font-weight: bold;
+  border: solid 1px rgb(167, 170, 173);
+  border-radius: 12px;
+  padding: 1px 6px;
 }

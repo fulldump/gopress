@@ -4,12 +4,7 @@
 // These can be imported from other files
 const Home = {
     data() {
-        return {
-            databases: null,
-            loading: {
-                databases: false,
-            },
-        };
+        return {};
     },
     template: `
     <div id="page-home">
@@ -20,82 +15,27 @@ const Home = {
         Barra del usuario
       </div>
     
-      <div class="workspace">
-          <div>
-            <h2>Entradas</h2>
-            <p>Crea, edita y gestiona las entradas de tu sitio. Más información.</p>
-          </div>
-        
-          <div class="post-type-filter">
-            <router-link
-              :to="{ name: 'home', query: { filter: ''} }"
-              class="nav"
-              >
-                  Publicados
-                  <span class="counter">29</span>
-              </router-link>
-            <router-link
-              :to="{ name: 'home', query: { filter: 'draft'} }"
-              class="nav"
-              >
-                  Borradores
-                  <span class="counter">3</span>
-              </router-link>
-          </div>
-        
-          <div
-            v-if="loading.databases"
-            style="text-align: center;"
-          >
-            <div class="loader">Loading databases...</div>
-          </div>
-    
-          <div class="buttons">
-            <router-link
-              class="button button-blue"
-              to="/published"
-          >Publicados</router-link>
-          
-            <router-link
-              :to="{ name: 'home', query: { filter: 'draft'} }"
-              class="nav"
-              to="/drafts"
-          >Borradores</router-link>
-          </div>
-      </div>
-    
+      Aquí están tus posts: 
+      
+        <router-link
+          :to="{ name: 'listPosts', params: { filter: 'published' } }"
+        >
+            Publicados
+            <span class="counter">29</span>
+        </router-link>
+
     </div>`,
-    computed: {
-        username() {
-            // We will see what `params` is shortly
-            return this.$route.params.username
-        },
-    },
-    created() {
-        this.fetchDatabases();
-    },
     methods: {
-        fetchDatabases() {
-            let that = this;
-            this.loading.databases = true;
-            fetch(`/v1/databases`, {headers: fakeHeaders})
-                .then(resp => resp.json())
-                .then(function(list) {
-                    that.loading.databases = false;
-                    list.sort((a,b) => compare(a.name, b.name));
-                    that.databases = list;
-                })
-                .catch(function(e) {
-                    that.loading.databases = false;
-                });
-        },
     },
 };
 
 const ListPosts = {
     data() {
         return {
-            posts: [],
+            posts: {
+                published: [],
+                draft: [],
+            },
         };
     },
     template: `
@@ -134,12 +74,15 @@ const ListPosts = {
           </div>
           
           <div class="list-posts">
-            <div class="entry"  v-for="post in posts" :key="post.id">
-              <div v-if="isFilter('published') && post.published || isFilter('draft') && post.published == false " >
-                            <div>{{ post.title }}</div>
-              <div>{ { post.timestamp } }</div>
-              {{ post }}
+            <div class="entry">
+              <div style="float: right;">
+                Añadir nueva entrada
               </div>
+              Entradas
+            </div>
+            <div class="entry" v-for="post in posts[$route.params.filter]" :key="post.id">
+              <div class="entry-title">{{ post.title }}</div>
+              <div>{ { post.timestamp } }</div>
             </div>
           </div>
         
@@ -163,9 +106,11 @@ const ListPosts = {
             fetch(`/v1/articles`, {headers: fakeHeaders})
                 .then(resp => resp.json())
                 .then(function(list) {
+
                     //that.loading.databases = false;
                     //list.sort((a,b) => compare(a.name, b.name));
-                    that.posts = list;
+                    that.posts.published = list.filter(post => post.published === true);
+                    that.posts.draft = list.filter(post => post.published === false);
                 })
                 .catch(function(e) {
                     //that.loading.databases = false;
