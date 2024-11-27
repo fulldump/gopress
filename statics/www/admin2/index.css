@@ -1,0 +1,38 @@
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+* {
+  color: blue;
+}
+
+#page-list-posts .workspace {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+#page-list-posts .list-posts .entry {
+  border: solid red 1px;
+}
+
+.post-type-filter {
+  border: solid silver 1px;
+}
+
+.post-type-filter .nav {
+  display: inline-block;
+  min-width: 100px;
+  border: solid silver 1px;
+  padding: 8px;
+}
+
+.post-type-filter .nav.router-link-active {
+  font-weight: bold;
+}
+
+.post-type-filter .nav .counter {
+  border: solid silver 1px;
+  border-radius: 8px;
+  padding: 2px;
+}

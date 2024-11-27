@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>GoPress</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<!--	<script src="https://unpkg.com/vue@3"></script>-->
+	<!--	<script src="https://unpkg.com/vue-router@4"></script>-->
+	<script src="/lib/vue@3.4.15.js"></script>
+	<script src="/lib/vue-router@4.2.5.js"></script>
+	<script src="index.js" defer></script>
+	<link rel="stylesheet" href="index.css">
+</head>
+<body>
+<script>
+	let fakeHeaders = {
+		'X-Glue-Authentication': JSON.stringify({
+			user: {
+				id: "user-0b654fad-8b74-4431-81d7-a016aa47e29e",
+				nick: 'gerardooscarjt',
+			}
+		}),
+	};
+</script>
+<script>
+	const searchParams = new URLSearchParams(document.location.search);
+	if (searchParams.has('embed')) {
+		document.body.classList.add('embed');
+	}
+</script>
+<div id="app">
+	<!-- component matched by the route will render here -->
+	<router-view></router-view>
+</div>
+</body>
+</html>
