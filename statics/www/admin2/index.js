@@ -125,7 +125,12 @@ const ListPosts = {
 // Each route should map to a component.
 // We'll talk about nested routes later.
 const routes = [
-    { path: '/', name:'home', component: Home },
+    {
+        path: '/',
+        name:'home',
+        component: Home,
+        redirect: { name: 'listPosts', params: { filter: 'published' } },
+    },
     {
         path: '/posts/:filter',
         name: 'listPosts',
