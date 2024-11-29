@@ -34,16 +34,17 @@ html, body {
 
 
 .post-type-filter {
-  border: solid silver 1px;
+  border-bottom: solid silver 1px;
   margin-bottom: 16px;
-  background-color: white;
+  /*background-color: white;*/
 }
 
 .post-type-filter .nav {
   display: inline-block;
   min-width: 100px;
-  border-right: solid rgb(220, 220, 222) 1px;
+  /*border-right: solid rgb(220, 220, 222) 1px;*/
   padding: 16px;
+  font-weight: bold;
   color: rgb(34, 113, 177);
   text-decoration: none;
   border-bottom: solid transparent 2px;
@@ -60,4 +61,27 @@ html, body {
   border: solid 1px rgb(167, 170, 173);
   border-radius: 12px;
   padding: 1px 6px;
+}
+
+
+.btn-grad {background-image: linear-gradient(to right, #00d2ff 0%, #3a7bd5  51%, #00d2ff  100%)}
+.btn-grad {
+  border: none;
+  margin: 0px;
+  padding: 8px 16px;
+  text-align: center;
+  text-transform: uppercase;
+  transition: 0.5s;
+  background-size: 200% auto;
+  color: white;
+  box-shadow: 0 0 20px #eee;
+  border-radius: 10px;
+  display: block;
+  cursor: pointer;
+}
+
+.btn-grad:hover {
+  background-position: right center; /* change the direction of the change here */
+  color: #fff;
+  text-decoration: none;
 }

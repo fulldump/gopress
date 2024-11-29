@@ -74,9 +74,9 @@ const ListPosts = {
           </div>
           
           <div class="list-posts">
-            <div class="entry">
+            <div class="" style="overflow: hidden; padding: 16px;">
               <div style="float: right;">
-                Añadir nueva entrada
+                <button class="btn-grad">Añadir nueva entrada</button>
               </div>
               Entradas
             </div>
