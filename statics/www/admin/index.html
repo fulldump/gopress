@@ -1,483 +1,53 @@
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
-	<title>GoPress.org - Admin</title>
+	<title>GoPress</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<script src="/lib/vue.2.7.14.js"></script>
-
-	<style>
-		html, body {
-			font-family: sans-serif;
-		}
-
-		#app {
-			max-width: 600px;
-			padding: 16px;
-			margin: 0 auto;
-		}
-
-		.list-item {
-			border: solid transparent 1px;
-			padding: 4px;
-		}
-
-		.list-item:hover,
-		.list-item.selected {
-			cursor: pointer;
-			border-color: dodgerblue;
-		}
-
-		.list-item.selected {
-			margin-left: 40px;
-		}
-
-		.button {
-			border: solid black 2px;
-			border-radius: 3px;
-			padding: 8px 32px;
-			color: black;
-			background-color: white;
-			cursor: pointer;
-			opacity: 80%;
-			font-weight: bold;
-		}
-
-		.button:hover {
-			opacity: 100%;
-		}
-
-		.button-small {
-			padding: 2px 16px;
-			font-size: 80%;
-		}
-
-		.button-blue {
-			color: white;
-			background-color: dodgerblue;
-			border-color: #176dc2;
-		}
-
-		.button-red {
-			color: white;
-			background-color: #d90000;
-			border-color: #b30000;
-		}
-
-		.button-gray {
-			color: white;
-			background-color: #777777;
-			border-color: #5e5e5e;
-		}
-
-		.badge {
-			background-color: gray;
-			border-radius: 3px;
-			padding: 3px;
-			font-size: 12px;
-			color: white;
-			font-weight: bold;
-		}
-
-		.badge-green {
-			background-color: forestgreen;
-		}
-
-	</style>
+	<!--	<script src="https://unpkg.com/vue@3"></script>-->
+	<!--	<script src="https://unpkg.com/vue-router@4"></script>-->
+	<script src="/lib/vue@3.4.15.js"></script>
+	<script src="/lib/vue-router@4.2.5.js"></script>
+	<script src="/lib/editorjs/header.js"></script><!-- Header -->
+	<script src="/lib/editorjs/simple-image.js"></script><!-- Image -->
+	<script src="/lib/editorjs/delimiter.js"></script><!-- Delimiter -->
+	<script src="/lib/editorjs/list.js"></script><!-- List -->
+	<script src="/lib/editorjs/checklist.js"></script><!-- Checklist -->
+	<script src="/lib/editorjs/quote.js"></script><!-- Quote -->
+	<script src="/lib/editorjs/code.js"></script><!-- Code -->
+	<script src="/lib/editorjs/embed.js"></script><!-- Embed -->
+	<script src="/lib/editorjs/table.js"></script><!-- Table -->
+	<script src="/lib/editorjs/link.js"></script><!-- Link -->
+	<script src="/lib/editorjs/warning.js"></script><!-- Warning -->
+	<script src="/lib/editorjs/raw.js"></script>
+	<script src="/lib/editorjs/underline.js"></script>
+	<script src="/lib/editorjs/marker.js"></script><!-- Marker -->
+	<script src="/lib/editorjs/inline-code.js"></script><!-- Inline Code -->
+	<script src="/lib/editorjs/image.js"></script>
+	<script src="/lib/editorjs/attaches.js"></script>
+	<script src="/lib/editorjs/editorjs.js"></script><!-- Load Editor.js's Core -->
+	<script src="index.js" defer></script>
+	<link rel="stylesheet" href="index.css">
 </head>
 <body>
-
-
-<!-- Load Tools -->
-<!--
- You can upload Tools to your project's directory and connect them by relative links.
-
- Also you can load each Tool from CDN or use NPM/Yarn packages.
-
- Read more at Tools Connection doc:
- https://editorjs.io/getting-started#tools-connection
- -->
-<script src="/lib/editorjs/header.js"></script><!-- Header -->
-<script src="/lib/editorjs/simple-image.js"></script><!-- Image -->
-<script src="/lib/editorjs/delimiter.js"></script><!-- Delimiter -->
-<script src="/lib/editorjs/list.js"></script><!-- List -->
-<script src="/lib/editorjs/checklist.js"></script><!-- Checklist -->
-<script src="/lib/editorjs/quote.js"></script><!-- Quote -->
-<script src="/lib/editorjs/code.js"></script><!-- Code -->
-<script src="/lib/editorjs/embed.js"></script><!-- Embed -->
-<script src="/lib/editorjs/table.js"></script><!-- Table -->
-<script src="/lib/editorjs/link.js"></script><!-- Link -->
-<script src="/lib/editorjs/warning.js"></script><!-- Warning -->
-<script src="/lib/editorjs/raw.js"></script>
-<script src="/lib/editorjs/underline.js"></script>
-<script src="/lib/editorjs/marker.js"></script><!-- Marker -->
-<script src="/lib/editorjs/inline-code.js"></script><!-- Inline Code -->
-<script src="/lib/editorjs/image.js"></script>
-<script src="/lib/editorjs/attaches.js"></script>
-<!-- Load Editor.js's Core -->
-<script src="/lib/editorjs/editorjs.js"></script>
-
-
-
-
-<div id="app">
-
-	<h1 style="text-align: center;">Articles</h1>
-
-	<div>
-		<button v-if="selected != null" @click="selected=null" style="float: left; height: 42px; border: none; background-color: transparent;">back</button>
-		<div>
-			<div
-							v-for="article in articles"
-							v-if="selected == null || selected.id == article.id"
-							class="list-item" :class="{ selected: selected && selected.id == article.id }"
-							@click="selectArticle(article);"
-			>
-				<div style="float: right; text-align: right;">
-					<div v-if="article.published" class="badge badge-green" style="float: right;">Published</div>
-					<div v-if="!article.published" class="badge" style="float: right;">Draft</div>
-					<div style="font-size: 80%;">views: {{ article.stats.views }}</div>
-				</div>
-				<div style="font-weight: bold;">{{ article.title }}</div>
-				<div style="font-size: 80%;">
-					<a style="color: dodgerblue;" :href="'/articles/'+ article.url " target="_blank">/articles/{{ article.url }}</a> 🧷
-				</div>
-			</div>
-
-		</div>
-	</div>
-
-
-	<div v-if="selected">
-		<div style="height: 20px; text-align: center; padding: 4px;">
-			<button class="button button-small button-red" style="float: right;" @click="deleteArticle(selected.id)">Delete article</button>
-			<button v-if="!selected.published" class="button button-small button-gray" style="float: right;" @click="publishArticle(selected.id)" title="Publish">Draft</button>
-			<button v-if="selected.published" class="button button-small button-blue" style="float: right;" @click="unpublishArticle(selected.id)" title="Unpublish">Published</button>
-			<span v-if="saving" style="background-color: lightyellow; padding: 4px 16px; font-size: 80%; font-weight: bold; border-radius: 3px; box-shadow: 2px 2px 2px rgba(0,0,0,0.15)">Saving...</span>
-		</div>
-		<div>
-			<input
-							type="text"
-							v-model="selected.title"
-							@keypress.enter="patchArticle(selected.id, {title: selected.title})"
-							@focusout="patchArticle(selected.id, {title: selected.title})"
-							style="box-sizing: border-box; width: 100%; font-weight: bold; font-size: 120%;"
-			>
-			<input
-							type="text"
-							v-model="selected.url"
-							@keypress.enter="patchArticle(selected.id, {url: selected.url})"
-							@focusout="patchArticle(selected.id, {url: selected.url})"
-							placeholder="friendly-url-style"
-							style="color: forestgreen; box-sizing: border-box; width: 100%; font-weight: bold; font-family: monospace;"
-			>
-			<input
-							type="text"
-							v-model="selected._tags"
-							@keypress.enter="patchArticle(selected.id, {tags: selected.tags})"
-							@focusout="patchArticle(selected.id, {tags: selected.tags})"
-							placeholder="tags, comma separated"
-							style="color: deepskyblue; box-sizing: border-box; width: 100%; font-weight: bold; font-family: monospace;"
-			>
-			<textarea
-							v-if="false"
-							rows="20"
-							v-model="selected.content"
-							style="box-sizing: border-box; width: 100%;"
-							@keypress.enter="patchArticle(selected.id, {content: selected.content})"
-							@focusout="patchArticle(selected.id, {content: selected.content})"
-			></textarea>
-			<div id="editorjs"></div>
-		</div>
-	</div>
-
-	<div v-else style="text-align: center; padding: 16px;">
-		<button class="button button-blue" @click="createArticle();">Create new article</button>
-	</div>
-
-	<div style="padding: 32px 0; text-align: center;">
-		<a href="upload.html">Subir archivos</a>
-	</div>
-
-</div>
-
 <script>
-
-	let fakeHeaders = {'X-Glue-Authentication':'{"user":{"id":"user1"}}'}; // todo: just for testing
-
-	function uuidv4() {
-		return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
-						(c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-		);
-	}
-
-	new Vue({
-		el: "#app",
-		data() {
-			return {
-				message: 'Hello Vue!',
-				selected: null,
-				articles: [],
-				saving: 0,
+	let fakeHeaders = {
+		'X-Glue-Authentication': JSON.stringify({
+			user: {
+				id: "user-0b654fad-8b74-4431-81d7-a016aa47e29e",
+				nick: 'gerardooscarjt',
 			}
-		},
-		created() {
-			this.fetchArticles();
-
-			// todo: just for testing
-			fetch("/auth/me").then(resp => resp.json()).then(user => {
-				fakeHeaders['X-Glue-Authentication'] = JSON.stringify({"user":user});
-				this.fetchArticles();
-			})
-		},
-		methods: {
-			fetchArticles() {
-				fetch('/v1/articles', {headers: fakeHeaders})
-								.then(resp => resp.json())
-								.then(articles => {
-									this.articles = articles;
-								})
-			},
-			async fetchSelected() {
-				let that = this;
-				let id = this.selected.id;
-				return fetch('/v1/articles/'+encodeURIComponent(this.selected.id), {headers: fakeHeaders})
-								.then(resp => resp.json())
-								.then(article => {
-									if (!article.tags) article.tags = [];
-									article._tags = article.tags.join(", ")
-									// if (id != article.id) return;
-									for (let k in article) {
-										Vue.set(that.selected, k, article[k]);
-										// that.selected[k] = article[k]
-									}
-								});
-			},
-			patchArticle(id, params) {
-				// todo: spinner saving
-
-				if (params.tags) {
-					params.tags = this.selected._tags.split(",")
-									.map(tag => tag.trim()) // todo: normalize case?
-									.filter(tag => tag.length > 0)
-									.sort(); // todo: sort by tag?
-				}
-
-				this.saving++;
-				let that = this;
-				fetch('/v1/articles/'+encodeURIComponent(id), {method: 'PATCH', body: JSON.stringify(params), headers: fakeHeaders})
-								.finally(() => {
-									that.saving--;
-								})
-			},
-			createArticle() {
-				const id = uuidv4();
-				const body = {
-					"id": id,
-					"title": "New article",
-				};
-				let that = this;
-				fetch('/v1/articles', {method: 'POST', body: JSON.stringify(body), headers: fakeHeaders})
-								.then(resp => resp.json())
-								.then(article => {
-									article.id = id;
-									that.articles.push(article);
-									that.selectArticle(article)
-								})
-			},
-			deleteArticle(id) {
-				if (!confirm("Are you sure to delete this article?")) return;
-				let that = this;
-				fetch('/v1/articles/'+encodeURIComponent(id), {method: 'DELETE', headers: fakeHeaders})
-								.then(resp => {
-									that.selected = null;
-									for (k in that.articles) {
-										if (that.articles[k].id == id) {
-											that.articles.splice(k, 1);
-											return
-										}
-									}
-								})
-			},
-			publishArticle(id) {
-				if (!confirm("Are you sure to publish this article?")) return;
-				let that = this;
-					fetch('/v1/articles/'+encodeURIComponent(id)+"/publish", {method: 'POST', headers: fakeHeaders})
-									.then(resp => resp.json())
-									.then(article => {
-										that.selected = article;
-									});
-			},
-			unpublishArticle(id) {
-				if (!confirm("Are you sure to UNpublish this article?")) return;
-				let that = this;
-					fetch('/v1/articles/'+encodeURIComponent(id)+"/unpublish", {method: 'POST', headers: fakeHeaders})
-									.then(resp => resp.json())
-									.then(article => {
-										that.selected = article;
-									});
-			},
-			save2() {
-				let that = this;
-				this.editor.save()
-								.then((savedData) => {
-									that.patchArticle(that.selected.id, {content: {type:"editorjs", data:savedData}})
-								})
-								.catch((error) => {
-									console.error('Saving error', error);
-								});
-			},
-			async selectArticle(article) {
-				let that = this;
-				this.selected = article;
-				await this.fetchSelected();
-				this.editor = new EditorJS({
-
-					placeholder: 'Let`s write an awesome story!',
-					autofocus: true,
-
-
-
-					/**
-					 * Enable/Disable the read only mode
-					 */
-					readOnly: false,
-
-					/**
-					 * Wrapper of Editor
-					 */
-					holder: 'editorjs',
-
-					/**
-					 * Common Inline Toolbar settings
-					 * - if true (or not specified), the order from 'tool' property will be used
-					 * - if an array of tool names, this order will be used
-					 */
-					// inlineToolbar: ['link', 'marker', 'bold', 'italic'],
-					// inlineToolbar: true,
-
-					/**
-					 * Tools list
-					 */
-					tools: {
-						/**
-						 * Each Tool is a Plugin. Pass them via 'class' option with necessary settings {@link docs/tools.md}
-						 */
-						header: {
-							class: Header,
-							inlineToolbar: ['marker', 'link'],
-							config: {
-								placeholder: 'Header'
-							},
-							shortcut: 'CMD+SHIFT+H'
-						},
-
-						/**
-						 * Or pass class directly without any configuration
-						 */
-						image: SimpleImage,
-
-						list: {
-							class: EditorjsList,
-							inlineToolbar: true,
-							shortcut: 'CMD+SHIFT+L'
-						},
-
-						checklist: {
-							class: Checklist,
-							inlineToolbar: true,
-						},
-
-						quote: {
-							class: Quote,
-							inlineToolbar: true,
-							config: {
-								quotePlaceholder: 'Enter a quote',
-								captionPlaceholder: 'Quote\'s author',
-							},
-							shortcut: 'CMD+SHIFT+O'
-						},
-
-						warning: Warning,
-
-						marker: {
-							class: Marker,
-							shortcut: 'CMD+SHIFT+M'
-						},
-
-						code: {
-							class: CodeTool,
-							shortcut: 'CMD+SHIFT+C'
-						},
-
-						delimiter: Delimiter,
-
-						inlineCode: {
-							class: InlineCode,
-							shortcut: 'CMD+SHIFT+C'
-						},
-
-						linkTool: {
-							class: LinkTool,
-							config: {
-								endpoint: '/editor/helperFetchUrl', // Your backend endpoint for url data fetching,
-								headers: fakeHeaders,
-							}
-						},
-
-						embed: Embed,
-
-						table: {
-							class: Table,
-							inlineToolbar: true,
-							shortcut: 'CMD+ALT+T'
-						},
-
-						raw: RawTool,
-
-						underline: Underline,
-
-						image: {
-							class: ImageTool,
-							config: {
-								endpoints: {
-									byFile: '/v1/files', // Your backend file uploader endpoint
-									byUrl: 'http://localhost:9955/fetchUrl', // Your endpoint that provides uploading by Url
-								},
-								additionalRequestHeaders: fakeHeaders,
-							}
-						},
-
-						attaches: {
-							class: AttachesTool,
-							config: {
-								endpoint: '/v1/files',
-								additionalRequestHeaders: fakeHeaders,
-							}
-						},
-
-					},
-
-					/**
-					 * This Tool will be used as default
-					 */
-					// defaultBlock: 'paragraph',
-
-					/**
-					 * Initial Editor data
-					 */
-					data: that.selected.content.data,
-					onReady: function () {
-					},
-					onChange: function (api, event) {
-						that.save2();
-					}
-				});
-			}
-		},
-	})
+		}),
+	};
 </script>
-
-
-
+<script>
+	const searchParams = new URLSearchParams(document.location.search);
+	if (searchParams.has('embed')) {
+		document.body.classList.add('embed');
+	}
+</script>
+<div id="app">
+	<!-- component matched by the route will render here -->
+	<router-view></router-view>
+</div>
 </body>
 </html>
