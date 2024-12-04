@@ -40,12 +40,21 @@ const ListPosts = {
     },
     template: `
     <div id="page-list-posts">
-      
-      
       <div
-        style="background: black; color: white; padding: 16px;"
+        style="background: black; color: white; overflow: hidden;"
       >
-        Barra del usuario
+        <div style="float: right; padding: 8px 16px;">
+          Hola, {{ $user.nick }}
+          <img :src="$user.picture" :alt="$user.nick" style="border-radius: 50%; height: 24px; vertical-align: middle;">
+          &nbsp;
+          <a class="btn btn-inv" href="/auth/logout">Salir</a>
+        </div>
+        <router-link 
+          :to="{ name: 'home' }"
+          style="color: white; text-decoration: none; float: left; padding: 12px 16px; font-weight: bold; font-size: 120%; font-family: 'source-serif-pro, Georgia, Cambria,Times, serif';"
+        >
+          GoPress
+        </router-link>
       </div>
     
       <div class="workspace">
@@ -74,16 +83,21 @@ const ListPosts = {
           </div>
           
           <div class="list-posts">
-            <div class="" style="overflow: hidden; padding: 16px;">
+            <div class="" style="overflow: hidden; padding: 8px 16px;">
               <div style="float: right;">
-                <button class="btn-grad">Añadir nueva entrada</button>
+                <button class="btn btn-grad">Añadir nueva entrada</button>
               </div>
               Entradas
             </div>
-            <div class="entry" v-for="post in posts[$route.params.filter]" :key="post.id">
+            <router-link 
+              class="entry" 
+              v-for="post in posts[$route.params.filter]" 
+              :key="post.id"
+              :to="{ name: 'editPost', params: { post_id: post.id } }"
+            >
               <div class="entry-title">{{ post.title }}</div>
               <div>{ { post.timestamp } }</div>
-            </div>
+            </router-link>
           </div>
         
       </div>
@@ -121,6 +135,43 @@ const ListPosts = {
 };
 
 
+const EditPost = {
+    data() {
+        return {};
+    },
+    template: `
+    <div id="page-edit-post">
+      <div
+        style="background: black; color: white; overflow: hidden;"
+      >
+        <div style="float: right; padding: 8px 16px;">
+          <button class="btn btn-inv">Guardar como borrador</button>
+          <button class="btn btn-grad">Publicar</button>
+        </div>
+        <router-link 
+          :to="{ name: 'home' }"
+          style="color: white; text-decoration: none; float: left; padding: 12px 16px; font-weight: bold; font-size: 120%; font-family: 'source-serif-pro, Georgia, Cambria,Times, serif';"
+        >
+          GoPress
+        </router-link>
+        <div style="padding: 16px;">
+          {{ $user.nick }}      
+        </div>
+      </div>
+    
+      <div class="workspace">
+            sdfafd
+      </div>
+
+
+    </div>`,
+    created() {
+    },
+    methods: {
+    },
+
+};
+
 // 2. Define some routes
 // Each route should map to a component.
 // We'll talk about nested routes later.
@@ -136,13 +187,11 @@ const routes = [
         name: 'listPosts',
         component: ListPosts,
     },
-    // { path: '/databases/:database_id', name: 'database', component: Database},
-    // { path: '/databases/:database_id/create-collection', name: 'create-collection', component: CollectionCreate},
-    // { path: '/databases/:database_id/collections/:collection_name', name: 'collection', component: Collection},
-    // { path: '/databases/:database_id/collections/:collection_name/delete', name: 'delete-collection', component: CollectionDelete},
-    // { path: '/databases/:database_id/collections/:collection_name/indexes', name: 'indexes', component: CollectionIndexes},
-    // { path: '/databases/:database_id/collections/:collection_name/defaults', name: 'defaults', component: CollectionDefaults},
-    // { path: '/databases/:database_id/delete', name: 'delete-database', component: DatabaseDelete},
+    {
+        path: '/edit/:post_id',
+        name: 'editPost',
+        component: EditPost,
+    },
 ];
 
 // 3. Create the router instance and pass the `routes` option
@@ -153,6 +202,26 @@ const router = VueRouter.createRouter({
     history: VueRouter.createWebHashHistory(),
     routes, // short for `routes: routes`
 });
+
+router.beforeEach(async (to, from, next) => {
+    let that = this;
+    //this.loading.databases = true;
+    await fetch(`/auth/me`, {headers: fakeHeaders})
+        .then(resp => resp.json())
+        .then(function(user) {
+            console.log(user);
+            if (user.error) {
+                window.location.href = '/auth/login';
+                return;
+            }
+            app.config.globalProperties.$user = user;
+            next();
+        })
+        .catch(function(e) {
+            console.log('FAILED AUTH');
+            window.location.href = '/auth/login';
+        });
+})
 
 // 5. Create and mount the root instance.
 const app = Vue.createApp({});

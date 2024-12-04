@@ -19,6 +19,9 @@ html, body {
   padding: 16px;
   background-color: white;
   margin-bottom: -1px;
+  display: block;
+  text-decoration: none;
+  color: #333;
 }
 
 #page-list-posts .list-posts .entry:hover {
@@ -31,6 +34,10 @@ html, body {
   font-size: 20px;
 }
 
+#page-edit-post .workspace {
+  max-width: 900px;
+  margin: 0 auto;
+}
 
 
 .post-type-filter {
@@ -63,23 +70,34 @@ html, body {
   padding: 1px 6px;
 }
 
-
-.btn-grad {background-image: linear-gradient(to right, #00d2ff 0%, #3a7bd5  51%, #00d2ff  100%)}
-.btn-grad {
+.btn {
   border: none;
   margin: 0px;
   padding: 8px 16px;
   text-align: center;
   text-transform: uppercase;
+  /*box-shadow: 0 0 20px #eee;*/
+  border-radius: 10px;
+  display: inline-block;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn-inv {
+  background-color: transparent;
+  color: white;
+}
+.btn-inv:hover {
+  box-shadow: 0 0 4px #eee;
+}
+
+
+.btn-grad {background-image: linear-gradient(to right, #00d2ff 0%, #3a7bd5  51%, #00d2ff  100%)}
+.btn-grad {
   transition: 0.5s;
   background-size: 200% auto;
   color: white;
-  box-shadow: 0 0 20px #eee;
-  border-radius: 10px;
-  display: block;
-  cursor: pointer;
 }
-
 .btn-grad:hover {
   background-position: right center; /* change the direction of the change here */
   color: #fff;
