@@ -1,5 +1,4 @@
 
-
 // 1. Define route components.
 // These can be imported from other files
 const Home = {
@@ -32,16 +31,17 @@ const Home = {
 const ListPosts = {
     data() {
         return {
-            posts: {
+            posts: { // todo: rename to articles
                 published: [],
                 draft: [],
             },
+            loading_posts: true,
         };
     },
     template: `
     <div id="page-list-posts">
       <div
-        style="background: black; color: white; overflow: hidden;"
+        style="background: black; color: white; overflow: hidden; position: fixed; top: 0; right: 0; left: 0;"
       >
         <div style="float: right; padding: 8px 16px;">
           Hola, {{ $user.nick }}
@@ -70,7 +70,7 @@ const ListPosts = {
               class="nav"
             >
               Publicados
-              <span class="counter">29</span>
+              <span class="counter">{{ posts.published.length }}</span>
             </router-link>
             <router-link
               :to="{ name: 'listPosts', params: { filter: 'draft' } }"
@@ -78,17 +78,19 @@ const ListPosts = {
               class="nav"
             >
               Borradores
-              <span class="counter">3</span>
+              <span class="counter">{{ posts.draft.length }}</span>
             </router-link>
           </div>
           
-          <div class="list-posts">
-            <div class="" style="overflow: hidden; padding: 8px 16px;">
-              <div style="float: right;">
-                <button class="btn btn-grad">Añadir nueva entrada</button>
-              </div>
-              Entradas
+          <div class="" style="overflow: hidden; padding: 8px 16px;">
+            <div style="float: right;">
+              <button class="btn btn-grad" @click="createArticle()">Añadir nueva entrada</button>
             </div>
+            Entradas
+          </div>
+
+          <div class="list-posts">
+            <div class="loader" v-if="loading_posts">Cargando posts...</div>
             <router-link 
               class="entry" 
               v-for="post in posts[$route.params.filter]" 
@@ -96,7 +98,7 @@ const ListPosts = {
               :to="{ name: 'editPost', params: { post_id: post.id } }"
             >
               <div class="entry-title">{{ post.title }}</div>
-              <div>{ { post.timestamp } }</div>
+              <div>{{ post.created_on_pretty }}</div>
             </router-link>
           </div>
         
@@ -116,24 +118,39 @@ const ListPosts = {
     methods: {
         fetchPosts() {
             let that = this;
-            //this.loading.databases = true;
+            this.loading_posts = true;
             fetch(`/v1/articles`, {headers: fakeHeaders})
                 .then(resp => resp.json())
                 .then(function(list) {
-
-                    //that.loading.databases = false;
-                    //list.sort((a,b) => compare(a.name, b.name));
+                    list.forEach(post => {
+                        post.created_on = new Date(post.created_on);
+                        post.created_on_pretty = prettyDate(post.created_on);
+                    });
+                    list.sort((a,b) => compare(b.created_on, a.created_on));
+                    that.loading_posts = false;
                     that.posts.published = list.filter(post => post.published === true);
                     that.posts.draft = list.filter(post => post.published === false);
                 })
                 .catch(function(e) {
-                    //that.loading.databases = false;
+                    that.loading_posts = false;
                 });
+        },
+        createArticle() {
+            const id = uuidv4();
+            const body = {
+                "id": id,
+                "title": "New article",
+            };
+            let that = this;
+            fetch('/v1/articles', {method: 'POST', body: JSON.stringify(body), headers: fakeHeaders})
+                .then(resp => resp.json())
+                .then(article => {
+                    this.$router.push({ name: 'editPost', params: { post_id: article.id} });
+                })
         },
     },
 
 };
-
 
 const EditPost = {
     data() {
@@ -145,7 +162,7 @@ const EditPost = {
         style="background: black; color: white; overflow: hidden;"
       >
         <div style="float: right; padding: 8px 16px;">
-          <button class="btn btn-inv">Guardar como borrador</button>
+          <button class="btn btn-inv">Guardar como borrador</button>&nbsp;
           <button class="btn btn-grad">Publicar</button>
         </div>
         <router-link 
@@ -231,4 +248,44 @@ app.use(router);
 
 app.mount('#app');
 
+// 6. Utils
+
+
+function pad(n, width, z) {
+    z = z || '0';
+    n = n + '';
+    return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
+}
+
+function prettyDate(d) {
+    let now = new Date();
+
+    let delta = (now.getTime() - d.getTime()) / 1000;
+
+    if (delta < 60) {
+        return 'Justo ahora';
+    }
+
+    if (delta < 3600) {
+        return `Hace ${(delta/60).toFixed()} minutos`;
+    }
+
+    if (delta < 86400) {
+        return `Hace ${(delta/3600).toFixed()} Horas`;
+    }
+
+    return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} a las ${d.getHours()}:${pad(d.getMinutes(),2)}`
+}
+
+function uuidv4() {
+    return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+    );
+}
+
+function compare( a, b ) {
+    if ( a < b ) return -1;
+    if ( a > b ) return 1;
+    return 0;
+}
 

@@ -69,6 +69,7 @@ type ArticleShort struct {
 	Published bool         `json:"published"`
 	Stats     ArticleStats `json:"stats"`
 	Tags      []string     `json:"tags"`
+	CreatedOn time.Time    `json:"created_on"`
 }
 
 type File struct {
@@ -463,6 +464,7 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 				Published: article.Published,
 				Stats:     article.Stats,
 				Tags:      article.Tags,
+				CreatedOn: article.CreatedOn,
 			})
 		})
 
