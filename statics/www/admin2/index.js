@@ -197,7 +197,7 @@ const EditPost = {
         </router-link>
         <div style="padding: 8px 16px;">
           <a 
-            v-if="article !== null"
+            v-if="article !== null && article.published"
             class="btn btn-inv"
             :href="'/user/'+$user.nick+'/article/'+article.url" 
             target="_blank"
