@@ -554,12 +554,19 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 			}
 		}
 
+		oldTitle := article.Title
+
 		err = json.NewDecoder(r.Body).Decode(&article.ArticleUserFields)
 		if err != nil {
 			log.Println("patch article: json decode:", err.Error())
 			return JSON{
 				"error": "could not read JSON",
 			}
+		}
+
+		// If title has changed, update slug
+		if oldTitle != article.Title {
+			article.Url = Slug(article.Title)
 		}
 
 		contentHtml, err := editorjs2HTML(article.Content.Data)
@@ -909,6 +916,7 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 func Slug(s string) string {
 	s = strings.ToLower(s)
 	s = strings.ReplaceAll(s, " ", "-")
+	s = strings.ReplaceAll(s, ":", "-")
 
 	return s
 }

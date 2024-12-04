@@ -139,7 +139,7 @@ const ListPosts = {
             const id = uuidv4();
             const body = {
                 "id": id,
-                "title": "New article",
+                "title": "",
             };
             let that = this;
             fetch('/v1/articles', {method: 'POST', body: JSON.stringify(body), headers: fakeHeaders})
@@ -164,10 +164,17 @@ const EditPost = {
     template: `
     <div id="page-edit-post">
       <div
-        style="background: black; color: white; overflow: hidden; position: fixed; top: 0; right: 0; left: 0;"
+        style="background: black; color: white; overflow: hidden; position: fixed; top: 0; right: 0; left: 0; z-index: 9;"
       >
-        <div style="float: right; padding: 8px 16px;">
-          <button class="btn btn-inv" :class="{'btn-grad': saving}">
+        <div
+          v-if="article !== null" 
+          style="float: right; padding: 8px 16px;"
+        >
+          <button
+            class="btn btn-inv"
+            :class="{'btn-grad': saving}"
+            @click="save()"
+          >
             <span v-if="saving == 0 && article.published">Guardar</span>
             <span v-else-if="saving == 0">Guardar como borrador</span>
             <span v-else-if="article.published">Guardando...</span>
@@ -188,8 +195,14 @@ const EditPost = {
         >
           GoPress
         </router-link>
-        <div style="padding: 16px;">
-          {{ $user.nick }}      
+        <div style="padding: 8px 16px;">
+          <a 
+            v-if="article !== null"
+            class="btn btn-inv"
+            :href="'/user/'+$user.nick+'/article/'+article.url" 
+            target="_blank"
+            style="font-size: 13px;"
+          >Ver artículo</a>      
         </div>
       </div>
       
@@ -214,6 +227,18 @@ const EditPost = {
     </div>`,
     created() {
         this.fetchArticle();
+    },
+    mounted() {
+        window.addEventListener('keydown', this.handleKeydown);
+    },
+    beforeUnmount() {
+        // Desregistrar el listener de teclado
+        window.removeEventListener('keydown', this.handleKeydown);
+
+        // TODO: Destruir la instancia de Editor.js si es necesario
+        if (this.editor) {
+            this.editor.destroy();
+        }
     },
     methods: {
         fetchArticle() {
@@ -247,8 +272,12 @@ const EditPost = {
             this.saving++;
             let that = this;
             fetch('/v1/articles/'+encodeURIComponent(this.article.id), {method: 'PATCH', body: JSON.stringify(params), headers: fakeHeaders})
+                .then(resp => resp.json())
+                .then(async article => {
+                    that.article.url = article.url;
+                })
                 .finally(async () => {
-                    await sleep(1500);
+                    await sleep(500);
                     that.saving--;
                 })
         },
@@ -282,6 +311,12 @@ const EditPost = {
                 .catch((error) => {
                     console.error('Saving error', error);
                 });
+        },
+        handleKeydown(event) {
+            if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+                event.preventDefault(); // Previene el comportamiento predeterminado
+                this.save(); // Llama a la función de guardar
+            }
         },
         printArticle() {
             let that = this;
@@ -423,9 +458,8 @@ const EditPost = {
                 },
                 onChange: function (api, event) {
                     that.save();
-                }
+                },
             });
-
         },
     },
 

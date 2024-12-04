@@ -12,7 +12,7 @@ html, body {
 #page-list-posts .workspace {
   max-width: 900px;
   margin: 0 auto;
-  padding: 80px 0;
+  padding: 80px 20px;
 }
 
 #page-list-posts .list-posts .entry {
@@ -47,7 +47,7 @@ html, body {
 #page-edit-post .workspace {
   max-width: 900px;
   margin: 0 auto;
-  padding: 80px 0;
+  padding: 80px 20px;
 }
 
 
