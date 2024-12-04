@@ -35,11 +35,22 @@ html, body {
   font-size: 20px;
 }
 
+#page-edit-post .workspace .editor-title {
+  box-sizing: border-box;
+  width: 100%;
+  font-weight: bold;
+  font-size: 36px;
+  border: none;
+  outline: none;
+}
+
 #page-edit-post .workspace {
   max-width: 900px;
   margin: 0 auto;
   padding: 80px 0;
 }
+
+
 
 .post-type-filter {
   border-bottom: solid silver 1px;

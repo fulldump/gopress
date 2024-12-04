@@ -60,7 +60,7 @@ const ListPosts = {
       <div class="workspace">
           <div>
             <h2>Entradas</h2>
-            <p>Crea, edita y gestiona las entradas de tu sitio. Más información.</p>
+            <p>Crea, edita y gestiona las entradas de tu sitio.</p>
           </div>
         
           <div class="post-type-filter">
@@ -154,16 +154,33 @@ const ListPosts = {
 
 const EditPost = {
     data() {
-        return {};
+        return {
+            article: null,
+            article_loading: true,
+            saving: 0,
+            publish_loading: false,
+        };
     },
     template: `
     <div id="page-edit-post">
       <div
-        style="background: black; color: white; overflow: hidden;"
+        style="background: black; color: white; overflow: hidden; position: fixed; top: 0; right: 0; left: 0;"
       >
         <div style="float: right; padding: 8px 16px;">
-          <button class="btn btn-inv">Guardar como borrador</button>&nbsp;
-          <button class="btn btn-grad">Publicar</button>
+          <button class="btn btn-inv" :class="{'btn-grad': saving}">
+            <span v-if="saving == 0 && article.published">Guardar</span>
+            <span v-else-if="saving == 0">Guardar como borrador</span>
+            <span v-else-if="article.published">Guardando...</span>
+            <span v-else>Guardando como borrador...</span>
+          </button>&nbsp;
+          <button
+              v-if="!article.published" 
+              class="btn btn-grad"
+              @click="publishArticle()"
+          >
+            <span v-if="publish_loading">Publicando...</span>
+            <span v-else>Publicar</span>
+          </button>
         </div>
         <router-link 
           :to="{ name: 'home' }"
@@ -175,16 +192,241 @@ const EditPost = {
           {{ $user.nick }}      
         </div>
       </div>
-    
-      <div class="workspace">
-            sdfafd
+      
+      <div class="loader" v-if="article_loading" style="padding: 80px 0;">Cargando artículo...</div>
+      <div class="workspace" v-if="!article_loading">
+          <div
+            style="max-width: 650px; margin: 0 auto; padding-bottom: 50px; padding-top: 30px;"
+          >          
+              <input
+                class="editor-title"
+                type="text"
+                placeholder="Añadir título"
+                v-model="article.title"
+                @keypress.enter="patchArticle({title: article.title})"
+                @focusout="patchArticle({title: article.title})"
+              >
+          </div>
+          <div id="editorjs"></div>
       </div>
 
 
     </div>`,
     created() {
+        this.fetchArticle();
     },
     methods: {
+        fetchArticle() {
+            let that = this;
+            that.article_loading = true;
+            let id = this.$route.params.post_id;
+            return fetch('/v1/articles/'+encodeURIComponent(id), {headers: fakeHeaders})
+                .then(resp => resp.json())
+                .then(async article => {
+                    // if (!article.tags) article.tags = [];
+                    // article._tags = article.tags.join(", ")
+                    that.article = article;
+                    await sleep(500);
+                    that.article_loading = false;
+                    that.printArticle();
+                })
+                .catch(function () {
+                    that.article_loading = false;
+                });
+        },
+        patchArticle(params) {
+            // todo: spinner saving
+
+            // if (params.tags) {
+            //     params.tags = this.selected._tags.split(",")
+            //         .map(tag => tag.trim()) // todo: normalize case?
+            //         .filter(tag => tag.length > 0)
+            //         .sort(); // todo: sort by tag?
+            // }
+
+            this.saving++;
+            let that = this;
+            fetch('/v1/articles/'+encodeURIComponent(this.article.id), {method: 'PATCH', body: JSON.stringify(params), headers: fakeHeaders})
+                .finally(async () => {
+                    await sleep(1500);
+                    that.saving--;
+                })
+        },
+        publishArticle() {
+            if (!confirm("Are you sure to publish this article?")) return;
+            let that = this;
+            that.publish_loading = true;
+            fetch('/v1/articles/'+encodeURIComponent(this.article.id)+"/publish", {method: 'POST', headers: fakeHeaders})
+                .then(resp => resp.json())
+                .then(async article => {
+                    await sleep(2000);
+                    that.article.published = true;
+                    that.publish_loading = false;
+                });
+        },
+        unpublishArticle() {
+            if (!confirm("Are you sure to UNpublish this article?")) return;
+            let that = this;
+            fetch('/v1/articles/'+encodeURIComponent(this.article.id)+"/unpublish", {method: 'POST', headers: fakeHeaders})
+                .then(resp => resp.json())
+                .then(article => {
+                    that.article.published = false;
+                });
+        },
+        save() {
+            let that = this;
+            this.editor.save()
+                .then((savedData) => {
+                    that.patchArticle({content: {type:"editorjs", data:savedData}})
+                })
+                .catch((error) => {
+                    console.error('Saving error', error);
+                });
+        },
+        printArticle() {
+            let that = this;
+            this.editor = new EditorJS({
+
+                placeholder: '¡Vamos a escribir una buena historia!',
+                autofocus: true,
+
+                /**
+                 * Enable/Disable the read only mode
+                 */
+                readOnly: false,
+
+                /**
+                 * Wrapper of Editor
+                 */
+                holder: 'editorjs',
+
+                /**
+                 * Common Inline Toolbar settings
+                 * - if true (or not specified), the order from 'tool' property will be used
+                 * - if an array of tool names, this order will be used
+                 */
+                // inlineToolbar: ['link', 'marker', 'bold', 'italic'],
+                // inlineToolbar: true,
+
+                /**
+                 * Tools list
+                 */
+                tools: {
+                    /**
+                     * Each Tool is a Plugin. Pass them via 'class' option with necessary settings {@link docs/tools.md}
+                     */
+                    header: {
+                        class: Header,
+                        inlineToolbar: ['marker', 'link'],
+                        config: {
+                            placeholder: 'Header'
+                        },
+                        shortcut: 'CMD+SHIFT+H'
+                    },
+
+                    /**
+                     * Or pass class directly without any configuration
+                     */
+                    image: SimpleImage,
+
+                    list: {
+                        class: EditorjsList,
+                        inlineToolbar: true,
+                        shortcut: 'CMD+SHIFT+L'
+                    },
+
+                    checklist: {
+                        class: Checklist,
+                        inlineToolbar: true,
+                    },
+
+                    quote: {
+                        class: Quote,
+                        inlineToolbar: true,
+                        config: {
+                            quotePlaceholder: 'Enter a quote',
+                            captionPlaceholder: 'Quote\'s author',
+                        },
+                        shortcut: 'CMD+SHIFT+O'
+                    },
+
+                    warning: Warning,
+
+                    marker: {
+                        class: Marker,
+                        shortcut: 'CMD+SHIFT+M'
+                    },
+
+                    code: {
+                        class: CodeTool,
+                        shortcut: 'CMD+SHIFT+C'
+                    },
+
+                    delimiter: Delimiter,
+
+                    inlineCode: {
+                        class: InlineCode,
+                        shortcut: 'CMD+SHIFT+C'
+                    },
+
+                    linkTool: {
+                        class: LinkTool,
+                        config: {
+                            endpoint: '/editor/helperFetchUrl', // Your backend endpoint for url data fetching,
+                            headers: fakeHeaders,
+                        }
+                    },
+
+                    embed: Embed,
+
+                    table: {
+                        class: Table,
+                        inlineToolbar: true,
+                        shortcut: 'CMD+ALT+T'
+                    },
+
+                    raw: RawTool,
+
+                    underline: Underline,
+
+                    image: {
+                        class: ImageTool,
+                        config: {
+                            endpoints: {
+                                byFile: '/v1/files', // Your backend file uploader endpoint
+                                byUrl: 'http://localhost:9955/fetchUrl', // Your endpoint that provides uploading by Url
+                            },
+                            additionalRequestHeaders: fakeHeaders,
+                        }
+                    },
+
+                    attaches: {
+                        class: AttachesTool,
+                        config: {
+                            endpoint: '/v1/files',
+                            additionalRequestHeaders: fakeHeaders,
+                        }
+                    },
+
+                },
+
+                /**
+                 * This Tool will be used as default
+                 */
+                // defaultBlock: 'paragraph',
+
+                /**
+                 * Initial Editor data
+                 */
+                data: that.article.content.data,
+                onReady: function () {
+                },
+                onChange: function (api, event) {
+                    that.save();
+                }
+            });
+
+        },
     },
 
 };
@@ -289,3 +531,5 @@ function compare( a, b ) {
     return 0;
 }
 
+const sleep = (ms) =>
+    new Promise(resolve => setTimeout(resolve, ms));
