@@ -19,6 +19,8 @@ func BuildV1Collection(v1 *box.R, s service.Servicer) *box.R {
 		WithActions(
 			box.Get(getCollection),
 			box.ActionPost(insert),
+			box.ActionPost(insertStream),     // todo: experimental!!
+			box.ActionPost(insertFullduplex), // todo: experimental!!
 			box.ActionPost(find),
 			box.ActionPost(remove),
 			box.ActionPost(patch),
@@ -28,6 +30,7 @@ func BuildV1Collection(v1 *box.R, s service.Servicer) *box.R {
 			box.ActionPost(dropIndex),
 			box.ActionPost(getIndex),
 			box.ActionPost(size),
+			box.ActionPost(setDefaults),
 		)
 
 	return collections

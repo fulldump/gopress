@@ -20,6 +20,13 @@ func dropIndex(ctx context.Context, w http.ResponseWriter, input *dropIndexReque
 	col, err := s.GetCollection(collectionName)
 	if err == service.ErrorCollectionNotFound {
 		col, err = s.CreateCollection(collectionName)
+		if err != nil {
+			return err // todo: handle/wrap this properly
+		}
+		err = col.SetDefaults(newCollectionDefaults())
+		if err != nil {
+			return err // todo: handle/wrap this properly
+		}
 	}
 	if err != nil {
 		return err // todo: handle/wrap this properly
