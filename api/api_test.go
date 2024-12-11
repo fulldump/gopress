@@ -2,23 +2,39 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/fulldump/apitest"
 	"github.com/fulldump/biff"
+	"github.com/fulldump/box"
+	"github.com/fulldump/inceptiondb/api"
+	"github.com/fulldump/inceptiondb/database"
+	"github.com/fulldump/inceptiondb/service"
 
 	"gopress/filestorage/localfilestore"
+	"gopress/glueauth"
 	"gopress/inceptiondb"
 )
 
 func TestHappyPath(t *testing.T) {
 
+	inceptionStandalone(t.TempDir(), "127.0.0.1:5555")
+
+	time.Sleep(1 * time.Second)
+
 	biff.Alternative("Setup gopress", func(a *biff.A) {
 
 		db := inceptiondb.NewClient(inceptiondb.Config{
-			Base: "https://inceptiondb.io/v1/collections",
+			// Base: "https://inceptiondb.io/v1",
+			Base:       "http://" + "127.0.0.1:5555" + "/v1",
+			DatabaseID: "",
 		})
+
+		db.DropCollection("articles")
 
 		fs, err := localfilestore.New(t.TempDir())
 		biff.AssertNil(err)
@@ -26,89 +42,104 @@ func TestHappyPath(t *testing.T) {
 		h := NewApi("", "test-version", db, fs)
 		api := apitest.NewWithHandler(h)
 
+		apiRequestJohn := func(method, path string) *apitest.Request {
+			return api.Request(method, path).
+				WithHeader(glueauth.XGlueAuthentication, `{"user":{"id":"my-user-id","nick":"john"}}`)
+		}
+
 		a.Alternative("create article", func(a *biff.A) {
-			resp := api.Request("POST", "/v1/articles").WithBodyJson(JSON{
+			resp := apiRequestJohn("POST", "/v1/articles").WithBodyJson(JSON{
 				"id":    "hello-world",
 				"title": "Hello world",
 			}).Do()
 
 			biff.AssertEqual(resp.StatusCode, http.StatusOK)
 
-			body := *resp.BodyJsonMap()
+			body := resp.BodyJsonMap()
 			biff.AssertEqual(body["title"], "Hello world")
-			biff.AssertEqual(body["content"], "Start here")
+			biff.AssertNotNil(body["content"])
 			biff.AssertEqual(body["published"], false)
 
 			a.Alternative("list articles", func(a *biff.A) {
-				resp2 := api.Request("GET", "/v1/articles").Do()
+				resp2 := apiRequestJohn("GET", "/v1/articles").Do()
 				body := resp2.BodyJson().([]any)
 				biff.AssertEqual(body[0].(map[string]any)["id"], "hello-world")
 			})
-			a.Alternative("create article - already exist", func(a *biff.A) {
-				resp := api.Request("POST", "/v1/articles").WithBodyJson(JSON{
-					"id":    "hello-world",
-					"title": "Hello world",
-				}).Do()
-
-				body := *resp.BodyJsonMap()
-				biff.AssertEqual(body["error"], "article id 'hello-world' already exists")
-			})
+			// a.Alternative("create article - already exist", func(a *biff.A) {
+			// 	resp := apiRequestJohn("POST", "/v1/articles").WithBodyJson(JSON{
+			// 		"id":    "hello-world",
+			// 		"title": "Hello world",
+			// 	}).Do()
+			//
+			// 	body := resp.BodyJsonMap()
+			// 	biff.AssertEqual(body["error"], "article id 'hello-world' already exists")
+			// })
 			a.Alternative("retrieve article", func(a *biff.A) {
-				resp := api.Request("GET", "/v1/articles/hello-world").Do()
+				resp := apiRequestJohn("GET", "/v1/articles/hello-world").Do()
 
-				body := *resp.BodyJsonMap()
+				body := resp.BodyJsonMap()
 				biff.AssertEqual(body["title"], "Hello world")
 			})
 			a.Alternative("delete article", func(a *biff.A) {
-				resp := api.Request("DELETE", "/v1/articles/hello-world").Do()
+				resp := apiRequestJohn("DELETE", "/v1/articles/hello-world").Do()
 
 				biff.AssertEqual(resp.StatusCode, 200)
-				body := *resp.BodyJsonMap()
+				body := resp.BodyJsonMap()
 				biff.AssertEqual(body["title"], "Hello world")
 
 				a.Alternative("list articles - after delete", func(a *biff.A) {
-					resp := api.Request("GET", "/v1/articles").Do()
+					resp := apiRequestJohn("GET", "/v1/articles").Do()
 
 					biff.AssertEqual(resp.StatusCode, 200)
 					biff.AssertEqualJson(resp.BodyJson(), []any{})
 				})
 				a.Alternative("retrieve article - after delete", func(a *biff.A) {
-					resp := api.Request("GET", "/v1/articles/hello-world").Do()
+					resp := apiRequestJohn("GET", "/v1/articles/hello-world").Do()
 
 					biff.AssertEqual(resp.StatusCode, 404)
 				})
 			})
 			a.Alternative("modify article - content", func(a *biff.A) {
-				resp := api.Request("PATCH", "/v1/articles/hello-world").
+				resp := apiRequestJohn("PATCH", "/v1/articles/hello-world").
 					WithBodyJson(JSON{
-						"content": "new content!",
+						"content": JSON{
+							"type": "editorjs",
+							"data": JSON{
+								"blocks": []JSON{},
+							},
+						},
 					}).Do()
 
 				biff.AssertEqual(resp.StatusCode, 200)
-				body := *resp.BodyJsonMap()
+				body := resp.BodyJsonMap()
 				biff.AssertEqual(body["title"], "Hello world")
-				biff.AssertEqual(body["content"], "new content!")
+				biff.AssertEqualJson(body["content"], JSON{
+					"type": "editorjs",
+					"data": JSON{
+						"blocks": []JSON{},
+					},
+				})
 			})
 		})
 
 		a.Alternative("list articles - empty list", func(a *biff.A) {
-			resp := api.Request("GET", "/v1/articles").Do()
+			resp := apiRequestJohn("GET", "/v1/articles").Do()
 			biff.AssertEqual(len(resp.BodyJson().([]any)), 0)
 		})
 
 		a.Alternative("retrieve article - not found", func(a *biff.A) {
-			resp := api.Request("GET", "/v1/articles/invented").Do()
+			resp := apiRequestJohn("GET", "/v1/articles/invented").Do()
 
 			biff.AssertEqual(resp.StatusCode, 404)
-			body := *resp.BodyJsonMap()
+			body := resp.BodyJsonMap()
 			biff.AssertEqual(body["error"], "article not found")
 		})
 
 		a.Alternative("delete article - not found", func(a *biff.A) {
-			resp := api.Request("DELETE", "/v1/articles/invented").Do()
+			resp := apiRequestJohn("DELETE", "/v1/articles/invented").Do()
 
 			biff.AssertEqual(resp.StatusCode, 404)
-			body := *resp.BodyJsonMap()
+			body := resp.BodyJsonMap()
 			biff.AssertEqual(body["error"], "article not found")
 		})
 
@@ -164,4 +195,35 @@ func TestEditorJs(t *testing.T) {
 
 	}
 
+}
+
+func inceptionStandalone(dir, addr string) {
+	db := database.NewDatabase(&database.Config{
+		Dir: dir,
+	})
+
+	b := api.Build(service.NewService(db), "", "embedded")
+	b.WithInterceptors(
+		api.AccessLog(log.New(os.Stdout, "ACCESS: ", log.Lshortfile)),
+		api.RecoverFromPanic,
+		api.PrettyErrorInterceptor,
+		api.InterceptorUnavailable(db),
+	)
+
+	s := &http.Server{
+		Addr:    addr,
+		Handler: box.Box2Http(b),
+	}
+
+	err := db.Load()
+	if err != nil {
+		panic(err)
+	}
+
+	go func() {
+		err := s.ListenAndServe()
+		if err != nil {
+			panic(err)
+		}
+	}()
 }

@@ -89,6 +89,25 @@ func (c *Client) CreateCollection(name string) error {
 	return ErrorUnexpected
 }
 
+func (c *Client) DropCollection(name string) error {
+	endpoint := c.config.Base + "/collections/" + url.PathEscape(name) + ":dropCollection"
+
+	req, err := http.NewRequest("POST", endpoint, nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Api-Key", c.config.ApiKey)
+	req.Header.Set("Api-Secret", c.config.ApiSecret)
+
+	_, err = c.HttpClient.Do(req)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (c *Client) EnsureCollection(name string) error {
 
 	c.CreateCollection(name)
