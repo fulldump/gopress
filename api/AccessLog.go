@@ -17,7 +17,17 @@ func AccessLog(next box.H) box.H {
 			actionName = action.Name
 		}
 
-		log.Println(r.Method, r.URL.String(), actionName)
+		ip := r.Header.Get("X-Forwarded-For")
+		if ip == "" {
+			ip = r.RemoteAddr
+		}
+
+		host := r.Header.Get("X-Forwarded-Host")
+		if host == "" {
+			host = r.Host
+		}
+
+		log.Println(r.Method, r.URL.String(), actionName, ip, host, r.Header.Get("User-Agent"))
 		next(ctx)
 	}
 }

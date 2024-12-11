@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/fulldump/apitest"
 	"github.com/fulldump/biff"
@@ -23,8 +22,6 @@ import (
 func TestHappyPath(t *testing.T) {
 
 	inceptionStandalone(t.TempDir(), "127.0.0.1:5555")
-
-	time.Sleep(1 * time.Second)
 
 	biff.Alternative("Setup gopress", func(a *biff.A) {
 
