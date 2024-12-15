@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"sort"
@@ -30,6 +31,9 @@ func RenderUserTag(w http.ResponseWriter, ctx context.Context) error {
 	}
 	list := []*Article{}
 	GetInceptionClient(ctx).FindAll("articles", params, func(article *Article) {
+		if article.ContentSummary == "" {
+			article.ContentSummary = template.HTML(HtmlSummary(string(article.ContentHTML), 50))
+		}
 		list = append(list, article)
 		userNick = article.AuthorNick
 	}) // todo: handle error properly

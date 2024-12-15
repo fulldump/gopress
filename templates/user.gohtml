@@ -3,7 +3,7 @@
 <head>
     <title>{{ .userNick }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="/styles/basic.css">
+    <link rel="stylesheet" href="/styles/basic.css?v=2">
 </head>
 <body>
 
@@ -30,28 +30,24 @@
         {{ end }}
 
         {{ range $i, $article := .articles  }}
-
             <article class="list">
-                <h2 style="margin-bottom: 0;"><a href="/user/{{ .AuthorNick }}/article/{{ .Url }}">{{ .Title }}</a></h2>
-                <div class="details">
+                <h2 style="margin-bottom: 0;">
                     {{ if .AuthorPicture }}
-                        <img class="avatar" src="{{ .AuthorPicture }}" alt="Author picture">
+                        <a href="/user/{{ .AuthorNick }}"><img class="avatar" src="{{ .AuthorPicture }}" alt="Author picture"></a>
                     {{ end }}
-                    <div>Published on {{ .PublishOn }}</div>
-                    <div>Created by <a href="/user/{{ .AuthorNick }}">{{ .AuthorNick }}</a></div>
-                    {{ if .Tags }}
-                        <div>
-                            {{ range $j, $tag := .Tags }}
-                                <a class="tag" href="/user/{{ $article.AuthorNick }}/tag/{{ $tag }}">{{ $tag }}</a>
-                            {{ end }}
-                        </div>
-                    {{ end }}
-                    <div>Views {{ .Stats.Views }}</div>
+                    <a href="/user/{{ .AuthorNick }}/article/{{ .Url }}">{{ .Title }}</a>
+                </h2>
+                <div class="details">
+                    <span>Por <a href="/user/{{ .AuthorNick }}">{{ .AuthorNick }}</a></span>
+                    /
+                    <span>{{ .Stats.Views }} views</span>
+                    /
+                    <span alt="{{ .PublishOn }}">{{ .PublishOn.Format "2006-01-02" }}</span>
                 </div>
+                {{ .ContentSummary }}
+                <a href="/user/{{ .AuthorNick }}/article/{{ .Url }}">Seguir leyendo</a>
             </article>
-
         {{ end }}
-
 
         <div class="footer">
             Gopress es software libre hecho con mucho ❤️ colabora en

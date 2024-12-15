@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"sort"
@@ -28,6 +29,9 @@ func RenderUser(w http.ResponseWriter, ctx context.Context) error {
 	}
 	list := []*Article{}
 	GetInceptionClient(ctx).FindAll("articles", params, func(article *Article) {
+		if article.ContentSummary == "" {
+			article.ContentSummary = template.HTML(HtmlSummary(string(article.ContentHTML), 50))
+		}
 		list = append(list, article)
 	}) // todo: handle error properly
 	if len(list) == 0 {

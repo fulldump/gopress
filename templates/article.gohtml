@@ -3,16 +3,14 @@
 <head>
     <title>{{ .article.Title }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="/styles/basic.css">
+    <link rel="stylesheet" href="/styles/basic.css?v=2">
 
     <meta property="og:title" content="{{ .og_title }}" />
     <meta property="og:url" content="{{ .og_url }}" />
     <meta property="og:image" content="{{ .og_image }}" />
     <meta property="og:site_name" content="GoPress, blogs para todos" />
     <meta property="og:description" content="{{ .og_description }}" />
-
     <meta name="twitter:card" content="summary" />
-
 </head>
 <body>
 
@@ -35,18 +33,20 @@
             <h1>{{ .article.Title }}</h1>
             <div class="details">
                 {{ if .article.AuthorPicture }}
-                    <img class="avatar" src="{{ .article.AuthorPicture }}" alt="Author picture">
+                <a href="/user/{{ .article.AuthorNick }}"><img class="avatar" src="{{ .article.AuthorPicture }}" alt="Author picture"></a>
                 {{ end }}
-                <div>Published on {{ .article.PublishOn }}</div>
-                <div>Created by <a href="/user/{{ .article.AuthorNick }}">{{ .article.AuthorNick }}</a></div>
+                <span>Por <a href="/user/{{ .article.AuthorNick }}">{{ .article.AuthorNick }}</a></span>
+                /
+                <span>{{ .article.Stats.Views }} views</span>
+                /
+                <span alt="{{ .article.PublishOn }}">{{ .article.PublishOn.Format "2006-01-02" }}</span>
                 {{ if .article.Tags }}
-                    <div>
+                    <div class="tags">
                         {{ range $j, $tag := .article.Tags }}
                             <a class="tag" href="/user/{{ $.article.AuthorNick }}/tag/{{ $tag }}">{{ $tag }}</a>
                         {{ end }}
                     </div>
                 {{ end }}
-                <div>Views {{ .article.Stats.Views }}</div>
             </div>
             <div>{{ .article.ContentHTML }}</div>
         </article>

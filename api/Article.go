@@ -28,11 +28,12 @@ type ArticleStats struct {
 }
 
 type ArticleUserFields struct {
-	Url         string        `json:"url"`
-	Title       string        `json:"title"`
-	Content     Content       `json:"content"`
-	ContentHTML template.HTML `json:"content_html"` // it works like a cache
-	Tags        []string      `json:"tags"`
+	Url            string        `json:"url"`
+	Title          string        `json:"title"`
+	Content        Content       `json:"content"`
+	ContentHTML    template.HTML `json:"content_html"`    // it works like a cache
+	ContentSummary template.HTML `json:"content_summary"` // it works like a cache for the summary
+	Tags           []string      `json:"tags"`
 }
 
 type Content struct {

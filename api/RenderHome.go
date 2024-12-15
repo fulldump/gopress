@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"html/template"
 	"log"
 	"net/http"
 	"sort"
@@ -23,6 +24,9 @@ func RenderHome(ctx context.Context, w http.ResponseWriter) {
 
 	list := []*Article{}
 	GetInceptionClient(ctx).FindAll("articles", query, func(article *Article) {
+		if article.ContentSummary == "" {
+			article.ContentSummary = template.HTML(HtmlSummary(string(article.ContentHTML), 50))
+		}
 		list = append(list, article)
 	}) // todo: handle error properly
 

@@ -10,6 +10,10 @@ a:hover {
   text-decoration: underline;
 }
 
+#login, #logout {
+  font-family: sans-serif;
+}
+
 .logo {
   font-size: 250%;
   font-weight: bold;
@@ -32,19 +36,19 @@ a:hover {
   transition: all 0.3s ease-in;
 }
 
-.tag {
-  color: deepskyblue;
-  background-color: white;
-  border: solid 1px;
-  padding: 0 8px;
-  border-radius: 4px;
-  text-decoration: none !important;
+.tags {
+  padding: 8px;
 }
 
-.tag:hover {
-  color: white;
-  background-color: deepskyblue;
-  border-color: deepskyblue;
+.tag {
+  padding: 4px 8px;
+  text-decoration: none !important;
+  text-transform: uppercase;
+  border-left: 0px solid silver;
+}
+
+.tag:first-child {
+  border-left: none;
 }
 
 .workspace {
@@ -55,6 +59,15 @@ a:hover {
 
 .workspace > h1 {
   margin: 0;
+}
+
+.avatar {
+  display: inline-block;
+  height: 48px;
+  width: 48px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
 }
 
 article code.code-block {
@@ -97,6 +110,7 @@ article h1 {
   padding-top: 16px;
   padding-bottom: 40px;
   margin-bottom: 0;
+  text-align: center;
 
   position: sticky;
   top: 0;
@@ -130,31 +144,38 @@ article h3 {
 
 article.list {
   max-width: 600px;
+  line-height: 150%;
+  margin: 0 auto;
 }
 
 article.list h2 a {
   color: #333;
 }
 
-article.list .details {
-  color: #444;
+.details {
+  font-family: sans-serif;
+  color: gray;
+  padding: 16px;
+  text-align: center;
 }
 
-.details {
-  color: black;
-  font-size: 90%;
-  padding: 8px 0;
+.details a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.details a:hover {
+  color: deepskyblue;
 }
 
 .details .avatar {
-  display: inline-block;
-  height: 48px;
-  width: 48px;
-  border-radius: 50%;
-  float: left;
-  margin-right: 8px;
-  margin-bottom: 24px;
+  margin-left: -56px;
 }
+
+.details .tags {
+
+}
+
 
 /* Editor style */
 .inline-code {
@@ -278,4 +299,32 @@ figure.warning blockquote {
 
 .footer a:hover {
   color: dodgerblue;
+}
+
+@media (prefers-color-scheme: dark) {
+  html, body {
+    background: #1b1b1b;
+    color: white;
+  }
+
+  .logo a {
+    color: deepskyblue;
+  }
+
+  .logo {
+    text-decoration-color: white;
+  }
+
+  details {
+    color: #444;
+  }
+
+  article h1 {
+    background: #1b1b1b;
+    background: linear-gradient(180deg, rgba(27, 27, 27, 1) 0%, rgba(27, 27, 27, 1) 65%, rgba(27, 27, 27, 0.0) 100%);
+  }
+
+  article.list h2 a {
+    color: white;
+  }
 }
