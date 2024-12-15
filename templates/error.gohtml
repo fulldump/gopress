@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <title>GoPress - Error {{ .error.Status }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/styles/basic.css">
+    <meta name="robots" content="noindex,nofollow">
+</head>
+<body>
+
+<div class="workspace">
+
+    <div style="float: right;">
+        <div id="login">
+            <a href="/auth/login">Login</a>
+        </div>
+        <div id="logout" style="display:none; text-align: right;">
+            <img id="user_picture" src="" style="border-radius: 50%; height: 32px; vertical-align: middle;">
+            <span id="user_nick" style="font-weight: bold;"></span><br>
+            <a href="/admin/">Admin</a> | <a href="/auth/logout">Logout</a>
+        </div>
+    </div>
+
+    <div class="logo"><a href="/">GoPress.org</a></div>
+
+    <article>
+        <h1>Error {{ .error.Status }}: {{ .error.Title }}</h1>
+        <div class="details">
+            {{ .error.Description }}
+        </div>
+    </article>
+
+    <div class="footer">
+        Gopress es software libre hecho con mucho ❤️ colabora en
+        <a href="https://github.com/fulldump/gopress">
+            <img class="icon" src="https://github.githubassets.com/favicons/favicon.png" alt="GitHub">
+            GitHub
+        </a>.
+        <br>
+        <a href="https://www.twitch.tv/fulldump">
+            <img class="icon" src="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png" alt="Twitch">
+            twitch.tv/fulldump
+        </a>
+        <a href="https://www.youtube.com/watch?v=xweWe4ve8vE&list=PLMPsqnO6mKSA3iQzqaRIi_1qVONlQN8ap&index=1">
+            <img class="icon" src="https://www.youtube.com/s/desktop/286e6262/img/favicon_32x32.png" alt="YouTube">
+            youtube.com/@fulldump
+        </a>
+    </div>
+
+</div>
+
+<script>
+    function id(s) {
+        return document.getElementById(s);
+    }
+
+    fetch('/auth/me').then(resp => resp.json()).then(me => {
+        if (me.error) return;
+        id('login').style.display = 'none';
+        id('logout').style.display = 'block';
+        id('user_picture').setAttribute('src', me.picture);
+        id('user_nick').innerText = me.nick;
+    })
+</script>
+
+</body>
+</html>

@@ -2,7 +2,7 @@ package api
 
 import (
 	"context"
-	"html/template"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -11,9 +11,10 @@ import (
 	"github.com/fulldump/box"
 
 	"gopress/inceptiondb"
+	"gopress/templates"
 )
 
-func RenderArticle(w http.ResponseWriter, ctx context.Context) {
+func RenderArticle(w http.ResponseWriter, ctx context.Context) error {
 
 	userNick := box.GetUrlParameter(ctx, "userNick")
 	articleUrl := box.GetUrlParameter(ctx, "articleUrl")
@@ -31,10 +32,11 @@ func RenderArticle(w http.ResponseWriter, ctx context.Context) {
 		Filter: filter,
 	}, article)
 	if err != nil {
-		log.Println("render article: db find:", err.Error())
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("Article not found"))
-		return
+		return HttpError{
+			Status:      http.StatusNotFound,
+			Title:       "Article Not Found",
+			Description: "Article was not found",
+		}
 	}
 
 	// TODO: preprocess html tags to remove
@@ -58,8 +60,7 @@ func RenderArticle(w http.ResponseWriter, ctx context.Context) {
 		description = content[0:max_description] + "..."
 	}
 
-	t := box.GetBoxContext(ctx).Action.GetAttribute("template").(*template.Template)
-	err = t.ExecuteTemplate(w, "", map[string]any{
+	err = templates.GetByName(ctx, "article").ExecuteTemplate(w, "", map[string]any{
 		"article": article,
 
 		"og_title":       title,
@@ -69,8 +70,7 @@ func RenderArticle(w http.ResponseWriter, ctx context.Context) {
 	})
 
 	if err != nil {
-		log.Println("Error rendering home:", err.Error())
-		return
+		return fmt.Errorf("error rendering template: %w", err)
 	}
 
 	go func() {
@@ -90,4 +90,5 @@ func RenderArticle(w http.ResponseWriter, ctx context.Context) {
 		})
 	}()
 
+	return nil
 }

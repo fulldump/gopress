@@ -2,7 +2,7 @@ package api
 
 import (
 	"context"
-	"html/template"
+	"fmt"
 	"log"
 	"net/http"
 	"sort"
@@ -10,9 +10,10 @@ import (
 	"github.com/fulldump/box"
 
 	"gopress/inceptiondb"
+	"gopress/templates"
 )
 
-func RenderTag(w http.ResponseWriter, ctx context.Context) {
+func RenderTag(w http.ResponseWriter, ctx context.Context) error {
 	// todo: limit page size to 10
 	// todo: sort by date DESC
 
@@ -30,17 +31,18 @@ func RenderTag(w http.ResponseWriter, ctx context.Context) {
 		list = append(list, article)
 	}) // todo: handle error properly
 	if len(list) == 0 {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("Tag not found"))
-		return
+		return HttpError{
+			Status:      http.StatusNotFound,
+			Title:       "Tag Not Found",
+			Description: fmt.Sprintf("El tag '%s' todavía no existe", tag),
+		}
 	}
 
 	sort.Slice(list, func(i, j int) bool {
 		return list[i].PublishOn.Unix() > list[j].PublishOn.Unix()
 	})
 
-	t := box.GetBoxContext(ctx).Action.GetAttribute("template").(*template.Template)
-	err := t.ExecuteTemplate(w, "", map[string]any{
+	err := templates.GetByName(ctx, "tag").ExecuteTemplate(w, "", map[string]any{
 		"tag":      tag,
 		"articles": list,
 	})
@@ -48,4 +50,6 @@ func RenderTag(w http.ResponseWriter, ctx context.Context) {
 	if err != nil {
 		log.Println("Error rendering home:", err.Error())
 	}
+
+	return nil
 }

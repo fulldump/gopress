@@ -2,14 +2,12 @@ package api
 
 import (
 	"context"
-	"html/template"
 	"log"
 	"net/http"
 	"sort"
 
-	"github.com/fulldump/box"
-
 	"gopress/inceptiondb"
+	"gopress/templates"
 )
 
 func RenderHome(ctx context.Context, w http.ResponseWriter) {
@@ -32,8 +30,7 @@ func RenderHome(ctx context.Context, w http.ResponseWriter) {
 		return list[i].PublishOn.Unix() > list[j].PublishOn.Unix()
 	})
 
-	t := box.GetBoxContext(ctx).Action.GetAttribute("template").(*template.Template)
-	err := t.ExecuteTemplate(w, "", map[string]any{
+	err := templates.GetByName(ctx, "home").ExecuteTemplate(w, "", map[string]any{
 		"articles": list,
 	})
 

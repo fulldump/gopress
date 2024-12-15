@@ -129,7 +129,11 @@ func TestHappyPath(t *testing.T) {
 
 			biff.AssertEqual(resp.StatusCode, 404)
 			body := resp.BodyJsonMap()
-			biff.AssertEqual(body["error"], "article not found")
+			biff.AssertEqualJson(body["error"], JSON{
+				"status":      500,
+				"title":       "Unexpected error",
+				"description": "article not found",
+			})
 		})
 
 		a.Alternative("delete article - not found", func(a *biff.A) {

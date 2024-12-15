@@ -2,7 +2,7 @@ package api
 
 import (
 	"context"
-	"html/template"
+	"fmt"
 	"log"
 	"net/http"
 	"sort"
@@ -10,9 +10,10 @@ import (
 	"github.com/fulldump/box"
 
 	"gopress/inceptiondb"
+	"gopress/templates"
 )
 
-func RenderUser(w http.ResponseWriter, ctx context.Context) {
+func RenderUser(w http.ResponseWriter, ctx context.Context) error {
 	// todo: limit page size to 10
 	// todo: sort by date DESC
 
@@ -30,22 +31,24 @@ func RenderUser(w http.ResponseWriter, ctx context.Context) {
 		list = append(list, article)
 	}) // todo: handle error properly
 	if len(list) == 0 {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("User not found"))
-		return
+		return HttpError{
+			Status:      http.StatusNotFound,
+			Title:       "Blog Not Found",
+			Description: fmt.Sprintf("El blog '%s' todavía no existe", userNick),
+		}
 	}
 
 	sort.Slice(list, func(i, j int) bool {
 		return list[i].PublishOn.Unix() > list[j].PublishOn.Unix()
 	})
 
-	t := box.GetBoxContext(ctx).Action.GetAttribute("template").(*template.Template)
-	err := t.ExecuteTemplate(w, "", map[string]any{
+	err := templates.GetByName(ctx, "user").ExecuteTemplate(w, "", map[string]any{
 		"userNick": userNick,
 		"articles": list,
 	})
-
 	if err != nil {
 		log.Println("Error rendering home:", err.Error())
 	}
+
+	return nil
 }

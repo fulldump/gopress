@@ -1,9 +1,7 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
-	"html/template"
 	"net/http"
 
 	"github.com/fulldump/box"
@@ -23,74 +21,53 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 	b := box.NewBox()
 
 	b.WithInterceptors(AccessLog)
-	b.WithInterceptors(func(next box.H) box.H {
-		return func(ctx context.Context) {
-			next(ctx)
 
-			err := box.GetError(ctx)
-			if err != nil {
-				json.NewEncoder(box.GetResponse(ctx)).Encode(JSON{
-					"error": err.Error(),
-				})
-			}
-		}
-	})
+	et, err := templates.NewEmbeddedTemplates()
+	if err != nil {
+		panic(err)
+	}
+	b.WithInterceptors(templates.Inject(et))
+
+	b.WithInterceptors(PrettyError)
 	b.WithInterceptors(InjectInceptionClient(db))
 
-	// TODO: move all templates wiring to a helper to manage templates and possibly with an interface abstraction
-
-	templateHome, err := template.New("").Parse(templates.Home)
-	if err != nil {
-		panic(err) // todo: handle this properly
-	}
-	b.Handle("GET", "/", RenderHome).WithAttribute("template", templateHome)
-
-	templateUser, err := template.New("").Parse(templates.User)
-	if err != nil {
-		panic(err) // todo: handle this properly
-	}
-	b.Handle("GET", "/user/{userNick}", RenderUser).WithAttribute("template", templateUser)
-
-	templateArticle, err := template.New("").Parse(templates.Article)
-	if err != nil {
-		panic(err) // todo: handle this properly
-	}
-	b.Handle("GET", "/user/{userNick}/article/{articleUrl}", RenderArticle).WithAttribute("template", templateArticle)
-
-	templateTag, err := template.New("").Parse(templates.Tag)
-	if err != nil {
-		panic(err) // todo: handle this properly
-	}
-	b.Handle("GET", "/tag/{tag}", RenderTag).WithAttribute("template", templateTag)
-
-	b.Handle("GET", "/user/{userNick}/tag/{tag}", RenderUserTag).WithAttribute("template", templateUser)
-
+	// Public endpoints
+	b.Handle("GET", "/", RenderHome)
+	b.Handle("GET", "/user/{userNick}", RenderUser)
+	b.Handle("GET", "/user/{userNick}/article/{articleUrl}", RenderArticle)
+	b.Handle("GET", "/tag/{tag}", RenderTag)
+	b.Handle("GET", "/user/{userNick}/tag/{tag}", RenderUserTag)
 	b.Handle("GET", "/files/{fileId}", GetFile).WithAttribute("filestorager", fs)
-
 	b.Handle("GET", "/sitemap.xml", Sitemap)
-
-	b.Group("/v1").WithInterceptors(glueauth.Require)
-	b.Handle("GET", "/v1/articles", ListArticles)
-	b.Handle("POST", "/v1/articles", CreateArticle)
-	b.Handle("GET", "/v1/articles/{articleId}", GetArticle)
-	b.Handle("PATCH", "/v1/articles/{articleId}", PatchArticle)
-	b.Handle("DELETE", "/v1/articles/{articleId}", DeleteArticle)
-	b.Handle("POST", "/v1/articles/{articleId}/publish", PublishArticle)
-	b.Handle("POST", "/v1/articles/{articleId}/unpublish", UnpublishArticle)
-
-	b.Handle("POST", "/v1/files", UploadFile).WithAttribute("filestorager", fs)
-	b.Handle("GET", "/v1/files", ListFiles)
-	b.Handle("GET", "/v1/files/{{fileId}}", RetrieveFile) // TODO: delete double curly braces
-	b.Handle("DELETE", "/v1/files/{{fileId}}", DeleteFile)
-
-	b.Handle("GET", "/editor/helperFetchUrl", HelperFetchUrl).WithName("helperFetchUrl")
-
-	// version
 	b.Handle("GET", "/version", func() string {
 		return version
 	}).WithName("Version")
 
 	// openapi
+	buildOpenApi(b)
+
+	// API private endpoints
+	v1 := b.Group("/v1").WithInterceptors(glueauth.Require)
+	v1.Handle("GET", "/articles", ListArticles)
+	v1.Handle("POST", "/articles", CreateArticle)
+	v1.Handle("GET", "/articles/{articleId}", GetArticle)
+	v1.Handle("PATCH", "/articles/{articleId}", PatchArticle)
+	v1.Handle("DELETE", "/articles/{articleId}", DeleteArticle)
+	v1.Handle("POST", "/articles/{articleId}/publish", PublishArticle)
+	v1.Handle("POST", "/articles/{articleId}/unpublish", UnpublishArticle)
+	v1.Handle("POST", "/files", UploadFile).WithAttribute("filestorager", fs)
+	v1.Handle("GET", "/files", ListFiles)
+	v1.Handle("GET", "/files/{fileId}", RetrieveFile)
+	v1.Handle("DELETE", "/files/{fileId}", DeleteFile)
+	v1.Handle("GET", "/editor/helperFetchUrl", HelperFetchUrl)
+
+	// Mount statics
+	b.Handle("GET", "/*", statics.ServeStatics(staticsDir)).WithName("serveStatics")
+
+	return b
+}
+
+func buildOpenApi(b *box.B) {
 	spec := boxopenapi.Spec(b)
 	spec.Info.Title = "GoPress"
 	spec.Info.Description = "A free blogging system in go"
@@ -111,9 +88,4 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 		e.SetIndent("", "    ")
 		e.Encode(spec)
 	}).WithName("OpenApi")
-
-	// Mount statics
-	b.Handle("GET", "/*", statics.ServeStatics(staticsDir)).WithName("serveStatics")
-
-	return b
 }

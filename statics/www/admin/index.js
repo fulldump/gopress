@@ -407,7 +407,7 @@ const EditPost = {
                     linkTool: {
                         class: LinkTool,
                         config: {
-                            endpoint: '/editor/helperFetchUrl', // Your backend endpoint for url data fetching,
+                            endpoint: '/v1/editor/helperFetchUrl', // Your backend endpoint for url data fetching,
                             headers: fakeHeaders,
                         }
                     },
