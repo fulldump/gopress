@@ -130,9 +130,9 @@ func TestHappyPath(t *testing.T) {
 			biff.AssertEqual(resp.StatusCode, 404)
 			body := resp.BodyJsonMap()
 			biff.AssertEqualJson(body["error"], JSON{
-				"status":      500,
-				"title":       "Unexpected error",
-				"description": "article not found",
+				"status":      404,
+				"title":       "Article Not Found",
+				"description": "El artículo que intentas buscar no existe",
 			})
 		})
 
@@ -141,7 +141,11 @@ func TestHappyPath(t *testing.T) {
 
 			biff.AssertEqual(resp.StatusCode, 404)
 			body := resp.BodyJsonMap()
-			biff.AssertEqual(body["error"], "article not found")
+			biff.AssertEqualJson(body["error"], JSON{
+				"status":      404,
+				"title":       "Article Not Found",
+				"description": "El artículo que intentas buscar no existe",
+			})
 		})
 
 	})

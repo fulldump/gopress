@@ -24,9 +24,10 @@ func DeleteArticle(w http.ResponseWriter, ctx context.Context) any {
 		},
 	})
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		return JSON{
-			"error": "article not found",
+		return HttpError{
+			Status:      http.StatusNotFound,
+			Title:       "Article Not Found",
+			Description: "El artículo que intentas buscar no existe",
 		}
 	}
 

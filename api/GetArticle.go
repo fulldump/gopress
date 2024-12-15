@@ -2,8 +2,6 @@ package api
 
 import (
 	"context"
-	"errors"
-	"log"
 	"net/http"
 
 	"github.com/fulldump/box"
@@ -26,9 +24,11 @@ func GetArticle(ctx context.Context, w http.ResponseWriter) any {
 		},
 	}, article)
 	if err != nil {
-		log.Println("render article: db find:", err.Error())
-		w.WriteHeader(http.StatusNotFound)
-		return errors.New("article not found")
+		return HttpError{
+			Status:      http.StatusNotFound,
+			Title:       "Article Not Found",
+			Description: "El artículo que intentas buscar no existe",
+		}
 	}
 
 	return article

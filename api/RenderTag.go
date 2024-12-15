@@ -42,6 +42,7 @@ func RenderTag(w http.ResponseWriter, ctx context.Context) error {
 		return list[i].PublishOn.Unix() > list[j].PublishOn.Unix()
 	})
 
+	w.Header().Set("X-Robots-Tag", "noindex")
 	err := templates.GetByName(ctx, "tag").ExecuteTemplate(w, "", map[string]any{
 		"tag":      tag,
 		"articles": list,

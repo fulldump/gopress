@@ -61,8 +61,7 @@ func RenderArticle(w http.ResponseWriter, ctx context.Context) error {
 	}
 
 	err = templates.GetByName(ctx, "article").ExecuteTemplate(w, "", map[string]any{
-		"article": article,
-
+		"article":        article,
 		"og_title":       title,
 		"og_url":         selfUrl,
 		"og_image":       article.AuthorPicture,
