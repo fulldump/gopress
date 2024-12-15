@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /admin/
+Disallow: /v1/
+
+Allow: /
+
+Sitemap: https://gopress.org/sitemap.xml
