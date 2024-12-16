@@ -17,7 +17,7 @@ a:hover {
 .logo {
   font-size: 250%;
   font-weight: bold;
-  text-align: center;
+  text-align: left;
 
   text-decoration-line: underline;
   text-decoration-style: double;
@@ -299,6 +299,30 @@ figure.warning blockquote {
 
 .footer a:hover {
   color: dodgerblue;
+}
+
+@media (max-width: 500px) {
+  .logo {
+    text-align: left;
+  }
+  .logo a {
+    color: red;
+    width: 0;
+    height: 36px;
+    overflow: hidden;
+    display: inline-block;
+  }
+  .logo a::before {
+    position: absolute;
+    display: inline-block;
+    content: ' ';
+    height: 46px;
+    width: 46px;
+    background-image: url('/android-chrome-192x192.png');
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: contain;
+  }
 }
 
 @media (prefers-color-scheme: dark) {
