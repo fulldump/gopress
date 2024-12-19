@@ -1,5 +1,6 @@
 package googlefilestore
 
+/*
 import (
 	"context"
 	"encoding/json"
@@ -64,3 +65,4 @@ func (f *GoogleFilestore) OpenReader(filename string) (io.ReadCloser, error) {
 	ctx := context.Background()
 	return f.client.Bucket(f.config.Bucket).Object(filename).NewReader(ctx)
 }
+*/

@@ -9,7 +9,6 @@ import (
 
 	"gopress/api"
 	"gopress/filestorage"
-	"gopress/filestorage/googlefilestore"
 	"gopress/filestorage/localfilestore"
 	inceptiondbclient "gopress/inceptiondb"
 )
@@ -24,11 +23,13 @@ func Gopress(c *Config, version string) Runner {
 
 	if c.StorageType == "GoogleCloud" {
 		fmt.Println("GoogleCloud")
-		fs, err = googlefilestore.New(c.GoogleCloudStorage)
-		if err != nil {
-			fmt.Println("ERROR: ", err)
-			os.Exit(-1)
-		}
+		fmt.Println("ERROR: GoogleCloud Library disabled")
+		os.Exit(-1)
+		// fs, err = googlefilestore.New(c.GoogleCloudStorage)
+		// if err != nil {
+		// 	fmt.Println("ERROR: ", err)
+		// 	os.Exit(-1)
+		// }
 	} else {
 		fmt.Println("Local storage: ", c.LocalStorage)
 		fs, err = localfilestore.New(c.LocalStorage)
