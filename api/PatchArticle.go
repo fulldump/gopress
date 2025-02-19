@@ -252,7 +252,10 @@ func editorjs2HTML(data []byte) (string, error) {
 				Html string
 			}{}
 			json.Unmarshal(block.Data, &raw) // todo: handle error properly
-			result.WriteString(raw.Html)
+
+			sanitized := HtmlSanitizer(raw.Html)
+
+			result.WriteString(sanitized)
 
 		case "attaches":
 			attaches := struct {
