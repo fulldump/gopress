@@ -1,7 +1,6 @@
 module gopress
 
 go 1.22.7
-
 toolchain go1.23.4
 
 require (
@@ -12,7 +11,7 @@ require (
 	github.com/fulldump/inceptiondb v0.0.8
 	github.com/google/uuid v1.6.0
 	github.com/otiai10/opengraph/v2 v2.1.0
-	golang.org/x/net v0.33.0
+	golang.org/x/net v0.36.0
 )
 
 require (
