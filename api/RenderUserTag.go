@@ -27,6 +27,7 @@ func RenderUserTag(w http.ResponseWriter, ctx context.Context) error {
 			"author_nick": userNick,
 			"tags":        tag,
 			"published":   true,
+			"$ne":         JSON{"banned": true},
 		},
 	}
 	list := []*Article{}

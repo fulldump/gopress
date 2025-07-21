@@ -19,6 +19,7 @@ func RenderHome(ctx context.Context, w http.ResponseWriter) {
 		Limit: 1000,
 		Filter: JSON{
 			"published": true,
+			"$ne":       JSON{"banned": true},
 		},
 	}
 

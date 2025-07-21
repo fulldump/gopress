@@ -20,6 +20,8 @@ type Article struct {
 	AuthorPicture string    `json:"author_picture"`
 
 	Stats ArticleStats `json:"stats"`
+
+	Banned bool `json:"banned"`
 }
 
 type ArticleStats struct {

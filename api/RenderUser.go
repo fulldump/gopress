@@ -25,6 +25,7 @@ func RenderUser(w http.ResponseWriter, ctx context.Context) error {
 		Filter: JSON{
 			"author_nick": userNick,
 			"published":   true,
+			"$ne":         JSON{"banned": true},
 		},
 	}
 	list := []*Article{}

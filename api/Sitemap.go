@@ -24,6 +24,7 @@ func Sitemap(ctx context.Context, w http.ResponseWriter) {
 		Limit: 9999,
 		Filter: JSON{
 			"published": true,
+			"$ne":       JSON{"banned": true},
 		},
 	}
 	GetInceptionClient(ctx).FindAll("articles", params, func(article *Article) {

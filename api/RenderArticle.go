@@ -23,6 +23,7 @@ func RenderArticle(w http.ResponseWriter, ctx context.Context) error {
 		"author_nick": userNick,
 		"url":         articleUrl,
 		"published":   true,
+		"$ne":         JSON{"banned": true},
 	}
 
 	db := GetInceptionClient(ctx)

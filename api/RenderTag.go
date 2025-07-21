@@ -25,6 +25,7 @@ func RenderTag(w http.ResponseWriter, ctx context.Context) error {
 		Filter: JSON{
 			"tags":      tag,
 			"published": true,
+			"$ne":       JSON{"banned": true},
 		},
 	}
 	list := []*Article{}
