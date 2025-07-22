@@ -6,20 +6,20 @@ github.com/SierraSoftworks/connor/internal/numbers
 # github.com/evanphx/json-patch v0.5.2
 ## explicit; go 1.14
 github.com/evanphx/json-patch
-# github.com/fulldump/apitest v1.2.3
+# github.com/fulldump/apitest v1.3.0
 ## explicit; go 1.17
 github.com/fulldump/apitest
 # github.com/fulldump/biff v1.3.0
 ## explicit; go 1.14
 github.com/fulldump/biff
-# github.com/fulldump/box v0.4.3
+# github.com/fulldump/box v0.7.0
 ## explicit; go 1.19
 github.com/fulldump/box
 github.com/fulldump/box/boxopenapi
 # github.com/fulldump/goconfig v1.6.1
 ## explicit; go 1.5
 github.com/fulldump/goconfig
-# github.com/fulldump/inceptiondb v0.0.8
+# github.com/fulldump/inceptiondb v0.0.14
 ## explicit; go 1.18
 github.com/fulldump/inceptiondb/api
 github.com/fulldump/inceptiondb/api/apicollectionv1
@@ -40,7 +40,7 @@ github.com/otiai10/opengraph/v2
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
-# golang.org/x/net v0.33.0
-## explicit; go 1.18
+# golang.org/x/net v0.42.0
+## explicit; go 1.23.0
 golang.org/x/net/html
 golang.org/x/net/html/atom

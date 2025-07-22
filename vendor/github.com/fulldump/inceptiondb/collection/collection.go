@@ -23,7 +23,7 @@ type Collection struct {
 	Indexes   map[string]*collectionIndex // todo: protect access with mutex or use sync.Map
 	// buffer   *bufio.Writer // TODO: use write buffer to improve performance (x3 in tests)
 	Defaults map[string]any
-	count    int64
+	Count    int64
 }
 
 type collectionIndex struct {
@@ -33,8 +33,9 @@ type collectionIndex struct {
 }
 
 type Row struct {
-	I       int // position in Rows
-	Payload json.RawMessage
+	I          int // position in Rows
+	Payload    json.RawMessage
+	PatchMutex sync.Mutex
 }
 
 func OpenCollection(filename string) (*Collection, error) {
@@ -168,7 +169,7 @@ func (c *Collection) Insert(item interface{}) (*Row, error) {
 		return nil, fmt.Errorf("json encode payload: %w", err)
 	}
 
-	auto := atomic.AddInt64(&c.count, 1)
+	auto := atomic.AddInt64(&c.Count, 1)
 
 	if c.Defaults != nil {
 		item := map[string]any{} // todo: item is shadowed, choose a better name
@@ -306,7 +307,7 @@ func (c *Collection) createIndex(name string, options interface{}, persist bool)
 	switch value := options.(type) {
 	case *IndexMapOptions:
 		index.Type = "map"
-		index.Index = NewIndexMap(value)
+		index.Index = NewIndexSyncMap(value)
 		index.Options = value
 	case *IndexBTreeOptions:
 		index.Type = "btree"
