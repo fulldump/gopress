@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"os"
@@ -11,11 +12,15 @@ import (
 	"gopress/filestorage"
 	"gopress/filestorage/localfilestore"
 	inceptiondbclient "gopress/inceptiondb"
+	"gopress/templates"
 )
 
 func Gopress(c *Config, version string) Runner {
 	// Database
 	db := inceptiondbclient.NewClient(c.Inception)
+
+	// Templates
+	templates.GlobalData["headTrailCode"] = template.HTML(c.HeadTrailCode)
 
 	// File storage
 	var fs filestorage.Filestorager

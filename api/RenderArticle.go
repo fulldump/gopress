@@ -61,7 +61,7 @@ func RenderArticle(w http.ResponseWriter, ctx context.Context) error {
 		description = content[0:max_description] + "..."
 	}
 
-	err = templates.GetByName(ctx, "article").ExecuteTemplate(w, "", map[string]any{
+	err = templates.Execute(ctx, "article", w, map[string]any{
 		"article":        article,
 		"og_title":       title,
 		"og_url":         selfUrl,

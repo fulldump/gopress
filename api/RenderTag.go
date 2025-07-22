@@ -48,7 +48,7 @@ func RenderTag(w http.ResponseWriter, ctx context.Context) error {
 	})
 
 	w.Header().Set("X-Robots-Tag", "noindex")
-	err := templates.GetByName(ctx, "tag").ExecuteTemplate(w, "", map[string]any{
+	err := templates.Execute(ctx, "tag", w, map[string]any{
 		"tag":      tag,
 		"articles": list,
 	})

@@ -47,7 +47,7 @@ func RenderUser(w http.ResponseWriter, ctx context.Context) error {
 		return list[i].PublishOn.Unix() > list[j].PublishOn.Unix()
 	})
 
-	err := templates.GetByName(ctx, "user").ExecuteTemplate(w, "", map[string]any{
+	err := templates.Execute(ctx, "user", w, map[string]any{
 		"userNick": userNick,
 		"articles": list,
 	})

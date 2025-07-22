@@ -16,6 +16,8 @@ type Config struct {
 	LocalStorage string `usage:"Images directory"`
 	StorageType  string `usage:"Select storage backend: 'GoogleCloud' for GoogleCloudStorage, otherwise local storage"`
 
+	HeadTrailCode string `usage:"Head Trail Code"`
+
 	Version bool `usage:"Show version and exit"`
 }
 

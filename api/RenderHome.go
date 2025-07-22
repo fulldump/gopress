@@ -35,7 +35,7 @@ func RenderHome(ctx context.Context, w http.ResponseWriter) {
 		return list[i].PublishOn.Unix() > list[j].PublishOn.Unix()
 	})
 
-	err := templates.GetByName(ctx, "home").ExecuteTemplate(w, "", map[string]any{
+	err := templates.Execute(ctx, "home", w, map[string]any{
 		"articles": list,
 	})
 

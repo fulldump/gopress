@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"html/template"
+	"net/http"
 
 	"github.com/fulldump/box"
 )
@@ -68,6 +69,21 @@ func Get(ctx context.Context) Templates {
 
 func GetByName(ctx context.Context, name string) *template.Template {
 	return Get(ctx).Get(name)
+}
+
+type JSON = map[string]any
+
+var GlobalData = JSON{
+	"headTrailCode": template.HTML(""),
+}
+
+func Execute(ctx context.Context, name string, w http.ResponseWriter, data JSON) error {
+
+	for k, v := range GlobalData {
+		data[k] = v
+	}
+
+	return GetByName(ctx, name).Execute(w, data)
 }
 
 func Inject(t Templates) box.I {

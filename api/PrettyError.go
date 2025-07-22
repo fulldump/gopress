@@ -34,7 +34,7 @@ func PrettyError(next box.H) box.H {
 			r := box.GetRequest(ctx)
 
 			if strings.Contains(r.Header.Get("Accept"), "text/html") {
-				templates.GetByName(ctx, "error").ExecuteTemplate(w, "", JSON{
+				templates.Execute(ctx, "error", w, JSON{
 					"error": httpErr,
 				})
 			} else {
