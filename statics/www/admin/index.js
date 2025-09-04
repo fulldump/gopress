@@ -104,8 +104,14 @@ const ListPosts = {
                   <div class="entry-title">{{ post.title }}</div>
                   <div>{{ post.created_on_pretty }}</div>
                 </router-link>
-                <div v-if="$route.params.filter === 'draft'" @click="deleteArticle(post.id, index)" style="cursor: pointer; padding: 10px;" title="Eliminar borrador">
+                <div v-if="$route.params.filter === 'draft'" @click.prevent="publishArticle(post.id, index)" style="cursor: pointer; padding: 10px;" title="Publish">
+                    <svg style="height: 20px; fill: #555;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M133.9 406.1L11.3 283.3c-7.2-7.2-11.3-17.1-11.3-27.3s4.1-20.1 11.3-27.3L133.9 105.9c6.4-6.4 15-9.9 24-9.9c18.7 0 33.9 15.2 33.9 33.9l0 62.1 128 0c17.7 0 32 14.3 32 32l0 64c0 17.7-14.3 32-32 32l-128 0 0 62.1c0 18.7-15.2 33.9-33.9 33.9c-9 0-17.6-3.6-24-9.9zM352 416l64 0c17.7 0 32-14.3 32-32l0-256c0-17.7-14.3-32-32-32l-64 0c-17.7 0-32-14.3-32-32s14.3-32 32-32l64 0c53 0 96 43 96 96l0 256c0 53-43 96-96 96l-64 0c-17.7 0-32-14.3-32-32s14.3-32 32-32z"/></svg>
+                </div>
+                <div v-if="$route.params.filter === 'draft'" @click.prevent="deleteArticle(post.id, index)" style="cursor: pointer; padding: 10px;" title="Delete draft">
                     <svg style="height: 20px; fill: #555;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M135.2 17.7L128 32H32C14.3 32 0 46.3 0 64S14.3 96 32 96H416c17.7 0 32-14.3 32-32s-14.3-32-32-32H320l-7.2-14.3C307.4 6.8 296.3 0 284.2 0H163.8c-12.1 0-23.2 6.8-28.6 17.7zM416 128H32L53.2 467c1.6 25.3 22.6 45 47.9 45H346.9c25.3 0 46.3-19.7 47.9-45L416 128z"/></svg>
+                </div>
+                <div v-if="$route.params.filter === 'published'" @click.prevent="unpublishArticle(post.id, index)" style="cursor: pointer; padding: 10px;" title="Unpublish">
+                    <svg style="height: 20px; fill: #555;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M377.9 105.9L500.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L377.9 406.1c-6.4 6.4-15 9.9-24 9.9c-18.7 0-33.9-15.2-33.9-33.9l0-62.1-128 0c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32l128 0 0-62.1c0-18.7 15.2-33.9 33.9-33.9c9 0 17.6 3.6 24 9.9zM160 96L96 96c-17.7 0-32 14.3-32 32l0 256c0 17.7 14.3 32 32 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-64 0c-53 0-96-43-96-96L0 128C0 75 43 32 96 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32z"/></svg>
                 </div>
             </div>
           </div>
@@ -157,7 +163,7 @@ const ListPosts = {
                 })
         },
         deleteArticle(articleId, index) {
-            if (!confirm("¿Estás seguro de que quieres eliminar este borrador?")) {
+            if (!confirm("Are you sure you want to delete this draft?")) {
                 return;
             }
             fetch('/v1/articles/' + encodeURIComponent(articleId), {
@@ -167,11 +173,51 @@ const ListPosts = {
                 if (response.ok) {
                     this.posts.draft.splice(index, 1);
                 } else {
-                    alert('Error al eliminar el borrador.');
+                    alert('Error deleting draft.');
                 }
             }).catch(error => {
                 console.error('Error:', error);
-                alert('Error al eliminar el borrador.');
+                alert('Error deleting draft.');
+            });
+        },
+        unpublishArticle(articleId, index) {
+            if (!confirm("Are you sure you want to unpublish this article?")) {
+                return;
+            }
+            fetch('/v1/articles/' + encodeURIComponent(articleId) + '/unpublish', {
+                method: 'POST',
+                headers: fakeHeaders
+            }).then(response => {
+                if (response.ok) {
+                    const article = this.posts.published.splice(index, 1)[0];
+                    article.published = false;
+                    this.posts.draft.unshift(article);
+                } else {
+                    alert('Error unpublishing article.');
+                }
+            }).catch(error => {
+                console.error('Error:', error);
+                alert('Error unpublishing article.');
+            });
+        },
+        publishArticle(articleId, index) {
+            if (!confirm("Are you sure you want to publish this article?")) {
+                return;
+            }
+            fetch('/v1/articles/' + encodeURIComponent(articleId) + '/publish', {
+                method: 'POST',
+                headers: fakeHeaders
+            }).then(response => {
+                if (response.ok) {
+                    const article = this.posts.draft.splice(index, 1)[0];
+                    article.published = true;
+                    this.posts.published.unshift(article);
+                } else {
+                    alert('Error publishing article.');
+                }
+            }).catch(error => {
+                console.error('Error:', error);
+                alert('Error publishing article.');
             });
         },
     },
