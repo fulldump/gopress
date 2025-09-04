@@ -91,15 +91,23 @@ const ListPosts = {
 
           <div class="list-posts">
             <div class="loader" v-if="loading_posts">Cargando posts...</div>
-            <router-link 
-              class="entry" 
-              v-for="post in posts[$route.params.filter]" 
+            <div
+              class="entry"
+              v-for="(post, index) in posts[$route.params.filter]"
               :key="post.id"
-              :to="{ name: 'editPost', params: { post_id: post.id } }"
+              style="display: flex; align-items: center;"
             >
-              <div class="entry-title">{{ post.title }}</div>
-              <div>{{ post.created_on_pretty }}</div>
-            </router-link>
+                <router-link
+                  :to="{ name: 'editPost', params: { post_id: post.id } }"
+                  style="flex-grow: 1; text-decoration: none; color: inherit; display: block;"
+                >
+                  <div class="entry-title">{{ post.title }}</div>
+                  <div>{{ post.created_on_pretty }}</div>
+                </router-link>
+                <div v-if="$route.params.filter === 'draft'" @click="deleteArticle(post.id, index)" style="cursor: pointer; padding: 10px;" title="Eliminar borrador">
+                    <svg style="height: 20px; fill: #555;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M135.2 17.7L128 32H32C14.3 32 0 46.3 0 64S14.3 96 32 96H416c17.7 0 32-14.3 32-32s-14.3-32-32-32H320l-7.2-14.3C307.4 6.8 296.3 0 284.2 0H163.8c-12.1 0-23.2 6.8-28.6 17.7zM416 128H32L53.2 467c1.6 25.3 22.6 45 47.9 45H346.9c25.3 0 46.3-19.7 47.9-45L416 128z"/></svg>
+                </div>
+            </div>
           </div>
         
       </div>
@@ -147,6 +155,24 @@ const ListPosts = {
                 .then(article => {
                     this.$router.push({ name: 'editPost', params: { post_id: article.id} });
                 })
+        },
+        deleteArticle(articleId, index) {
+            if (!confirm("¿Estás seguro de que quieres eliminar este borrador?")) {
+                return;
+            }
+            fetch('/v1/articles/' + encodeURIComponent(articleId), {
+                method: 'DELETE',
+                headers: fakeHeaders
+            }).then(response => {
+                if (response.ok) {
+                    this.posts.draft.splice(index, 1);
+                } else {
+                    alert('Error al eliminar el borrador.');
+                }
+            }).catch(error => {
+                console.error('Error:', error);
+                alert('Error al eliminar el borrador.');
+            });
         },
     },
 
