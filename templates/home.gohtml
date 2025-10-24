@@ -1,85 +1,126 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <meta charset="utf-8">
     <title>GoPress.org</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="/styles/basic.css?v=3">
+    <meta name="description" content="GoPress es un espacio abierto donde creadoras y creadores comparten aprendizajes, ideas y proyectos construidos con software libre.">
+    <link rel="stylesheet" href="/styles/basic.css?v=4">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="manifest" href="/site.webmanifest">{{ .headTrailCode }}
 </head>
 <body>
-
-    <div class="workspace">
-
-        <div style="float: right;">
-            <div id="login">
-                <a href="/auth/login">Login</a>
-            </div>
-            <div id="logout" style="display:none; text-align: right;">
-                <img id="user_picture" src="" style="border-radius: 50%; height: 32px; vertical-align: middle;">
-                <span id="user_nick" style="font-weight: bold;"></span><br>
-                <a href="/admin/">Admin</a> | <a href="/auth/logout">Logout</a>
-            </div>
-        </div>
-
-        <h1 class="logo">
-            <a href="/">GoPress.org</a>
-        </h1>
-
-        {{ range $i, $article := .articles  }}
-            <article class="list">
-                <h2 style="margin-bottom: 0;">
-                    {{ if .AuthorPicture }}
-                        <a href="/user/{{ .AuthorNick }}"><img class="avatar" src="{{ .AuthorPicture }}" alt="Author picture"></a>
-                    {{ end }}
-                    <a href="/user/{{ .AuthorNick }}/article/{{ .Url }}">{{ .Title }}</a>
-                </h2>
-                <div class="details">
-                    <span>Por <a href="/user/{{ .AuthorNick }}">{{ .AuthorNick }}</a></span>
-                    /
-                    <span>{{ .Stats.Views }} views</span>
-                    /
-                    <span alt="{{ .PublishOn }}">{{ .PublishOn.Format "2006-01-02" }}</span>
+    <div class="page">
+        <header class="site-header">
+            <div class="site-header__inner">
+                <div class="brand">
+                    <a class="site-logo" href="/">GoPress</a>
+                    <p class="brandline">Ideas, tutoriales y reflexiones creadas por la comunidad tecnológica hispana.</p>
                 </div>
-                {{ .ContentSummary }}
-                <a href="/user/{{ .AuthorNick }}/article/{{ .Url }}">Seguir leyendo</a>
-            </article>
-        {{ end }}
+                <nav class="user-nav" aria-label="Acciones de usuario">
+                    <div id="login" class="auth-state">
+                        <a class="button-outline" href="/auth/login">Iniciar sesión</a>
+                    </div>
+                    <div id="logout" class="auth-state" hidden>
+                        <span class="profile-chip">
+                            <img id="user_picture" src="" alt="Avatar de la cuenta">
+                            <span id="user_nick"></span>
+                        </span>
+                        <a class="button-outline" href="/admin/">Ir al escritorio</a>
+                        <a class="button" href="/auth/logout">Cerrar sesión</a>
+                    </div>
+                </nav>
+            </div>
+        </header>
 
-        <div class="footer">
-            Gopress es software libre hecho con mucho ❤️ colabora en
-            <a href="https://github.com/fulldump/gopress">
-                <img class="icon" src="https://github.githubassets.com/favicons/favicon.png" alt="GitHub">
-                GitHub
-            </a>.
-            <br>
-            <a href="https://www.twitch.tv/fulldump">
-                <img class="icon" src="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png" alt="Twitch">
-                twitch.tv/fulldump
-            </a>
-            <a href="https://www.youtube.com/watch?v=xweWe4ve8vE&list=PLMPsqnO6mKSA3iQzqaRIi_1qVONlQN8ap&index=1">
-                <img class="icon" src="https://www.youtube.com/s/desktop/286e6262/img/favicon_32x32.png" alt="YouTube">
-                youtube.com/@fulldump
-            </a>
-        </div>
+        <main>
+            <section class="hero" aria-labelledby="hero-title">
+                <h1 id="hero-title">Un blog abierto para compartir conocimiento y hacer crecer la inspiración.</h1>
+                <p>Descubre publicaciones cuidadas, escritas por personas que viven y respiran tecnología libre. Aquí cada historia aporta ideas que puedes llevar a tu próximo proyecto.</p>
+            </section>
 
+            <section class="article-feed" aria-labelledby="feed-heading">
+                <header class="section-header">
+                    <h2 id="feed-heading">Lo más reciente</h2>
+                    <p>Lecturas seleccionadas para mantenerte al día con la comunidad.</p>
+                </header>
+                {{ if .articles }}
+                    <div class="article-grid">
+                        {{ range $i, $article := .articles }}
+                            <article class="post-card">
+                                <header class="post-card__header">
+                                    <div class="post-card__meta">
+                                        <span class="author-inline">
+                                            {{ if $article.AuthorPicture }}
+                                                <img class="author-avatar" src="{{ $article.AuthorPicture }}" alt="Retrato de {{ $article.AuthorNick }}">
+                                            {{ end }}
+                                            <a href="/user/{{ $article.AuthorNick }}">{{ $article.AuthorNick }}</a>
+                                        </span>
+                                        <time datetime="{{ $article.PublishOn.Format "2006-01-02" }}">{{ $article.PublishOn.Format "02 Jan 2006" }}</time>
+                                    </div>
+                                    <h3 class="post-card__title">
+                                        <a href="/user/{{ $article.AuthorNick }}/article/{{ $article.Url }}">{{ $article.Title }}</a>
+                                    </h3>
+                                </header>
+                                <div class="post-card__excerpt">
+                                    {{ $article.ContentSummary }}
+                                </div>
+                                <footer class="post-card__footer">
+                                    <span class="views">{{ $article.Stats.Views }} lecturas</span>
+                                    <a class="read-more" href="/user/{{ $article.AuthorNick }}/article/{{ $article.Url }}">Seguir leyendo</a>
+                                </footer>
+                            </article>
+                        {{ end }}
+                    </div>
+                {{ else }}
+                    <p class="articles-empty">Aún no hay publicaciones disponibles, pero la comunidad ya está preparando algo especial.</p>
+                {{ end }}
+            </section>
+        </main>
+
+        <footer class="site-footer">
+            <div class="site-footer__inner">
+                <p>GoPress es software libre creado con cariño. Súmate y ayuda a que más voces encuentren su espacio.</p>
+                <div class="site-footer__links">
+                    <a href="https://github.com/fulldump/gopress">
+                        <img src="https://github.githubassets.com/favicons/favicon.png" alt="GitHub">
+                        Código fuente en GitHub
+                    </a>
+                    <a href="https://www.twitch.tv/fulldump">
+                        <img src="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png" alt="Twitch">
+                        twitch.tv/fulldump
+                    </a>
+                    <a href="https://www.youtube.com/watch?v=xweWe4ve8vE&list=PLMPsqnO6mKSA3iQzqaRIi_1qVONlQN8ap&index=1">
+                        <img src="https://www.youtube.com/s/desktop/286e6262/img/favicon_32x32.png" alt="YouTube">
+                        youtube.com/@fulldump
+                    </a>
+                </div>
+            </div>
+        </footer>
     </div>
 
     <script>
-        function id(s) {
-            return document.getElementById(s);
-        }
+        const loginBox = document.getElementById('login');
+        const logoutBox = document.getElementById('logout');
+        const nickNode = document.getElementById('user_nick');
+        const avatarNode = document.getElementById('user_picture');
 
-        fetch('/auth/me').then(resp => resp.json()).then(me => {
-            if (me.error) return;
-            id('login').style.display = 'none';
-            id('logout').style.display = 'block';
-            id('user_picture').setAttribute('src', me.picture);
-            id('user_nick').innerText = me.nick;
-        })
+        fetch('/auth/me')
+            .then(resp => resp.json())
+            .then(me => {
+                if (me && !me.error) {
+                    loginBox.hidden = true;
+                    logoutBox.hidden = false;
+                    avatarNode.src = me.picture || '';
+                    avatarNode.alt = `Avatar de ${me.nick}`;
+                    nickNode.textContent = me.nick;
+                }
+            })
+            .catch(() => {
+                /* Ignoramos errores silenciosamente para no afectar la lectura. */
+            });
     </script>
-
 </body>
 </html>
