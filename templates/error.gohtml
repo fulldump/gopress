@@ -1,71 +1,79 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <title>GoPress - Error {{ .error.Status }}</title>
+    <meta charset="utf-8">
+    <title>GoPress · Error {{ .error.Status }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="/styles/basic.css?v=3">
     <meta name="robots" content="noindex,nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/basic.css?v=4">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="manifest" href="/site.webmanifest">{{ .headTrailCode }}
 </head>
 <body>
-
-<div class="workspace">
-
-    <div style="float: right;">
-        <div id="login">
-            <a href="/auth/login">Login</a>
+    <header class="site-header">
+        <div class="container">
+            <div class="brand">
+                <a class="brand-logo" href="/">GoPress</a>
+                <p class="brand-tagline">Ideas rigurosas contadas con elegancia</p>
+            </div>
+            <nav class="session" aria-label="Área personal">
+                <div id="login" class="session-login">
+                    <a class="button subtle" href="/auth/login">Iniciar sesión</a>
+                </div>
+                <div id="logout" class="session-user" hidden>
+                    <img id="user_picture" src="" alt="Avatar" class="session-avatar">
+                    <div class="session-meta">
+                        <span id="user_nick" class="session-name"></span>
+                        <div class="session-links">
+                            <a href="/admin/">Administración</a>
+                            <span aria-hidden="true">·</span>
+                            <a href="/auth/logout">Salir</a>
+                        </div>
+                    </div>
+                </div>
+            </nav>
         </div>
-        <div id="logout" style="display:none; text-align: right;">
-            <img id="user_picture" src="" style="border-radius: 50%; height: 32px; vertical-align: middle;">
-            <span id="user_nick" style="font-weight: bold;"></span><br>
-            <a href="/admin/">Admin</a> | <a href="/auth/logout">Logout</a>
+    </header>
+
+    <main>
+        <section class="hero hero--compact">
+            <div class="container">
+                <p class="hero-kicker">Algo no salió como esperábamos</p>
+                <h1 class="hero-title">Error {{ .error.Status }} · {{ .error.Title }}</h1>
+                <p class="hero-subtitle">{{ .error.Description }}</p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container">
+            <p class="footer-heading">¿Necesitas ayuda?</p>
+            <p>Vuelve al <a href="/">inicio de GoPress</a> o contáctanos a través de <a href="https://github.com/fulldump/gopress">GitHub</a>.</p>
         </div>
-    </div>
+    </footer>
 
-    <div class="logo"><a href="/">GoPress.org</a></div>
+    <script>
+        const login = document.getElementById('login');
+        const logout = document.getElementById('logout');
+        const picture = document.getElementById('user_picture');
+        const nick = document.getElementById('user_nick');
 
-    <article>
-        <h1>Error {{ .error.Status }}: {{ .error.Title }}</h1>
-        <div class="details">
-            {{ .error.Description }}
-        </div>
-    </article>
-
-    <div class="footer">
-        Gopress es software libre hecho con mucho ❤️ colabora en
-        <a href="https://github.com/fulldump/gopress">
-            <img class="icon" src="https://github.githubassets.com/favicons/favicon.png" alt="GitHub">
-            GitHub
-        </a>.
-        <br>
-        <a href="https://www.twitch.tv/fulldump">
-            <img class="icon" src="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png" alt="Twitch">
-            twitch.tv/fulldump
-        </a>
-        <a href="https://www.youtube.com/watch?v=xweWe4ve8vE&list=PLMPsqnO6mKSA3iQzqaRIi_1qVONlQN8ap&index=1">
-            <img class="icon" src="https://www.youtube.com/s/desktop/286e6262/img/favicon_32x32.png" alt="YouTube">
-            youtube.com/@fulldump
-        </a>
-    </div>
-
-</div>
-
-<script>
-    function id(s) {
-        return document.getElementById(s);
-    }
-
-    fetch('/auth/me').then(resp => resp.json()).then(me => {
-        if (me.error) return;
-        id('login').style.display = 'none';
-        id('logout').style.display = 'block';
-        id('user_picture').setAttribute('src', me.picture);
-        id('user_nick').innerText = me.nick;
-    })
-</script>
-
+        fetch('/auth/me')
+            .then(resp => resp.json())
+            .then(me => {
+                if (me.error) return;
+                login.hidden = true;
+                logout.hidden = false;
+                logout.style.display = 'flex';
+                picture.src = me.picture;
+                nick.textContent = me.nick;
+            })
+            .catch(() => {});
+    </script>
 </body>
 </html>
