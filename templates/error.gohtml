@@ -3,7 +3,7 @@
 <head>
     <title>GoPress - Error {{ .error.Status }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="/styles/basic.css?v=3">
+    <link rel="stylesheet" href="/styles/basic.css?v=4">
     <meta name="robots" content="noindex,nofollow">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
@@ -12,46 +12,61 @@
 </head>
 <body>
 
-<div class="workspace">
-
-    <div style="float: right;">
-        <div id="login">
-            <a href="/auth/login">Login</a>
-        </div>
-        <div id="logout" style="display:none; text-align: right;">
-            <img id="user_picture" src="" style="border-radius: 50%; height: 32px; vertical-align: middle;">
-            <span id="user_nick" style="font-weight: bold;"></span><br>
-            <a href="/admin/">Admin</a> | <a href="/auth/logout">Logout</a>
+<header class="site-header">
+    <div class="navbar">
+        <a class="brand" href="/">GoPress<span class="brand-dot">.</span></a>
+        <div class="user-menu">
+            <div id="login" class="user-auth">
+                <a class="button ghost" href="/auth/login">Iniciar sesión</a>
+            </div>
+            <div id="logout" class="user-auth" style="display:none;">
+                <img id="user_picture" class="user-avatar" src="" alt="Avatar">
+                <div class="user-meta">
+                    <span id="user_nick" class="user-nick"></span>
+                    <div class="user-links">
+                        <a href="/admin/">Admin</a>
+                        <span class="separator">•</span>
+                        <a href="/auth/logout">Salir</a>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
+</header>
 
-    <div class="logo"><a href="/">GoPress.org</a></div>
-
-    <article>
-        <h1>Error {{ .error.Status }}: {{ .error.Title }}</h1>
-        <div class="details">
-            {{ .error.Description }}
+<main class="workspace">
+    <article class="article-detail">
+        <header class="article-hero">
+            <h1>Error {{ .error.Status }}: {{ .error.Title }}</h1>
+        </header>
+        <div class="article-content">
+            <p>{{ .error.Description }}</p>
+            <p><a class="button" href="/">Volver al inicio</a></p>
         </div>
     </article>
+</main>
 
-    <div class="footer">
-        Gopress es software libre hecho con mucho ❤️ colabora en
-        <a href="https://github.com/fulldump/gopress">
-            <img class="icon" src="https://github.githubassets.com/favicons/favicon.png" alt="GitHub">
-            GitHub
-        </a>.
-        <br>
-        <a href="https://www.twitch.tv/fulldump">
-            <img class="icon" src="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png" alt="Twitch">
-            twitch.tv/fulldump
-        </a>
-        <a href="https://www.youtube.com/watch?v=xweWe4ve8vE&list=PLMPsqnO6mKSA3iQzqaRIi_1qVONlQN8ap&index=1">
-            <img class="icon" src="https://www.youtube.com/s/desktop/286e6262/img/favicon_32x32.png" alt="YouTube">
-            youtube.com/@fulldump
-        </a>
+<footer class="site-footer">
+    <div class="footer-inner">
+        <p>Gopress es software libre hecho con mucho ❤️ colabora en</p>
+        <p>
+            <a href="https://github.com/fulldump/gopress">
+                <img class="icon" src="https://github.githubassets.com/favicons/favicon.png" alt="GitHub">
+                GitHub
+            </a>
+            ·
+            <a href="https://www.twitch.tv/fulldump">
+                <img class="icon" src="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png" alt="Twitch">
+                twitch.tv/fulldump
+            </a>
+            ·
+            <a href="https://www.youtube.com/watch?v=xweWe4ve8vE&list=PLMPsqnO6mKSA3iQzqaRIi_1qVONlQN8ap&index=1">
+                <img class="icon" src="https://www.youtube.com/s/desktop/286e6262/img/favicon_32x32.png" alt="YouTube">
+                youtube.com/@fulldump
+            </a>
+        </p>
     </div>
-
-</div>
+</footer>
 
 <script>
     function id(s) {
