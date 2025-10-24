@@ -1,71 +1,88 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <title>GoPress - Error {{ .error.Status }}</title>
+    <meta charset="utf-8">
+    <title>GoPress · Error {{ .error.Status }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="/styles/basic.css?v=3">
     <meta name="robots" content="noindex,nofollow">
+    <link rel="stylesheet" href="/styles/basic.css?v=5">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="manifest" href="/site.webmanifest">{{ .headTrailCode }}
 </head>
 <body>
-
-<div class="workspace">
-
-    <div style="float: right;">
-        <div id="login">
-            <a href="/auth/login">Login</a>
+    <header class="site-header">
+        <div class="container header-inner">
+            <div class="site-branding">
+                <a class="site-title" href="/">GoPress.org</a>
+                <p class="site-tagline">Volvamos a la inspiración.</p>
+            </div>
+            <nav class="site-actions" aria-label="Acciones de la cuenta">
+                <div id="login">
+                    <a class="button subtle" href="/auth/login">Iniciar sesión</a>
+                </div>
+                <div id="logout" class="user-actions" style="display:none;">
+                    <img id="user_picture" src="" alt="Avatar del usuario">
+                    <div class="user-info">
+                        <span id="user_nick" class="user-nick"></span>
+                        <div class="links">
+                            <a href="/admin/">Administración</a>
+                            <span aria-hidden="true">·</span>
+                            <a href="/auth/logout">Salir</a>
+                        </div>
+                    </div>
+                </div>
+            </nav>
         </div>
-        <div id="logout" style="display:none; text-align: right;">
-            <img id="user_picture" src="" style="border-radius: 50%; height: 32px; vertical-align: middle;">
-            <span id="user_nick" style="font-weight: bold;"></span><br>
-            <a href="/admin/">Admin</a> | <a href="/auth/logout">Logout</a>
+    </header>
+
+    <main class="container main-content">
+        <section class="error-card" aria-labelledby="error-title">
+            <h1 id="error-title">Error {{ .error.Status }} · {{ .error.Title }}</h1>
+            <p>{{ .error.Description }}</p>
+            <p><a class="read-more" href="/">Volver al inicio</a></p>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container footer-inner">
+            <p>GoPress es software libre hecho con mucho ❤️. Colabora y comparte tus mejoras.</p>
+            <div class="icon-links">
+                <a href="https://github.com/fulldump/gopress">
+                    <img class="icon" src="https://github.githubassets.com/favicons/favicon.png" alt="GitHub">
+                    Código en GitHub
+                </a>
+                <a href="https://www.twitch.tv/fulldump">
+                    <img class="icon" src="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png" alt="Twitch">
+                    twitch.tv/fulldump
+                </a>
+                <a href="https://www.youtube.com/watch?v=xweWe4ve8vE&list=PLMPsqnO6mKSA3iQzqaRIi_1qVONlQN8ap&index=1">
+                    <img class="icon" src="https://www.youtube.com/s/desktop/286e6262/img/favicon_32x32.png" alt="YouTube">
+                    youtube.com/@fulldump
+                </a>
+            </div>
         </div>
-    </div>
+    </footer>
 
-    <div class="logo"><a href="/">GoPress.org</a></div>
+    <script>
+        (function () {
+            const login = document.getElementById('login');
+            const logout = document.getElementById('logout');
+            const picture = document.getElementById('user_picture');
+            const nick = document.getElementById('user_nick');
 
-    <article>
-        <h1>Error {{ .error.Status }}: {{ .error.Title }}</h1>
-        <div class="details">
-            {{ .error.Description }}
-        </div>
-    </article>
-
-    <div class="footer">
-        Gopress es software libre hecho con mucho ❤️ colabora en
-        <a href="https://github.com/fulldump/gopress">
-            <img class="icon" src="https://github.githubassets.com/favicons/favicon.png" alt="GitHub">
-            GitHub
-        </a>.
-        <br>
-        <a href="https://www.twitch.tv/fulldump">
-            <img class="icon" src="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png" alt="Twitch">
-            twitch.tv/fulldump
-        </a>
-        <a href="https://www.youtube.com/watch?v=xweWe4ve8vE&list=PLMPsqnO6mKSA3iQzqaRIi_1qVONlQN8ap&index=1">
-            <img class="icon" src="https://www.youtube.com/s/desktop/286e6262/img/favicon_32x32.png" alt="YouTube">
-            youtube.com/@fulldump
-        </a>
-    </div>
-
-</div>
-
-<script>
-    function id(s) {
-        return document.getElementById(s);
-    }
-
-    fetch('/auth/me').then(resp => resp.json()).then(me => {
-        if (me.error) return;
-        id('login').style.display = 'none';
-        id('logout').style.display = 'block';
-        id('user_picture').setAttribute('src', me.picture);
-        id('user_nick').innerText = me.nick;
-    })
-</script>
-
+            fetch('/auth/me')
+                .then(function (resp) { return resp.ok ? resp.json() : {}; })
+                .then(function (me) {
+                    if (!me || me.error) return;
+                    if (login) login.style.display = 'none';
+                    if (logout) logout.style.display = 'flex';
+                    if (picture && me.picture) picture.setAttribute('src', me.picture);
+                    if (nick) nick.textContent = me.nick;
+                })
+                .catch(function () { /* noop */ });
+        })();
+    </script>
 </body>
 </html>

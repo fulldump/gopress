@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <meta charset="utf-8">
     <title>{{ .article.Title }}</title>
+    <meta name="description" content="{{ .og_description }}">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="/styles/basic.css?v=3">
+    <link rel="stylesheet" href="/styles/basic.css?v=5">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
@@ -17,76 +19,105 @@
     <meta name="twitter:card" content="summary" />{{ .headTrailCode }}
 </head>
 <body>
-
-    <div class="workspace">
-
-        <div style="float: right;">
-            <div id="login">
-                <a href="/auth/login">Login</a>
+    <header class="site-header">
+        <div class="container header-inner">
+            <div class="site-branding">
+                <a class="site-title" href="/">GoPress.org</a>
+                <p class="site-tagline">Lecturas que impulsan tu próxima historia.</p>
             </div>
-            <div id="logout" style="display:none; text-align: right;">
-                <img id="user_picture" src="" style="border-radius: 50%; height: 32px; vertical-align: middle;">
-                <span id="user_nick" style="font-weight: bold;"></span><br>
-                <a href="/admin/">Admin</a> | <a href="/auth/logout">Logout</a>
-            </div>
-        </div>
-
-        <div class="logo"><a href="/">GoPress.org</a></div>
-
-        <article>
-            <h1>{{ .article.Title }}</h1>
-            <div class="details">
-                {{ if .article.AuthorPicture }}
-                <a href="/user/{{ .article.AuthorNick }}"><img class="avatar" src="{{ .article.AuthorPicture }}" alt="Author picture"></a>
-                {{ end }}
-                <span>Por <a href="/user/{{ .article.AuthorNick }}">{{ .article.AuthorNick }}</a></span>
-                /
-                <span>{{ .article.Stats.Views }} views</span>
-                /
-                <span alt="{{ .article.PublishOn }}">{{ .article.PublishOn.Format "2006-01-02" }}</span>
-                {{ if .article.Tags }}
-                    <div class="tags">
-                        {{ range $j, $tag := .article.Tags }}
-                            <a class="tag" href="/user/{{ $.article.AuthorNick }}/tag/{{ $tag }}">{{ $tag }}</a>
-                        {{ end }}
+            <nav class="site-actions" aria-label="Acciones de la cuenta">
+                <div id="login">
+                    <a class="button subtle" href="/auth/login">Iniciar sesión</a>
+                </div>
+                <div id="logout" class="user-actions" style="display:none;">
+                    <img id="user_picture" src="" alt="Avatar del usuario">
+                    <div class="user-info">
+                        <span id="user_nick" class="user-nick"></span>
+                        <div class="links">
+                            <a href="/admin/">Administración</a>
+                            <span aria-hidden="true">·</span>
+                            <a href="/auth/logout">Salir</a>
+                        </div>
                     </div>
-                {{ end }}
-            </div>
-            <div>{{ .article.ContentHTML }}</div>
-        </article>
-
-        <div class="footer">
-            Gopress es software libre hecho con mucho ❤️ colabora en
-            <a href="https://github.com/fulldump/gopress">
-                <img class="icon" src="https://github.githubassets.com/favicons/favicon.png" alt="GitHub">
-                GitHub
-            </a>.
-            <br>
-            <a href="https://www.twitch.tv/fulldump">
-                <img class="icon" src="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png" alt="Twitch">
-                twitch.tv/fulldump
-            </a>
-            <a href="https://www.youtube.com/watch?v=xweWe4ve8vE&list=PLMPsqnO6mKSA3iQzqaRIi_1qVONlQN8ap&index=1">
-                <img class="icon" src="https://www.youtube.com/s/desktop/286e6262/img/favicon_32x32.png" alt="YouTube">
-                youtube.com/@fulldump
-            </a>
+                </div>
+            </nav>
         </div>
+    </header>
 
-    </div>
+    <main class="container main-content">
+        <article class="article-page">
+            <header class="article-heading">
+                <div class="article-meta">
+                    {{ if .article.AuthorPicture }}
+                    <span class="meta-item">
+                        <a class="author-avatar" href="/user/{{ .article.AuthorNick }}">
+                            <img src="{{ .article.AuthorPicture }}" alt="Foto de {{ .article.AuthorNick }}">
+                        </a>
+                        <a href="/user/{{ .article.AuthorNick }}">@{{ .article.AuthorNick }}</a>
+                    </span>
+                    {{ else }}
+                    <span class="meta-item">
+                        <a href="/user/{{ .article.AuthorNick }}">@{{ .article.AuthorNick }}</a>
+                    </span>
+                    {{ end }}
+                    <span class="meta-item">
+                        <time datetime="{{ .article.PublishOn.Format "2006-01-02" }}">{{ .article.PublishOn.Format "02 Jan 2006" }}</time>
+                    </span>
+                    <span class="meta-item">{{ .article.Stats.Views }} lecturas</span>
+                </div>
+                <h1>{{ .article.Title }}</h1>
+                {{ if .article.Tags }}
+                <ul class="tag-list" aria-label="Etiquetas">
+                    {{ range $tag := .article.Tags }}
+                    <li><a class="tag-chip" href="/user/{{ $.article.AuthorNick }}/tag/{{ $tag }}">{{ $tag }}</a></li>
+                    {{ end }}
+                </ul>
+                {{ end }}
+            </header>
+            <div class="article-content">
+                {{ .article.ContentHTML }}
+            </div>
+        </article>
+    </main>
+
+    <footer class="footer">
+        <div class="container footer-inner">
+            <p>GoPress es software libre hecho con mucho ❤️. Colabora y comparte tus mejoras.</p>
+            <div class="icon-links">
+                <a href="https://github.com/fulldump/gopress">
+                    <img class="icon" src="https://github.githubassets.com/favicons/favicon.png" alt="GitHub">
+                    Código en GitHub
+                </a>
+                <a href="https://www.twitch.tv/fulldump">
+                    <img class="icon" src="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png" alt="Twitch">
+                    twitch.tv/fulldump
+                </a>
+                <a href="https://www.youtube.com/watch?v=xweWe4ve8vE&list=PLMPsqnO6mKSA3iQzqaRIi_1qVONlQN8ap&index=1">
+                    <img class="icon" src="https://www.youtube.com/s/desktop/286e6262/img/favicon_32x32.png" alt="YouTube">
+                    youtube.com/@fulldump
+                </a>
+            </div>
+        </div>
+    </footer>
 
     <script>
-        function id(s) {
-            return document.getElementById(s);
-        }
+        (function () {
+            const login = document.getElementById('login');
+            const logout = document.getElementById('logout');
+            const picture = document.getElementById('user_picture');
+            const nick = document.getElementById('user_nick');
 
-        fetch('/auth/me').then(resp => resp.json()).then(me => {
-            if (me.error) return;
-            id('login').style.display = 'none';
-            id('logout').style.display = 'block';
-            id('user_picture').setAttribute('src', me.picture);
-            id('user_nick').innerText = me.nick;
-        })
+            fetch('/auth/me')
+                .then(function (resp) { return resp.ok ? resp.json() : {}; })
+                .then(function (me) {
+                    if (!me || me.error) return;
+                    if (login) login.style.display = 'none';
+                    if (logout) logout.style.display = 'flex';
+                    if (picture && me.picture) picture.setAttribute('src', me.picture);
+                    if (nick) nick.textContent = me.nick;
+                })
+                .catch(function () { /* noop */ });
+        })();
     </script>
-
 </body>
 </html>
