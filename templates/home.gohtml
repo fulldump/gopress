@@ -3,68 +3,88 @@
 <head>
     <title>GoPress.org</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="/styles/basic.css?v=3">
+    <link rel="stylesheet" href="/styles/basic.css?v=6">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="manifest" href="/site.webmanifest">{{ .headTrailCode }}
 </head>
 <body>
-
-    <div class="workspace">
-
-        <div style="float: right;">
-            <div id="login">
-                <a href="/auth/login">Login</a>
-            </div>
-            <div id="logout" style="display:none; text-align: right;">
-                <img id="user_picture" src="" style="border-radius: 50%; height: 32px; vertical-align: middle;">
-                <span id="user_nick" style="font-weight: bold;"></span><br>
-                <a href="/admin/">Admin</a> | <a href="/auth/logout">Logout</a>
-            </div>
-        </div>
-
-        <h1 class="logo">
-            <a href="/">GoPress.org</a>
-        </h1>
-
-        {{ range $i, $article := .articles  }}
-            <article class="list">
-                <h2 style="margin-bottom: 0;">
-                    {{ if .AuthorPicture }}
-                        <a href="/user/{{ .AuthorNick }}"><img class="avatar" src="{{ .AuthorPicture }}" alt="Author picture"></a>
-                    {{ end }}
-                    <a href="/user/{{ .AuthorNick }}/article/{{ .Url }}">{{ .Title }}</a>
-                </h2>
-                <div class="details">
-                    <span>Por <a href="/user/{{ .AuthorNick }}">{{ .AuthorNick }}</a></span>
-                    /
-                    <span>{{ .Stats.Views }} views</span>
-                    /
-                    <span alt="{{ .PublishOn }}">{{ .PublishOn.Format "2006-01-02" }}</span>
+    <div class="site-wrapper">
+        <header class="site-header">
+            <div class="navbar container">
+                <a class="brand" href="/">GoPress<span class="brand-dot">•</span></a>
+                <div class="user-menu">
+                    <div id="login" class="user-auth">
+                        <a class="button ghost" href="/auth/login">Iniciar sesión</a>
+                    </div>
+                    <div id="logout" class="user-auth" style="display:none;">
+                        <img id="user_picture" class="user-avatar" src="" alt="Avatar">
+                        <div class="user-meta">
+                            <span id="user_nick" class="user-nick"></span>
+                            <div class="user-links">
+                                <a href="/admin/">Admin</a>
+                                <span class="separator">•</span>
+                                <a href="/auth/logout">Salir</a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                {{ .ContentSummary }}
-                <a href="/user/{{ .AuthorNick }}/article/{{ .Url }}">Seguir leyendo</a>
-            </article>
-        {{ end }}
+            </div>
+        </header>
 
-        <div class="footer">
-            Gopress es software libre hecho con mucho ❤️ colabora en
-            <a href="https://github.com/fulldump/gopress">
-                <img class="icon" src="https://github.githubassets.com/favicons/favicon.png" alt="GitHub">
-                GitHub
-            </a>.
-            <br>
-            <a href="https://www.twitch.tv/fulldump">
-                <img class="icon" src="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png" alt="Twitch">
-                twitch.tv/fulldump
-            </a>
-            <a href="https://www.youtube.com/watch?v=xweWe4ve8vE&list=PLMPsqnO6mKSA3iQzqaRIi_1qVONlQN8ap&index=1">
-                <img class="icon" src="https://www.youtube.com/s/desktop/286e6262/img/favicon_32x32.png" alt="YouTube">
-                youtube.com/@fulldump
-            </a>
-        </div>
+        <main class="workspace">
+            <section class="page-hero container">
+                <span class="hero-eyebrow">Blog comunitario</span>
+                <h1>Historias, ideas y tutoriales creados por la comunidad</h1>
+                <p>Descubre las voces que impulsan GoPress con artículos seleccionados y experiencias reales.</p>
+                <div class="hero-actions">
+                    <a class="button" href="/auth/login">Escribir una historia</a>
+                    <a class="button outline" href="https://github.com/fulldump/gopress" target="_blank" rel="noopener noreferrer">Contribuir al proyecto</a>
+                </div>
+            </section>
 
+            <section class="article-feed container">
+            {{ range $i, $article := .articles  }}
+                <article class="article-card">
+                    <div class="article-card-header">
+                        {{ if .AuthorPicture }}
+                        <a class="author-avatar" href="/user/{{ .AuthorNick }}"><img class="avatar" src="{{ .AuthorPicture }}" alt="{{ .AuthorNick }}"></a>
+                        {{ end }}
+                        <div class="article-meta">
+                            <a class="author-name" href="/user/{{ .AuthorNick }}">{{ .AuthorNick }}</a>
+                            <span class="publish-info">{{ .PublishOn.Format "02 Jan 2006" }} · {{ .Stats.Views }} lecturas</span>
+                        </div>
+                    </div>
+                    <h2 class="article-title"><a href="/user/{{ .AuthorNick }}/article/{{ .Url }}">{{ .Title }}</a></h2>
+                    <div class="article-summary">{{ .ContentSummary }}</div>
+                    <a class="article-readmore" href="/user/{{ .AuthorNick }}/article/{{ .Url }}">Seguir leyendo →</a>
+                </article>
+            {{ end }}
+            </section>
+        </main>
+
+        <footer class="site-footer">
+            <div class="footer-inner container">
+                <p>Gopress es software libre hecho con mucho ❤️ colabora en</p>
+                <p>
+                    <a href="https://github.com/fulldump/gopress">
+                        <img class="icon" src="https://github.githubassets.com/favicons/favicon.png" alt="GitHub">
+                        GitHub
+                    </a>
+                    ·
+                    <a href="https://www.twitch.tv/fulldump">
+                        <img class="icon" src="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png" alt="Twitch">
+                        twitch.tv/fulldump
+                    </a>
+                    ·
+                    <a href="https://www.youtube.com/watch?v=xweWe4ve8vE&list=PLMPsqnO6mKSA3iQzqaRIi_1qVONlQN8ap&index=1">
+                        <img class="icon" src="https://www.youtube.com/s/desktop/286e6262/img/favicon_32x32.png" alt="YouTube">
+                        youtube.com/@fulldump
+                    </a>
+                </p>
+            </div>
+        </footer>
     </div>
 
     <script>
