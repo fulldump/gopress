@@ -716,6 +716,15 @@ img {
     color: #f8fafc;
   }
 
+  .page-status h1 {
+    color: #f8fafc;
+  }
+
+  .hero-eyebrow,
+  .article-hero .hero-eyebrow {
+    color: rgba(165, 180, 252, 0.82);
+  }
+
   .page-hero p,
   .article-summary,
   .publish-info,
@@ -727,8 +736,18 @@ img {
     color: #f8fafc;
   }
 
+  .author-name {
+    color: rgba(248, 250, 252, 0.95);
+  }
+
   .article-content {
     color: rgba(226, 232, 240, 0.92);
+  }
+
+  .article-content h2,
+  .article-content h3,
+  .article-content h4 {
+    color: #f8fafc;
   }
 
   .article-content blockquote {
@@ -747,9 +766,18 @@ img {
     color: rgba(226, 232, 240, 0.92);
   }
 
+  .article-content a,
+  .article-readmore {
+    color: #c7d2fe;
+  }
+
   .tag {
     background: rgba(99, 102, 241, 0.24);
     color: #e0e7ff;
+  }
+
+  .meta-label {
+    color: rgba(226, 232, 240, 0.72);
   }
 
   .site-footer {
