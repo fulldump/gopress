@@ -454,6 +454,8 @@ img {
 .article-card pre,
 .article-card code {
   font-family: var(--font-mono);
+  white-space: pre;
+  overflow-x: auto;
 }
 
 .post-content pre {
