@@ -17,13 +17,17 @@
   box-sizing: border-box;
 }
 
+html {
+  font-size: 18px;
+}
+
 html, body {
   margin: 0;
   padding: 0;
   font-family: var(--font-serif);
   color: var(--color-text);
   background: var(--color-background);
-  line-height: 1.7;
+  line-height: 1.8;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -77,7 +81,7 @@ img {
   align-items: center;
   gap: 20px;
   font-family: var(--font-sans);
-  font-size: 0.95rem;
+  font-size: 1rem;
   color: var(--color-muted);
 }
 
@@ -110,7 +114,7 @@ img {
   display: flex;
   gap: 8px;
   align-items: center;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--color-muted);
 }
 
@@ -255,7 +259,7 @@ img {
 
 .publish-info {
   font-family: var(--font-sans);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   color: var(--color-muted);
 }
 
@@ -273,8 +277,8 @@ img {
 
 .article-summary {
   color: rgba(15, 23, 42, 0.75);
-  font-size: 1.05rem;
-  line-height: 1.8;
+  font-size: 1.15rem;
+  line-height: 1.85;
 }
 
 .article-summary p:last-child {
@@ -284,7 +288,7 @@ img {
 .article-readmore {
   font-family: var(--font-sans);
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 1rem;
   color: var(--color-primary);
   display: inline-flex;
   align-items: center;
@@ -338,7 +342,7 @@ img {
   background: rgba(26, 137, 23, 0.1);
   color: var(--color-primary);
   font-family: var(--font-sans);
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -349,7 +353,7 @@ img {
 }
 
 .article-content {
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   line-height: 1.9;
   color: rgba(15, 23, 42, 0.92);
 }
@@ -369,9 +373,9 @@ img {
   line-height: 1.25;
 }
 
-.article-content h2 { font-size: 2rem; }
-.article-content h3 { font-size: 1.6rem; }
-.article-content h4 { font-size: 1.3rem; }
+.article-content h2 { font-size: 2.2rem; }
+.article-content h3 { font-size: 1.8rem; }
+.article-content h4 { font-size: 1.45rem; }
 
 .article-content blockquote {
   margin: 0 0 1.6em;
@@ -479,6 +483,10 @@ article li {
 }
 
 @media (max-width: 720px) {
+  html {
+    font-size: 16px;
+  }
+
   .navbar {
     padding: 16px;
     flex-direction: column;
@@ -513,6 +521,12 @@ article li {
 
   .user-menu .user-links {
     display: none;
+  }
+}
+
+@media (min-width: 1400px) {
+  html {
+    font-size: 19px;
   }
 }
 
