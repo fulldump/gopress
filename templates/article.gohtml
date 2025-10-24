@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <title>{{ .article.Title }}</title>
+    <meta charset="utf-8">
+    <title>{{ .article.Title }} — GoPress</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="/styles/basic.css?v=3">
+    <meta name="description" content="{{ .og_description }}">
+    <link rel="stylesheet" href="/styles/basic.css?v=4">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
@@ -16,63 +18,86 @@
     <meta property="og:description" content="{{ .og_description }}" />
     <meta name="twitter:card" content="summary" />{{ .headTrailCode }}
 </head>
-<body>
-
-    <div class="workspace">
-
-        <div style="float: right;">
-            <div id="login">
-                <a href="/auth/login">Login</a>
-            </div>
-            <div id="logout" style="display:none; text-align: right;">
-                <img id="user_picture" src="" style="border-radius: 50%; height: 32px; vertical-align: middle;">
-                <span id="user_nick" style="font-weight: bold;"></span><br>
-                <a href="/admin/">Admin</a> | <a href="/auth/logout">Logout</a>
-            </div>
+<body class="page page--article">
+    <header class="site-header" role="banner">
+        <div class="container site-header__inner">
+            <a class="brand" href="/">
+                <span class="brand__logo" aria-hidden="true">GP</span>
+                <span class="brand__title">GoPress<span class="brand__subtitle">Blog colectivo</span></span>
+            </a>
+            <nav class="site-nav" aria-label="Acciones de usuario">
+                <div id="login">
+                    <a href="/auth/login" class="button button--ghost">Iniciar sesión</a>
+                </div>
+                <div id="logout">
+                    <img id="user_picture" src="" alt="Avatar de usuario">
+                    <span id="user_nick"></span>
+                    <a href="/admin/" class="button button--ghost">Panel</a>
+                    <a href="/auth/logout" class="button button--primary">Salir</a>
+                </div>
+            </nav>
         </div>
+    </header>
 
-        <div class="logo"><a href="/">GoPress.org</a></div>
-
-        <article>
-            <h1>{{ .article.Title }}</h1>
-            <div class="details">
-                {{ if .article.AuthorPicture }}
-                <a href="/user/{{ .article.AuthorNick }}"><img class="avatar" src="{{ .article.AuthorPicture }}" alt="Author picture"></a>
-                {{ end }}
-                <span>Por <a href="/user/{{ .article.AuthorNick }}">{{ .article.AuthorNick }}</a></span>
-                /
-                <span>{{ .article.Stats.Views }} views</span>
-                /
-                <span alt="{{ .article.PublishOn }}">{{ .article.PublishOn.Format "2006-01-02" }}</span>
-                {{ if .article.Tags }}
-                    <div class="tags">
-                        {{ range $j, $tag := .article.Tags }}
-                            <a class="tag" href="/user/{{ $.article.AuthorNick }}/tag/{{ $tag }}">{{ $tag }}</a>
+    <main id="main" class="page__main" role="main" itemscope itemtype="https://schema.org/Article">
+        <meta itemprop="headline" content="{{ .article.Title }}">
+        {{ if not (.article.PublishOn.IsZero) }}
+        <meta itemprop="datePublished" content="{{ .article.PublishOn.Format "2006-01-02" }}">
+        {{ end }}
+        {{ if not (.article.UpdateOn.IsZero) }}
+        <meta itemprop="dateModified" content="{{ .article.UpdateOn.Format "2006-01-02" }}">
+        {{ end }}
+        <section class="article-header">
+            <div class="container">
+                <div class="article-hero">
+                    <div class="article-hero__meta">
+                        <div class="article-hero__author" itemprop="author" itemscope itemtype="https://schema.org/Person">
+                            {{ if .article.AuthorPicture }}
+                            <a href="/user/{{ .article.AuthorNick }}" aria-label="Ver perfil de {{ .article.AuthorNick }}">
+                                <img class="avatar" src="{{ .article.AuthorPicture }}" alt="Foto de {{ .article.AuthorNick }}" itemprop="image">
+                            </a>
+                            {{ end }}
+                            <div>
+                                <a href="/user/{{ .article.AuthorNick }}" itemprop="url">
+                                    <span itemprop="name">{{ .article.AuthorNick }}</span>
+                                </a>
+                                <div>
+                                    <time datetime="{{ .article.PublishOn.Format "2006-01-02" }}">{{ .article.PublishOn.Format "2006-01-02" }}</time>
+                                    · {{ .article.Stats.Views }} lecturas
+                                </div>
+                            </div>
+                            {{ if .article.AuthorPicture }}
+                            <meta itemprop="image" content="{{ .article.AuthorPicture }}">
+                            {{ end }}
+                        </div>
+                        {{ if .article.Tags }}
+                        <div class="article-hero__tags" itemprop="keywords">
+                            {{ range $j, $tag := .article.Tags }}
+                                <a class="tag" href="/user/{{ $.article.AuthorNick }}/tag/{{ $tag }}">{{ $tag }}</a>
+                            {{ end }}
+                        </div>
                         {{ end }}
                     </div>
-                {{ end }}
+                    <h1 class="article-hero__title" itemprop="headline">{{ .article.Title }}</h1>
+                </div>
             </div>
-            <div>{{ .article.ContentHTML }}</div>
+        </section>
+
+        <article class="article-body container" itemprop="articleBody">
+            {{ .article.ContentHTML }}
         </article>
+    </main>
 
-        <div class="footer">
-            Gopress es software libre hecho con mucho ❤️ colabora en
-            <a href="https://github.com/fulldump/gopress">
-                <img class="icon" src="https://github.githubassets.com/favicons/favicon.png" alt="GitHub">
-                GitHub
-            </a>.
-            <br>
-            <a href="https://www.twitch.tv/fulldump">
-                <img class="icon" src="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png" alt="Twitch">
-                twitch.tv/fulldump
-            </a>
-            <a href="https://www.youtube.com/watch?v=xweWe4ve8vE&list=PLMPsqnO6mKSA3iQzqaRIi_1qVONlQN8ap&index=1">
-                <img class="icon" src="https://www.youtube.com/s/desktop/286e6262/img/favicon_32x32.png" alt="YouTube">
-                youtube.com/@fulldump
-            </a>
+    <footer class="site-footer" role="contentinfo">
+        <div class="container site-footer__inner">
+            <p>GoPress es software libre hecho con mucho ❤️. Inspira, aprende y crea junto a la comunidad.</p>
+            <div class="site-footer__links">
+                <a href="https://github.com/fulldump/gopress" rel="noopener" target="_blank">GitHub</a>
+                <a href="https://www.twitch.tv/fulldump" rel="noopener" target="_blank">Twitch</a>
+                <a href="https://www.youtube.com/watch?v=xweWe4ve8vE&list=PLMPsqnO6mKSA3iQzqaRIi_1qVONlQN8ap&index=1" rel="noopener" target="_blank">YouTube</a>
+            </div>
         </div>
-
-    </div>
+    </footer>
 
     <script>
         function id(s) {
@@ -82,11 +107,11 @@
         fetch('/auth/me').then(resp => resp.json()).then(me => {
             if (me.error) return;
             id('login').style.display = 'none';
-            id('logout').style.display = 'block';
+            id('logout').style.display = 'inline-flex';
             id('user_picture').setAttribute('src', me.picture);
+            id('user_picture').setAttribute('alt', 'Avatar de ' + me.nick);
             id('user_nick').innerText = me.nick;
-        })
+        });
     </script>
-
 </body>
 </html>

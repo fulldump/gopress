@@ -1,71 +1,77 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <title>GoPress - Error {{ .error.Status }}</title>
+    <meta charset="utf-8">
+    <title>GoPress — Error {{ .error.Status }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="/styles/basic.css?v=3">
     <meta name="robots" content="noindex,nofollow">
+    <link rel="stylesheet" href="/styles/basic.css?v=4">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="manifest" href="/site.webmanifest">{{ .headTrailCode }}
 </head>
-<body>
-
-<div class="workspace">
-
-    <div style="float: right;">
-        <div id="login">
-            <a href="/auth/login">Login</a>
+<body class="page page--error">
+    <header class="site-header" role="banner">
+        <div class="container site-header__inner">
+            <a class="brand" href="/">
+                <span class="brand__logo" aria-hidden="true">GP</span>
+                <span class="brand__title">GoPress<span class="brand__subtitle">Blog colectivo</span></span>
+            </a>
+            <nav class="site-nav" aria-label="Acciones de usuario">
+                <div id="login">
+                    <a href="/auth/login" class="button button--ghost">Iniciar sesión</a>
+                </div>
+                <div id="logout">
+                    <img id="user_picture" src="" alt="Avatar de usuario">
+                    <span id="user_nick"></span>
+                    <a href="/admin/" class="button button--ghost">Panel</a>
+                    <a href="/auth/logout" class="button button--primary">Salir</a>
+                </div>
+            </nav>
         </div>
-        <div id="logout" style="display:none; text-align: right;">
-            <img id="user_picture" src="" style="border-radius: 50%; height: 32px; vertical-align: middle;">
-            <span id="user_nick" style="font-weight: bold;"></span><br>
-            <a href="/admin/">Admin</a> | <a href="/auth/logout">Logout</a>
+    </header>
+
+    <main id="main" class="page__main" role="main">
+        <section class="hero" aria-labelledby="error-title">
+            <div class="container">
+                <div class="hero__card" style="text-align:center;">
+                    <p class="hero__eyebrow">Algo no salió como esperábamos</p>
+                    <h1 id="error-title" class="hero__title">Error {{ .error.Status }} — {{ .error.Title }}</h1>
+                    <p class="hero__description">{{ .error.Description }}</p>
+                    <div class="hero__actions" style="justify-content:center;">
+                        <a href="/" class="button button--primary">Volver al inicio</a>
+                        <a href="mailto:hello@gopress.org" class="button button--ghost">Contactar soporte</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer" role="contentinfo">
+        <div class="container site-footer__inner">
+            <p>GoPress es software libre hecho con mucho ❤️. Inspira, aprende y crea junto a la comunidad.</p>
+            <div class="site-footer__links">
+                <a href="https://github.com/fulldump/gopress" rel="noopener" target="_blank">GitHub</a>
+                <a href="https://www.twitch.tv/fulldump" rel="noopener" target="_blank">Twitch</a>
+                <a href="https://www.youtube.com/watch?v=xweWe4ve8vE&list=PLMPsqnO6mKSA3iQzqaRIi_1qVONlQN8ap&index=1" rel="noopener" target="_blank">YouTube</a>
+            </div>
         </div>
-    </div>
+    </footer>
 
-    <div class="logo"><a href="/">GoPress.org</a></div>
+    <script>
+        function id(s) {
+            return document.getElementById(s);
+        }
 
-    <article>
-        <h1>Error {{ .error.Status }}: {{ .error.Title }}</h1>
-        <div class="details">
-            {{ .error.Description }}
-        </div>
-    </article>
-
-    <div class="footer">
-        Gopress es software libre hecho con mucho ❤️ colabora en
-        <a href="https://github.com/fulldump/gopress">
-            <img class="icon" src="https://github.githubassets.com/favicons/favicon.png" alt="GitHub">
-            GitHub
-        </a>.
-        <br>
-        <a href="https://www.twitch.tv/fulldump">
-            <img class="icon" src="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png" alt="Twitch">
-            twitch.tv/fulldump
-        </a>
-        <a href="https://www.youtube.com/watch?v=xweWe4ve8vE&list=PLMPsqnO6mKSA3iQzqaRIi_1qVONlQN8ap&index=1">
-            <img class="icon" src="https://www.youtube.com/s/desktop/286e6262/img/favicon_32x32.png" alt="YouTube">
-            youtube.com/@fulldump
-        </a>
-    </div>
-
-</div>
-
-<script>
-    function id(s) {
-        return document.getElementById(s);
-    }
-
-    fetch('/auth/me').then(resp => resp.json()).then(me => {
-        if (me.error) return;
-        id('login').style.display = 'none';
-        id('logout').style.display = 'block';
-        id('user_picture').setAttribute('src', me.picture);
-        id('user_nick').innerText = me.nick;
-    })
-</script>
-
+        fetch('/auth/me').then(resp => resp.json()).then(me => {
+            if (me.error) return;
+            id('login').style.display = 'none';
+            id('logout').style.display = 'inline-flex';
+            id('user_picture').setAttribute('src', me.picture);
+            id('user_picture').setAttribute('alt', 'Avatar de ' + me.nick);
+            id('user_nick').innerText = me.nick;
+        });
+    </script>
 </body>
 </html>
