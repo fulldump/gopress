@@ -1,9 +1,14 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <title>{{ .article.Title }}</title>
+    <meta charset="utf-8">
+    <title>{{ .article.Title }} · GoPress</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="/styles/basic.css?v=3">
+    <meta name="description" content="{{ .og_description }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/basic.css?v=4">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
@@ -17,76 +22,94 @@
     <meta name="twitter:card" content="summary" />{{ .headTrailCode }}
 </head>
 <body>
-
-    <div class="workspace">
-
-        <div style="float: right;">
-            <div id="login">
-                <a href="/auth/login">Login</a>
+    <header class="site-header">
+        <div class="container">
+            <div class="brand">
+                <a class="brand-logo" href="/">GoPress</a>
+                <p class="brand-tagline">Ideas rigurosas contadas con elegancia</p>
             </div>
-            <div id="logout" style="display:none; text-align: right;">
-                <img id="user_picture" src="" style="border-radius: 50%; height: 32px; vertical-align: middle;">
-                <span id="user_nick" style="font-weight: bold;"></span><br>
-                <a href="/admin/">Admin</a> | <a href="/auth/logout">Logout</a>
-            </div>
+            <nav class="session" aria-label="Área personal">
+                <div id="login" class="session-login">
+                    <a class="button subtle" href="/auth/login">Iniciar sesión</a>
+                </div>
+                <div id="logout" class="session-user" hidden>
+                    <img id="user_picture" src="" alt="Avatar" class="session-avatar">
+                    <div class="session-meta">
+                        <span id="user_nick" class="session-name"></span>
+                        <div class="session-links">
+                            <a href="/admin/">Administración</a>
+                            <span aria-hidden="true">·</span>
+                            <a href="/auth/logout">Salir</a>
+                        </div>
+                    </div>
+                </div>
+            </nav>
         </div>
+    </header>
 
-        <div class="logo"><a href="/">GoPress.org</a></div>
-
-        <article>
-            <h1>{{ .article.Title }}</h1>
-            <div class="details">
-                {{ if .article.AuthorPicture }}
-                <a href="/user/{{ .article.AuthorNick }}"><img class="avatar" src="{{ .article.AuthorPicture }}" alt="Author picture"></a>
-                {{ end }}
-                <span>Por <a href="/user/{{ .article.AuthorNick }}">{{ .article.AuthorNick }}</a></span>
-                /
-                <span>{{ .article.Stats.Views }} views</span>
-                /
-                <span alt="{{ .article.PublishOn }}">{{ .article.PublishOn.Format "2006-01-02" }}</span>
-                {{ if .article.Tags }}
-                    <div class="tags">
+    <main>
+        <article class="full-article">
+            <header class="full-article__hero">
+                <div class="container">
+                    <div class="article-meta">
+                        {{ if .article.AuthorPicture }}
+                        <a class="article-meta__avatar" href="/user/{{ .article.AuthorNick }}">
+                            <img class="avatar" src="{{ .article.AuthorPicture }}" alt="Avatar de {{ .article.AuthorNick }}">
+                        </a>
+                        {{ end }}
+                        <div class="article-meta__info">
+                            <a class="article-meta__author" href="/user/{{ .article.AuthorNick }}">{{ .article.AuthorNick }}</a>
+                            <div class="article-meta__details">
+                                <time datetime="{{ .article.PublishOn.Format "2006-01-02" }}">{{ .article.PublishOn.Format "2 de January de 2006" }}</time>
+                                <span aria-hidden="true">·</span>
+                                <span>{{ .article.Stats.Views }} lecturas</span>
+                            </div>
+                        </div>
+                    </div>
+                    <h1 class="full-article__title">{{ .article.Title }}</h1>
+                    {{ if .article.Tags }}
+                    <div class="tag-list" aria-label="Etiquetas del artículo">
                         {{ range $j, $tag := .article.Tags }}
                             <a class="tag" href="/user/{{ $.article.AuthorNick }}/tag/{{ $tag }}">{{ $tag }}</a>
                         {{ end }}
                     </div>
-                {{ end }}
+                    {{ end }}
+                </div>
+            </header>
+
+            <div class="container">
+                <div class="full-article__content">
+                    {{ .article.ContentHTML }}
+                </div>
             </div>
-            <div>{{ .article.ContentHTML }}</div>
         </article>
+    </main>
 
-        <div class="footer">
-            Gopress es software libre hecho con mucho ❤️ colabora en
-            <a href="https://github.com/fulldump/gopress">
-                <img class="icon" src="https://github.githubassets.com/favicons/favicon.png" alt="GitHub">
-                GitHub
-            </a>.
-            <br>
-            <a href="https://www.twitch.tv/fulldump">
-                <img class="icon" src="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png" alt="Twitch">
-                twitch.tv/fulldump
-            </a>
-            <a href="https://www.youtube.com/watch?v=xweWe4ve8vE&list=PLMPsqnO6mKSA3iQzqaRIi_1qVONlQN8ap&index=1">
-                <img class="icon" src="https://www.youtube.com/s/desktop/286e6262/img/favicon_32x32.png" alt="YouTube">
-                youtube.com/@fulldump
-            </a>
+    <footer class="site-footer">
+        <div class="container">
+            <p class="footer-heading">¿Te gustaría escribir aquí?</p>
+            <p>GoPress es software libre. Crea tu cuenta y comparte tus propias historias o contribuye en <a href="https://github.com/fulldump/gopress">GitHub</a>.</p>
+            <p>Comparte la conversación también en <a href="https://www.twitch.tv/fulldump">Twitch</a> y <a href="https://www.youtube.com/watch?v=xweWe4ve8vE&list=PLMPsqnO6mKSA3iQzqaRIi_1qVONlQN8ap&index=1">YouTube</a>.</p>
         </div>
-
-    </div>
+    </footer>
 
     <script>
-        function id(s) {
-            return document.getElementById(s);
-        }
+        const login = document.getElementById('login');
+        const logout = document.getElementById('logout');
+        const picture = document.getElementById('user_picture');
+        const nick = document.getElementById('user_nick');
 
-        fetch('/auth/me').then(resp => resp.json()).then(me => {
-            if (me.error) return;
-            id('login').style.display = 'none';
-            id('logout').style.display = 'block';
-            id('user_picture').setAttribute('src', me.picture);
-            id('user_nick').innerText = me.nick;
-        })
+        fetch('/auth/me')
+            .then(resp => resp.json())
+            .then(me => {
+                if (me.error) return;
+                login.hidden = true;
+                logout.hidden = false;
+                logout.style.display = 'flex';
+                picture.src = me.picture;
+                nick.textContent = me.nick;
+            })
+            .catch(() => {});
     </script>
-
 </body>
 </html>
