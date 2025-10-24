@@ -1,71 +1,92 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <title>GoPress - Error {{ .error.Status }}</title>
+    <meta charset="utf-8">
+    <title>GoPress · Error {{ .error.Status }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="/styles/basic.css?v=3">
     <meta name="robots" content="noindex,nofollow">
+    <link rel="stylesheet" href="/styles/basic.css?v=4">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="manifest" href="/site.webmanifest">{{ .headTrailCode }}
 </head>
 <body>
-
-<div class="workspace">
-
-    <div style="float: right;">
-        <div id="login">
-            <a href="/auth/login">Login</a>
+    <header class="site-header">
+        <div class="shell">
+            <div class="site-header__inner">
+                <div class="branding">
+                    <a class="brand" href="/">GoPress<span class="brand__dot">.</span>org</a>
+                    <p class="tagline">Algo no salió como esperábamos, pero podemos volver al camino.</p>
+                </div>
+                <nav class="site-nav" aria-label="Acciones de usuario">
+                    <div id="login" class="auth-link">
+                        <a class="button button--ghost" href="/auth/login">Iniciar sesión</a>
+                    </div>
+                    <div id="logout" class="auth-link" style="display:none;">
+                        <img id="user_picture" class="avatar" src="" alt="Avatar de la cuenta">
+                        <div class="auth-link__meta">
+                            <span id="user_nick"></span>
+                            <div>
+                                <a href="/admin/">Panel</a>
+                                <span aria-hidden="true">·</span>
+                                <a href="/auth/logout">Salir</a>
+                            </div>
+                        </div>
+                    </div>
+                </nav>
+            </div>
         </div>
-        <div id="logout" style="display:none; text-align: right;">
-            <img id="user_picture" src="" style="border-radius: 50%; height: 32px; vertical-align: middle;">
-            <span id="user_nick" style="font-weight: bold;"></span><br>
-            <a href="/admin/">Admin</a> | <a href="/auth/logout">Logout</a>
+    </header>
+
+    <main id="main-content">
+        <div class="shell">
+            <article class="post">
+                <header class="post__header">
+                    <h1 class="post__title">Error {{ .error.Status }}: {{ .error.Title }}</h1>
+                    <div class="post__meta">
+                        <p>{{ .error.Description }}</p>
+                        <a class="read-more" href="/">Volver al inicio</a>
+                    </div>
+                </header>
+            </article>
         </div>
-    </div>
+    </main>
 
-    <div class="logo"><a href="/">GoPress.org</a></div>
-
-    <article>
-        <h1>Error {{ .error.Status }}: {{ .error.Title }}</h1>
-        <div class="details">
-            {{ .error.Description }}
+    <footer class="site-footer">
+        <div class="shell">
+            <div class="site-footer__inner">
+                <p>GoPress es software libre construido con cariño. ¿Te gustaría ayudarnos a hacerlo crecer?</p>
+                <div class="site-footer__links">
+                    <a href="https://github.com/fulldump/gopress">
+                        <img class="site-footer__icon" src="https://github.githubassets.com/favicons/favicon.png" alt="GitHub">
+                        <span>Contribuye en GitHub</span>
+                    </a>
+                    <a href="https://www.twitch.tv/fulldump">
+                        <img class="site-footer__icon" src="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png" alt="Twitch">
+                        <span>Sigue las sesiones en Twitch</span>
+                    </a>
+                    <a href="https://www.youtube.com/watch?v=xweWe4ve8vE&list=PLMPsqnO6mKSA3iQzqaRIi_1qVONlQN8ap&index=1">
+                        <img class="site-footer__icon" src="https://www.youtube.com/s/desktop/286e6262/img/favicon_32x32.png" alt="YouTube">
+                        <span>Aprende en YouTube</span>
+                    </a>
+                </div>
+            </div>
         </div>
-    </article>
+    </footer>
 
-    <div class="footer">
-        Gopress es software libre hecho con mucho ❤️ colabora en
-        <a href="https://github.com/fulldump/gopress">
-            <img class="icon" src="https://github.githubassets.com/favicons/favicon.png" alt="GitHub">
-            GitHub
-        </a>.
-        <br>
-        <a href="https://www.twitch.tv/fulldump">
-            <img class="icon" src="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png" alt="Twitch">
-            twitch.tv/fulldump
-        </a>
-        <a href="https://www.youtube.com/watch?v=xweWe4ve8vE&list=PLMPsqnO6mKSA3iQzqaRIi_1qVONlQN8ap&index=1">
-            <img class="icon" src="https://www.youtube.com/s/desktop/286e6262/img/favicon_32x32.png" alt="YouTube">
-            youtube.com/@fulldump
-        </a>
-    </div>
+    <script>
+        function id(s) {
+            return document.getElementById(s);
+        }
 
-</div>
-
-<script>
-    function id(s) {
-        return document.getElementById(s);
-    }
-
-    fetch('/auth/me').then(resp => resp.json()).then(me => {
-        if (me.error) return;
-        id('login').style.display = 'none';
-        id('logout').style.display = 'block';
-        id('user_picture').setAttribute('src', me.picture);
-        id('user_nick').innerText = me.nick;
-    })
-</script>
-
+        fetch('/auth/me').then(resp => resp.json()).then(me => {
+            if (me.error) return;
+            id('login').style.display = 'none';
+            id('logout').style.display = 'flex';
+            id('user_picture').setAttribute('src', me.picture);
+            id('user_nick').innerText = me.nick;
+        });
+    </script>
 </body>
 </html>
