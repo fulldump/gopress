@@ -321,7 +321,6 @@ img {
 .card-excerpt {
   color: var(--color-muted-strong);
   font-size: 1.05rem;
-  display: grid;
   gap: 0.75rem;
 }
 
@@ -507,6 +506,10 @@ img {
   font-family: var(--font-mono);
   white-space: pre;
   overflow-x: auto;
+}
+
+.post-content .inline-code {
+  white-space: pre-line;
 }
 
 .post-content pre {
