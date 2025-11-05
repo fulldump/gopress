@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/fulldump/box"
@@ -32,6 +33,25 @@ func PublishArticle(ctx context.Context) (*Article, error) {
 
 	article.Published = true
 	article.PublishOn = time.Now()
+
+	moderator := GetContentModerator(ctx)
+	article.Banned = false
+	if moderator != nil {
+		content := strings.TrimSpace(removeSpaces(html2text(string(article.ContentHTML))))
+		if content == "" && len(article.Content.Data) > 0 {
+			content = strings.TrimSpace(removeSpaces(string(article.Content.Data)))
+		}
+		if content == "" {
+			content = article.Title
+		}
+
+		banned, err := moderator.Evaluate(ctx, content)
+		if err != nil {
+			log.Println("publish article: moderation:", err.Error())
+			return nil, errors.New("could not validate article content")
+		}
+		article.Banned = banned
+	}
 
 	_, err = db.Patch("articles", inceptiondb.PatchQuery{
 		Filter: filter,

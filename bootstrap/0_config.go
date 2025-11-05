@@ -11,6 +11,8 @@ type Config struct {
 
 	Standalone Standalone
 
+	DeepSeek DeepSeekConfig
+
 	// Storage
 	// GoogleCloudStorage googlefilestore.GoogleCloudStorage
 	LocalStorage string `usage:"Images directory"`
@@ -24,4 +26,10 @@ type Config struct {
 type Standalone struct {
 	Enabled   bool `usage:"Configure an embedded database and authentication layer. It omits Inception configuration."`
 	Inception InceptionStandaloneConfig
+}
+
+type DeepSeekConfig struct {
+	APIKey  string `usage:"DeepSeek API key"`
+	BaseURL string `usage:"DeepSeek API base URL"`
+	Model   string `usage:"DeepSeek model name"`
 }

@@ -16,7 +16,7 @@ import (
 
 type JSON = map[string]any
 
-func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.Filestorager) *box.B {
+func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.Filestorager, moderator ContentModerator) *box.B {
 
 	b := box.NewBox()
 
@@ -30,6 +30,7 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 
 	b.WithInterceptors(PrettyError)
 	b.WithInterceptors(InjectInceptionClient(db))
+	b.WithInterceptors(InjectContentModerator(moderator))
 
 	// Public endpoints
 	b.Handle("GET", "/", RenderHome)

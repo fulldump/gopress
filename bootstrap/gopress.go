@@ -12,6 +12,7 @@ import (
 	"gopress/filestorage"
 	"gopress/filestorage/localfilestore"
 	inceptiondbclient "gopress/inceptiondb"
+	"gopress/lib/deepseek"
 	"gopress/templates"
 )
 
@@ -44,7 +45,20 @@ func Gopress(c *Config, version string) Runner {
 		}
 	}
 
-	a := api.NewApi(c.Statics, version, db, fs)
+	var moderator api.ContentModerator
+	if c.DeepSeek.APIKey != "" {
+		moderator, err = deepseek.NewClient(deepseek.Config{
+			APIKey:  c.DeepSeek.APIKey,
+			BaseURL: c.DeepSeek.BaseURL,
+			Model:   c.DeepSeek.Model,
+		})
+		if err != nil {
+			fmt.Println("ERROR: can not initialize DeepSeek client:", err)
+			os.Exit(-1)
+		}
+	}
+
+	a := api.NewApi(c.Statics, version, db, fs, moderator)
 
 	server := http.Server{
 		Addr:    c.Addr,
