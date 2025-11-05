@@ -36,7 +36,7 @@ func TestHappyPath(t *testing.T) {
 		fs, err := localfilestore.New(t.TempDir())
 		biff.AssertNil(err)
 
-		h := NewApi("", "test-version", db, fs)
+		h := NewApi("", "test-version", db, fs, nil)
 		api := apitest.NewWithHandler(h)
 
 		apiRequestJohn := func(method, path string) *apitest.Request {
