@@ -13,9 +13,10 @@ import (
 )
 
 const (
-	defaultBaseURL = "https://api.deepseek.com/v1"
-	defaultModel   = "deepseek-chat"
-	promptMessage  = "dado el contenido que te muestro, contestame true o false si el contenido legítimo y publicable (false) o por el contrario es spam, contenido ilegítimo o ilegal (true)."
+	defaultBaseURL    = "https://api.deepseek.com/v1"
+	defaultModel      = "deepseek-chat"
+	promptMessage     = "dado el contenido que te muestro, contestame true o false si el contenido legítimo y publicable (false) o por el contrario es spam, contenido ilegítimo o ilegal (true)."
+	tagsPromptMessage = "dado el contenido adjunto, damos una lista separada por comas de tags que identifiquen el contenido, incluyendo idioma"
 )
 
 // Config describes how to configure the DeepSeek client.
@@ -85,8 +86,42 @@ type chatResponse struct {
 // Evaluate sends the provided content to DeepSeek asking whether it should be
 // banned. It returns true when the article must be banned.
 func (c *Client) Evaluate(ctx context.Context, content string) (bool, error) {
+	answer, err := c.sendPrompt(ctx, fmt.Sprintf("%s\n\nContenido:\n%s", promptMessage, content))
+	if err != nil {
+		return false, err
+	}
+
+	result, err := parseAnswer(answer)
+	if err != nil {
+		return false, err
+	}
+
+	return result, nil
+}
+
+// GenerateTags requests DeepSeek to build a comma separated list of tags that
+// describe the provided content.
+func (c *Client) GenerateTags(ctx context.Context, content string) ([]string, error) {
+	answer, err := c.sendPrompt(ctx, fmt.Sprintf("%s\n\nContenido:\n%s", tagsPromptMessage, content))
+	if err != nil {
+		return nil, err
+	}
+
+	parts := strings.Split(answer, ",")
+	tags := make([]string, 0, len(parts))
+	for _, part := range parts {
+		tag := strings.TrimSpace(part)
+		if tag != "" {
+			tags = append(tags, tag)
+		}
+	}
+
+	return tags, nil
+}
+
+func (c *Client) sendPrompt(ctx context.Context, prompt string) (string, error) {
 	if c == nil {
-		return false, errors.New("deepseek: nil client")
+		return "", errors.New("deepseek: nil client")
 	}
 
 	payload := chatRequest{
@@ -94,19 +129,19 @@ func (c *Client) Evaluate(ctx context.Context, content string) (bool, error) {
 		Messages: []chatMessage{
 			{
 				Role:    "user",
-				Content: fmt.Sprintf("%s\n\nContenido:\n%s", promptMessage, content),
+				Content: prompt,
 			},
 		},
 	}
 
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return false, fmt.Errorf("deepseek: marshal request: %w", err)
+		return "", fmt.Errorf("deepseek: marshal request: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
-		return false, fmt.Errorf("deepseek: create request: %w", err)
+		return "", fmt.Errorf("deepseek: create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
@@ -114,31 +149,25 @@ func (c *Client) Evaluate(ctx context.Context, content string) (bool, error) {
 
 	res, err := c.httpClient.Do(req)
 	if err != nil {
-		return false, fmt.Errorf("deepseek: do request: %w", err)
+		return "", fmt.Errorf("deepseek: do request: %w", err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode >= 400 {
 		data, _ := io.ReadAll(io.LimitReader(res.Body, 4<<10))
-		return false, fmt.Errorf("deepseek: unexpected status %d: %s", res.StatusCode, string(data))
+		return "", fmt.Errorf("deepseek: unexpected status %d: %s", res.StatusCode, string(data))
 	}
 
 	var response chatResponse
 	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
-		return false, fmt.Errorf("deepseek: decode response: %w", err)
+		return "", fmt.Errorf("deepseek: decode response: %w", err)
 	}
 
 	if len(response.Choices) == 0 {
-		return false, errors.New("deepseek: empty response choices")
+		return "", errors.New("deepseek: empty response choices")
 	}
 
-	answer := strings.TrimSpace(response.Choices[0].Message.Content)
-	result, err := parseAnswer(answer)
-	if err != nil {
-		return false, err
-	}
-
-	return result, nil
+	return strings.TrimSpace(response.Choices[0].Message.Content), nil
 }
 
 func parseAnswer(answer string) (bool, error) {

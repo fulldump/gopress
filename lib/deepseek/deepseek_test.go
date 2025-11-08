@@ -67,3 +67,38 @@ func TestClientEvaluate(t *testing.T) {
 		t.Fatalf("expected true, got %v", got)
 	}
 }
+
+func TestClientGenerateTags(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/chat/completions" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		if got := r.Header.Get("Authorization"); got != "Bearer secret" {
+			t.Fatalf("unexpected authorization header: %s", got)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"choices":[{"message":{"content":"tecnología, inteligencia artificial, español"}}]}`))
+	}))
+	defer srv.Close()
+
+	client, err := NewClient(Config{APIKey: "secret", BaseURL: srv.URL})
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+
+	got, err := client.GenerateTags(context.Background(), "contenido de prueba")
+	if err != nil {
+		t.Fatalf("generate tags returned error: %v", err)
+	}
+
+	want := []string{"tecnología", "inteligencia artificial", "español"}
+	if len(got) != len(want) {
+		t.Fatalf("unexpected tags length: want %d, got %d", len(want), len(got))
+	}
+	for i := range want {
+		if want[i] != got[i] {
+			t.Fatalf("unexpected tag at %d: want %q, got %q", i, want[i], got[i])
+		}
+	}
+}

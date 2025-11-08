@@ -51,6 +51,21 @@ func PublishArticle(ctx context.Context) (*Article, error) {
 			return nil, errors.New("could not validate article content")
 		}
 		article.Banned = banned
+
+		if !article.Banned {
+			type tagGenerator interface {
+				GenerateTags(ctx context.Context, content string) ([]string, error)
+			}
+
+			if generator, ok := moderator.(tagGenerator); ok {
+				tags, err := generator.GenerateTags(ctx, content)
+				if err != nil {
+					log.Println("publish article: generate tags:", err.Error())
+				} else if len(tags) > 0 {
+					article.Tags = tags
+				}
+			}
+		}
 	}
 
 	_, err = db.Patch("articles", inceptiondb.PatchQuery{
