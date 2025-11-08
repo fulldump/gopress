@@ -16,7 +16,7 @@ const (
 	defaultBaseURL    = "https://api.deepseek.com/v1"
 	defaultModel      = "deepseek-chat"
 	promptMessage     = "dado el contenido que te muestro, contestame true o false si el contenido legítimo y publicable (false) o por el contrario es spam, contenido ilegítimo o ilegal (true)."
-	tagsPromptMessage = "dado el contenido adjunto, dame una lista separada por comas de tags que identifiquen el contenido, incluyendo idioma que debe ser el primer tag siempre. Sólo los tags más relevantes, 7 máximo."
+	tagsPromptMessage = "dado el contenido adjunto, dame una lista separada por comas de tags que identifiquen el contenido, incluyendo idioma que debe ser el primer tag siempre. Sólo los tags más relevantes, 7 máximo. Los tags en inglés."
 )
 
 // Config describes how to configure the DeepSeek client.
