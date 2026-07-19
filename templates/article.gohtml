@@ -7,90 +7,63 @@
     <meta name="description" content="{{ .og_description }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+Pro:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles/basic.css?v=5">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/basic.css?v=6">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="manifest" href="/site.webmanifest">
-
-    <meta property="og:title" content="{{ .og_title }}" />
-    <meta property="og:url" content="{{ .og_url }}" />
-    <meta property="og:image" content="{{ .og_image }}" />
-    <meta property="og:site_name" content="GoPress, blogs para todos" />
-    <meta property="og:description" content="{{ .og_description }}" />
-    <meta name="twitter:card" content="summary" />{{ .headTrailCode }}
+    <meta property="og:title" content="{{ .og_title }}">
+    <meta property="og:url" content="{{ .og_url }}">
+    <meta property="og:image" content="{{ .og_image }}">
+    <meta property="og:site_name" content="GoPress, blogs para todos">
+    <meta property="og:description" content="{{ .og_description }}">
+    <meta name="twitter:card" content="summary">{{ .headTrailCode }}
 </head>
 <body>
+    <a class="skip-link" href="#main-content">Ir al contenido</a>
     <div class="site-wrapper">
         <header class="site-header">
-            <nav class="top-bar container" aria-label="Barra superior">
+            <nav class="top-bar container" aria-label="Navegación principal">
                 <a class="brand" href="/">GoPress<span>.org</span></a>
                 <div class="auth-actions">
-                    <div id="login">
-                        <a href="/auth/login">Iniciar sesión</a>
-                    </div>
-                    <div id="logout">
-                        <img id="user_picture" alt="Foto de perfil" src="">
-                        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.15rem;">
-                            <span id="user_nick"></span>
-                            <div style="display:flex; gap:0.5rem;">
-                                <a href="/admin/">Administración</a>
-                                <a href="/auth/logout">Salir</a>
-                            </div>
-                        </div>
+                    <div id="login"><a href="/auth/login">Iniciar sesión</a></div>
+                    <div id="logout" hidden>
+                        <img id="user_picture" class="nav-avatar" alt="" hidden>
+                        <span id="user_nick"></span>
+                        <a href="/admin/">Administración</a>
+                        <a href="/auth/logout">Salir</a>
                     </div>
                 </div>
             </nav>
         </header>
 
-        <main class="site-main">
+        <main class="site-main" id="main-content">
             <div class="container">
                 <article class="post" itemscope itemtype="https://schema.org/Article">
                     <header class="post-header">
                         <h1 class="post-title" itemprop="headline">{{ .article.Title }}</h1>
                         <div class="post-meta">
-                            <div class="author-chip" itemprop="author" itemscope itemtype="https://schema.org/Person">
-                                {{ if .article.AuthorPicture }}
-                                <a href="/user/{{ .article.AuthorNick }}" itemprop="url">
-                                    <img class="author-avatar" src="{{ .article.AuthorPicture }}" alt="Foto de {{ .article.AuthorNick }}" itemprop="image">
-                                </a>
-                                {{ else }}
-                                <div class="author-avatar" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe); display:flex; align-items:center; justify-content:center; font-weight:600; color:#1f3c88; text-transform:uppercase;" aria-hidden="true">
-                                    {{ printf "%.1s" .article.AuthorNick }}
-                                </div>
-                                {{ end }}
-                                <div class="author-info">
-                                    <a href="/user/{{ .article.AuthorNick }}" itemprop="url">
-                                        <span itemprop="name">{{ .article.AuthorNick }}</span>
-                                    </a>
-                                </div>
-                            </div>
-                            <div class="meta">
-                                <time datetime="{{ .article.PublishOn.Format "2006-01-02" }}" itemprop="datePublished">{{ .article.PublishOn.Format "02 Jan 2006" }}</time>
-                                <span aria-label="Número de lecturas">{{ .article.Stats.Views }} lecturas</span>
-                            </div>
+                            <span itemprop="author" itemscope itemtype="https://schema.org/Person">
+                                Por <a href="/user/{{ .article.AuthorNick }}" itemprop="url"><span itemprop="name">{{ .article.AuthorNick }}</span></a>
+                            </span>
+                            <time datetime="{{ .article.PublishOn.Format "2006-01-02" }}" itemprop="datePublished">{{ .article.PublishOn.Format "02/01/2006" }}</time>
+                            <span>{{ .article.Stats.Views }} lecturas</span>
                         </div>
                         {{ if .article.Tags }}
                         <div class="post-tags" aria-label="Etiquetas del artículo">
                             {{ range $j, $tag := .article.Tags }}
-                            <a class="tag" href="/user/{{ $.article.AuthorNick }}/tag/{{ $tag }}" itemprop="about">{{ $tag }}</a>
+                            <a class="tag" href="/tag/{{ $tag }}" itemprop="about">#{{ $tag }}</a>
                             {{ end }}
                         </div>
                         {{ end }}
                     </header>
-                    <div class="post-content" itemprop="articleBody">
-                        {{ .article.ContentHTML }}
-                    </div>
+                    <div class="post-content" itemprop="articleBody">{{ .article.ContentHTML }}</div>
                 </article>
 
                 <section class="comments-section" id="comments" data-endpoint="/v1/articles/{{ .article.Id }}/comments" aria-labelledby="comments-title">
                     <div class="comments-heading">
-                        <div>
-                            <span class="comments-kicker">Conversación</span>
-                            <h2 id="comments-title">Comentarios <span id="comments-count"></span></h2>
-                        </div>
-                        <span class="markdown-badge">Admite Markdown</span>
+                        <h2 id="comments-title">Comentarios <span id="comments-count"></span></h2>
                     </div>
 
                     <form class="comment-form" id="comment-form">
@@ -100,17 +73,17 @@
                                 <input type="text" name="name" maxlength="100" autocomplete="name" required>
                             </label>
                             <label>
-                                Email <span>(opcional, no será público)</span>
+                                Email <small>Opcional, nunca se publica</small>
                                 <input type="email" name="email" maxlength="254" autocomplete="email">
                             </label>
                         </div>
                         <label>
                             Comentario
-                            <textarea name="text" rows="6" maxlength="10000" placeholder="Comparte una idea. Usa `código` o bloques con ```" required></textarea>
+                            <textarea name="text" rows="5" maxlength="10000" aria-describedby="comment-markdown-help" required></textarea>
                         </label>
                         <div class="comment-form-footer">
-                            <span>Markdown básico, enlaces y bloques de código.</span>
-                            <button type="submit">Publicar comentario</button>
+                            <span id="comment-markdown-help">Admite Markdown y bloques de código.</span>
+                            <button type="submit">Publicar</button>
                         </div>
                         <p class="comment-form-message" role="alert"></p>
                     </form>
@@ -122,43 +95,17 @@
         </main>
 
         <footer class="site-footer">
-            <div class="footer-content">
-                <strong>GoPress es software libre construido con cariño por la comunidad.</strong>
-                <div class="footer-links">
-                    <a href="https://github.com/fulldump/gopress">
-                        <img class="icon" src="https://github.githubassets.com/favicons/favicon.png" alt="GitHub">
-                        Colabora en GitHub
-                    </a>
-                    <a href="https://www.twitch.tv/fulldump">
-                        <img class="icon" src="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png" alt="Twitch">
-                        twitch.tv/fulldump
-                    </a>
-                    <a href="https://www.youtube.com/watch?v=xweWe4ve8vE&list=PLMPsqnO6mKSA3iQzqaRIi_1qVONlQN8ap&index=1">
-                        <img class="icon" src="https://www.youtube.com/s/desktop/286e6262/img/favicon_32x32.png" alt="YouTube">
-                        youtube.com/@fulldump
-                    </a>
-                </div>
+            <div class="footer-content container">
+                <p>GoPress es software libre construido por la comunidad.</p>
+                <nav class="footer-links" aria-label="Enlaces del proyecto">
+                    <a href="https://github.com/fulldump/gopress">GitHub</a>
+                    <a href="https://www.twitch.tv/fulldump">Twitch</a>
+                    <a href="https://www.youtube.com/@fulldump">YouTube</a>
+                </nav>
             </div>
         </footer>
     </div>
-
-    <script src="/comments.js?v=1" defer></script>
-    <script>
-        function id(s) {
-            return document.getElementById(s);
-        }
-
-        document.addEventListener('DOMContentLoaded', function () {
-            id('login').style.display = 'flex';
-        });
-
-        fetch('/auth/me').then(function (resp) { return resp.json(); }).then(function (me) {
-            if (me.error) return;
-            id('login').style.display = 'none';
-            id('logout').style.display = 'flex';
-            id('user_picture').setAttribute('src', me.picture);
-            id('user_nick').innerText = me.nick;
-        }).catch(function () {});
-    </script>
+    <script src="/comments.js?v=2" defer></script>
+    <script src="/public.js?v=1" defer></script>
 </body>
 </html>

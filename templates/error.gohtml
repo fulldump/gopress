@@ -2,90 +2,56 @@
 <html lang="es">
 <head>
     <meta charset="utf-8">
-    <title>GoPress — Error {{ .error.Status }}</title>
+    <title>{{ .error.Title }} — GoPress</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+Pro:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles/basic.css?v=4">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/basic.css?v=6">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="manifest" href="/site.webmanifest">{{ .headTrailCode }}
 </head>
 <body>
+    <a class="skip-link" href="#main-content">Ir al contenido</a>
     <div class="site-wrapper">
         <header class="site-header">
-            <nav class="top-bar container" aria-label="Barra superior">
+            <nav class="top-bar container" aria-label="Navegación principal">
                 <a class="brand" href="/">GoPress<span>.org</span></a>
                 <div class="auth-actions">
-                    <div id="login">
-                        <a href="/auth/login">Iniciar sesión</a>
-                    </div>
-                    <div id="logout">
-                        <img id="user_picture" alt="Foto de perfil" src="">
-                        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.15rem;">
-                            <span id="user_nick"></span>
-                            <div style="display:flex; gap:0.5rem;">
-                                <a href="/admin/">Administración</a>
-                                <a href="/auth/logout">Salir</a>
-                            </div>
-                        </div>
+                    <div id="login"><a href="/auth/login">Iniciar sesión</a></div>
+                    <div id="logout" hidden>
+                        <img id="user_picture" class="nav-avatar" alt="" hidden>
+                        <span id="user_nick"></span>
+                        <a href="/admin/">Administración</a>
+                        <a href="/auth/logout">Salir</a>
                     </div>
                 </div>
             </nav>
         </header>
 
-        <main class="site-main">
-            <section class="container">
-                <div class="error-hero">
-                    <h1>Error {{ .error.Status }} — {{ .error.Title }}</h1>
-                    <p>{{ .error.Description }}</p>
-                    <p style="margin-top:2.5rem;">
-                        <a class="button" href="/">Volver al inicio</a>
-                    </p>
-                </div>
+        <main class="site-main" id="main-content">
+            <section class="error-hero content-column">
+                <span class="eyebrow">Error {{ .error.Status }} · {{ .error.Title }}</span>
+                <h1>Algo no ha salido como esperábamos.</h1>
+                <p>{{ .error.Description }}</p>
+                <a class="back-link" href="/">Volver al inicio</a>
             </section>
         </main>
 
         <footer class="site-footer">
-            <div class="footer-content">
-                <strong>GoPress es software libre construido con cariño por la comunidad.</strong>
-                <div class="footer-links">
-                    <a href="https://github.com/fulldump/gopress">
-                        <img class="icon" src="https://github.githubassets.com/favicons/favicon.png" alt="GitHub">
-                        Colabora en GitHub
-                    </a>
-                    <a href="https://www.twitch.tv/fulldump">
-                        <img class="icon" src="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png" alt="Twitch">
-                        twitch.tv/fulldump
-                    </a>
-                    <a href="https://www.youtube.com/watch?v=xweWe4ve8vE&list=PLMPsqnO6mKSA3iQzqaRIi_1qVONlQN8ap&index=1">
-                        <img class="icon" src="https://www.youtube.com/s/desktop/286e6262/img/favicon_32x32.png" alt="YouTube">
-                        youtube.com/@fulldump
-                    </a>
-                </div>
+            <div class="footer-content container">
+                <p>GoPress es software libre construido por la comunidad.</p>
+                <nav class="footer-links" aria-label="Enlaces del proyecto">
+                    <a href="https://github.com/fulldump/gopress">GitHub</a>
+                    <a href="https://www.twitch.tv/fulldump">Twitch</a>
+                    <a href="https://www.youtube.com/@fulldump">YouTube</a>
+                </nav>
             </div>
         </footer>
     </div>
-
-    <script>
-        function id(s) {
-            return document.getElementById(s);
-        }
-
-        document.addEventListener('DOMContentLoaded', function () {
-            id('login').style.display = 'flex';
-        });
-
-        fetch('/auth/me').then(function (resp) { return resp.json(); }).then(function (me) {
-            if (me.error) return;
-            id('login').style.display = 'none';
-            id('logout').style.display = 'flex';
-            id('user_picture').setAttribute('src', me.picture);
-            id('user_nick').innerText = me.nick;
-        }).catch(function () {});
-    </script>
+    <script src="/public.js?v=1" defer></script>
 </body>
 </html>

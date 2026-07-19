@@ -171,7 +171,7 @@
     var form = element('form', 'comment-form comment-reply-form');
     form.innerHTML = '<div class="comment-fields">' +
       '<label>Nombre<input type="text" name="name" maxlength="100" autocomplete="name" required></label>' +
-      '<label>Email <span>(opcional, no será público)</span><input type="email" name="email" maxlength="254" autocomplete="email"></label>' +
+      '<label>Email <small>Opcional, nunca se publica</small><input type="email" name="email" maxlength="254" autocomplete="email"></label>' +
       '</div>' +
       '<label>Respuesta<textarea name="text" rows="4" maxlength="10000" required></textarea></label>' +
       '<div class="comment-form-footer"><button type="button" class="comment-cancel">Cancelar</button><button type="submit">Responder</button></div>' +
@@ -193,7 +193,9 @@
     var avatar = element('span', 'comment-avatar', (comment.name || '?').trim().charAt(0).toUpperCase());
     var identity = element('div', 'comment-identity');
     identity.appendChild(element('strong', '', comment.name));
-    identity.appendChild(element('time', '', formatDate(comment.createdOn)));
+    var time = element('time', '', formatDate(comment.createdOn));
+    time.dateTime = comment.createdOn;
+    identity.appendChild(time);
     header.appendChild(avatar);
     header.appendChild(identity);
     item.appendChild(header);
@@ -264,6 +266,8 @@
       var submit = form.querySelector('button[type="submit"]');
       var data = new FormData(form);
       message.textContent = '';
+      message.setAttribute('role', 'alert');
+      message.classList.remove('is-success');
       submit.disabled = true;
 
       try {
@@ -287,6 +291,9 @@
 
         if (!parentId) {
           form.elements.text.value = '';
+          message.textContent = 'Comentario publicado.';
+          message.setAttribute('role', 'status');
+          message.classList.add('is-success');
         } else {
           form.remove();
           openReply = null;
