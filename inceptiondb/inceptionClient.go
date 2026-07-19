@@ -68,6 +68,7 @@ func (c *Client) CreateCollection(name string) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusCreated {
 		return nil
@@ -230,7 +231,7 @@ func (c *Client) Insert(collection string, document interface{}) error {
 		return err
 	}
 	defer func() {
-		io.Copy(os.Stdout, resp.Body)
+		io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 	}()
 
@@ -292,6 +293,10 @@ func (c *Client) Find(collection string, query FindQuery) (io.ReadCloser, error)
 	if resp.StatusCode == http.StatusOK {
 		return resp.Body, nil
 	}
+	if resp.StatusCode == http.StatusNoContent {
+		resp.Body.Close()
+		return io.NopCloser(bytes.NewReader(nil)), nil
+	}
 
 	defer func() {
 		io.Copy(os.Stdout, resp.Body)
@@ -344,7 +349,6 @@ func (c *Client) FindAll(collection string, query FindQuery, callback interface{
 		t.Call([]reflect.Value{value})
 	}
 
-	return nil
 }
 
 func (c *Client) Remove(collection string, query FindQuery) (io.ReadCloser, error) {

@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/fulldump/box"
@@ -17,6 +18,9 @@ import (
 type JSON = map[string]any
 
 func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.Filestorager, moderator ContentModerator) *box.B {
+	if err := db.CreateCollection(commentsCollection); err != nil && err != inceptiondb.ErrorAlreadyExist {
+		log.Println("initialize comments collection:", err.Error())
+	}
 
 	b := box.NewBox()
 
@@ -44,23 +48,29 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 		return version
 	}).WithName("Version")
 
+	// API endpoints
+	v1 := b.Group("/v1")
+	v1.Handle("GET", "/articles/{articleId}/comments", ListComments)
+	v1.Handle("POST", "/articles/{articleId}/comments", CreateComment)
+
+	privateEndpoint := func(method, path string, handler any) *box.A {
+		return v1.Handle(method, path, handler).WithInterceptors(glueauth.Require)
+	}
+	privateEndpoint("GET", "/articles", ListArticles)
+	privateEndpoint("POST", "/articles", CreateArticle)
+	privateEndpoint("GET", "/articles/{articleId}", GetArticle)
+	privateEndpoint("PATCH", "/articles/{articleId}", PatchArticle)
+	privateEndpoint("DELETE", "/articles/{articleId}", DeleteArticle)
+	privateEndpoint("POST", "/articles/{articleId}/publish", PublishArticle)
+	privateEndpoint("POST", "/articles/{articleId}/unpublish", UnpublishArticle)
+	privateEndpoint("POST", "/files", UploadFile).WithAttribute("filestorager", fs)
+	privateEndpoint("GET", "/files", ListFiles)
+	privateEndpoint("GET", "/files/{fileId}", RetrieveFile)
+	privateEndpoint("DELETE", "/files/{fileId}", DeleteFile)
+	privateEndpoint("GET", "/editor/helperFetchUrl", HelperFetchUrl)
+
 	// openapi
 	buildOpenApi(b)
-
-	// API private endpoints
-	v1 := b.Group("/v1").WithInterceptors(glueauth.Require)
-	v1.Handle("GET", "/articles", ListArticles)
-	v1.Handle("POST", "/articles", CreateArticle)
-	v1.Handle("GET", "/articles/{articleId}", GetArticle)
-	v1.Handle("PATCH", "/articles/{articleId}", PatchArticle)
-	v1.Handle("DELETE", "/articles/{articleId}", DeleteArticle)
-	v1.Handle("POST", "/articles/{articleId}/publish", PublishArticle)
-	v1.Handle("POST", "/articles/{articleId}/unpublish", UnpublishArticle)
-	v1.Handle("POST", "/files", UploadFile).WithAttribute("filestorager", fs)
-	v1.Handle("GET", "/files", ListFiles)
-	v1.Handle("GET", "/files/{fileId}", RetrieveFile)
-	v1.Handle("DELETE", "/files/{fileId}", DeleteFile)
-	v1.Handle("GET", "/editor/helperFetchUrl", HelperFetchUrl)
 
 	// Mount statics
 	b.Handle("GET", "/*", statics.ServeStatics(staticsDir)).WithName("serveStatics")

@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+Pro:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles/basic.css?v=4">
+    <link rel="stylesheet" href="/styles/basic.css?v=5">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
@@ -83,6 +83,41 @@
                         {{ .article.ContentHTML }}
                     </div>
                 </article>
+
+                <section class="comments-section" id="comments" data-endpoint="/v1/articles/{{ .article.Id }}/comments" aria-labelledby="comments-title">
+                    <div class="comments-heading">
+                        <div>
+                            <span class="comments-kicker">Conversación</span>
+                            <h2 id="comments-title">Comentarios <span id="comments-count"></span></h2>
+                        </div>
+                        <span class="markdown-badge">Admite Markdown</span>
+                    </div>
+
+                    <form class="comment-form" id="comment-form">
+                        <div class="comment-fields">
+                            <label>
+                                Nombre
+                                <input type="text" name="name" maxlength="100" autocomplete="name" required>
+                            </label>
+                            <label>
+                                Email <span>(opcional, no será público)</span>
+                                <input type="email" name="email" maxlength="254" autocomplete="email">
+                            </label>
+                        </div>
+                        <label>
+                            Comentario
+                            <textarea name="text" rows="6" maxlength="10000" placeholder="Comparte una idea. Usa `código` o bloques con ```" required></textarea>
+                        </label>
+                        <div class="comment-form-footer">
+                            <span>Markdown básico, enlaces y bloques de código.</span>
+                            <button type="submit">Publicar comentario</button>
+                        </div>
+                        <p class="comment-form-message" role="alert"></p>
+                    </form>
+
+                    <div id="comments-status" class="comments-status" role="status" aria-live="polite">Cargando comentarios...</div>
+                    <div id="comments-list" class="comments-list"></div>
+                </section>
             </div>
         </main>
 
@@ -107,6 +142,7 @@
         </footer>
     </div>
 
+    <script src="/comments.js?v=1" defer></script>
     <script>
         function id(s) {
             return document.getElementById(s);
