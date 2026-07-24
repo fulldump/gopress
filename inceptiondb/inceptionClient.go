@@ -177,7 +177,7 @@ func (c *Client) CreateIndex(collection string, options *IndexOptions) error {
 	}
 
 	defer func() {
-		io.Copy(os.Stdout, resp.Body)
+		io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 	}()
 
@@ -374,6 +374,10 @@ func (c *Client) Remove(collection string, query FindQuery) (io.ReadCloser, erro
 
 	if resp.StatusCode == http.StatusOK {
 		return resp.Body, nil
+	}
+	if resp.StatusCode == http.StatusNoContent {
+		resp.Body.Close()
+		return io.NopCloser(bytes.NewReader(nil)), nil
 	}
 
 	defer func() {

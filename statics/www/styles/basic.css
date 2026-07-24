@@ -373,12 +373,47 @@ textarea:focus-visible {
   color: var(--color-muted);
 }
 
+.bookmarks-status {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+
+.bookmark-card {
+  position: relative;
+  padding-right: 10rem;
+}
+
+.bookmark-remove {
+  position: absolute;
+  top: 0.25rem;
+  right: 0;
+  min-height: 40px;
+  padding: 0.45rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.bookmark-remove:hover {
+  color: var(--color-error);
+  text-decoration: underline;
+}
+
+.bookmark-remove:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
 .post {
   padding-top: clamp(4rem, 9vw, 7rem);
 }
 
 .post-header,
 .post-content,
+.article-feedback,
 .comments-section {
   width: min(720px, 100%);
   margin-inline: auto;
@@ -627,6 +662,169 @@ textarea:focus-visible {
   display: block;
   width: 100%;
   max-width: 100%;
+}
+
+.article-feedback {
+  margin-top: clamp(4rem, 9vw, 6rem);
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-surface-strong);
+  scroll-margin-top: 2rem;
+}
+
+.feedback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.feedback-button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--color-surface-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.feedback-button:hover,
+.feedback-button[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.feedback-button[aria-pressed="true"] {
+  background: var(--color-surface);
+}
+
+.feedback-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.feedback-button svg,
+.share-dialog-close svg,
+.share-option-icon svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.feedback-count {
+  min-width: 1.35rem;
+  padding-inline: 0.35rem;
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-muted);
+  font-size: 0.7rem;
+  text-align: center;
+}
+
+.feedback-status,
+.share-dialog-status {
+  min-height: 1.35em;
+  margin: 0.65rem 0 0;
+  color: var(--color-muted);
+  font-size: 0.75rem;
+}
+
+.share-dialog {
+  width: min(620px, calc(100% - 40px));
+  max-height: calc(100vh - 40px);
+  padding: clamp(1.25rem, 4vw, 2rem);
+  overflow-y: auto;
+  border: 1px solid var(--color-surface-strong);
+  border-radius: 8px;
+  background: var(--color-background);
+  color: var(--color-text);
+  box-shadow: 0 24px 70px rgb(0 0 0 / 24%);
+}
+
+.share-dialog::backdrop {
+  background: rgb(0 0 0 / 56%);
+}
+
+.share-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.share-dialog-header .eyebrow {
+  margin-bottom: 0.35rem;
+}
+
+.share-dialog-header h2 {
+  margin: 0;
+  color: var(--color-heading);
+  font-family: var(--font-serif);
+  font-size: clamp(1.8rem, 5vw, 2.4rem);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.share-dialog-close {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.share-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin-top: 1.75rem;
+}
+
+.share-option {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.share-option:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.share-option-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--color-background);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 .comments-section {
@@ -946,6 +1144,15 @@ a.button {
     gap: 3.75rem;
   }
 
+  .bookmark-card {
+    padding-right: 0;
+  }
+
+  .bookmark-remove {
+    position: static;
+    margin-top: 1rem;
+  }
+
   .post-title {
     font-size: clamp(2.5rem, 13vw, 4rem);
   }
@@ -959,6 +1166,15 @@ a.button {
   }
 
   .comment-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .feedback-button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .share-options {
     grid-template-columns: 1fr;
   }
 
@@ -1008,6 +1224,7 @@ a.button {
   .site-header,
   .site-footer,
   .comments-section,
+  .article-feedback,
   .skip-link {
     display: none !important;
   }

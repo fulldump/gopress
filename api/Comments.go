@@ -185,6 +185,11 @@ func CreateComment(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 }
 
 func requirePublicArticle(ctx context.Context, articleId string) error {
+	_, err := getPublicArticle(ctx, articleId)
+	return err
+}
+
+func getPublicArticle(ctx context.Context, articleId string) (*Article, error) {
 	article := &Article{}
 	err := GetInceptionClient(ctx).FindOne("articles", inceptiondb.FindQuery{
 		Filter: JSON{
@@ -194,13 +199,13 @@ func requirePublicArticle(ctx context.Context, articleId string) error {
 		},
 	}, article)
 	if err != nil {
-		return HttpError{
+		return nil, HttpError{
 			Status:      http.StatusNotFound,
 			Title:       "Article Not Found",
 			Description: "El artículo no existe o no está publicado",
 		}
 	}
-	return nil
+	return article, nil
 }
 
 func invalidComment(description string) HttpError {

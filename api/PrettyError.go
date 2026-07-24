@@ -3,11 +3,13 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/fulldump/box"
 
+	"gopress/glueauth"
 	"gopress/templates"
 )
 
@@ -19,7 +21,13 @@ func PrettyError(next box.H) box.H {
 		if err != nil {
 
 			httpErr, ok := err.(HttpError)
-			if !ok {
+			if errors.Is(err, glueauth.ErrUnauthorized) {
+				httpErr = HttpError{
+					Status:      http.StatusUnauthorized,
+					Title:       "Unauthorized",
+					Description: "Debes iniciar sesión para realizar esta acción",
+				}
+			} else if !ok {
 				httpErr = HttpError{
 					Status:      http.StatusInternalServerError,
 					Title:       "Unexpected error",

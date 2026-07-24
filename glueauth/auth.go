@@ -40,7 +40,7 @@ func Auth(next box.H) box.H {
 		a := &GlueAuthentication{}
 
 		err := json.Unmarshal([]byte(d), &a)
-		if err != nil {
+		if err != nil || a.User.ID == "" {
 			return
 		}
 
@@ -62,7 +62,7 @@ func Require(next box.H) box.H {
 		a := &GlueAuthentication{}
 
 		err := json.Unmarshal([]byte(d), &a)
-		if err != nil {
+		if err != nil || a.User.ID == "" {
 			box.SetError(ctx, ErrUnauthorized)
 			return
 		}

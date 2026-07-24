@@ -50,7 +50,7 @@ func RenderArticle(w http.ResponseWriter, ctx context.Context) error {
 		words_trail = "..."
 	}
 	title := "@" + article.AuthorNick + ": " + strings.Join(words, " ") + words_trail
-	selfUrl := `https://gopress.org/user/` + url.PathEscape(article.AuthorId)
+	selfUrl := `https://gopress.org/user/` + url.PathEscape(article.AuthorNick) + `/article/` + url.PathEscape(article.Url)
 
 	content := string(article.ContentHTML)
 	content = html2text(content)

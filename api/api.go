@@ -21,6 +21,33 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 	if err := db.CreateCollection(commentsCollection); err != nil && err != inceptiondb.ErrorAlreadyExist {
 		log.Println("initialize comments collection:", err.Error())
 	}
+	if err := db.CreateCollection(articleInteractionsCollection); err != nil && err != inceptiondb.ErrorAlreadyExist {
+		log.Println("initialize article interactions collection:", err.Error())
+	}
+	if err := db.EnsureIndex(articleInteractionsCollection, &inceptiondb.IndexOptions{
+		Name:   "interaction-user-article-version-type",
+		Type:   "btree",
+		Fields: []string{"userId", "articleId", "articleCreatedOn", "type"},
+		Unique: true,
+	}); err != nil {
+		log.Panicln("initialize article interactions index:", err.Error())
+	}
+	if err := db.EnsureIndex(articleInteractionsCollection, &inceptiondb.IndexOptions{
+		Name:   "interactions-by-article-version",
+		Type:   "btree",
+		Fields: []string{"articleId", "articleCreatedOn", "id"},
+		Unique: true,
+	}); err != nil {
+		log.Panicln("initialize article interactions article index:", err.Error())
+	}
+	if err := db.EnsureIndex(articleInteractionsCollection, &inceptiondb.IndexOptions{
+		Name:   "interactions-by-user-type",
+		Type:   "btree",
+		Fields: []string{"userId", "type", "id"},
+		Unique: true,
+	}); err != nil {
+		log.Panicln("initialize article interactions user index:", err.Error())
+	}
 
 	b := box.NewBox()
 
@@ -42,6 +69,7 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 	b.Handle("GET", "/user/{userNick}/article/{articleUrl}", RenderArticle)
 	b.Handle("GET", "/tag/{tag}", RenderTag)
 	b.Handle("GET", "/user/{userNick}/tag/{tag}", RenderUserTag)
+	b.Handle("GET", "/bookmarks", RenderBookmarks)
 	b.Handle("GET", "/files/{fileId}", GetFile).WithAttribute("filestorager", fs)
 	b.Handle("GET", "/sitemap.xml", Sitemap)
 	b.Handle("GET", "/version", func() string {
@@ -52,6 +80,7 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 	v1 := b.Group("/v1")
 	v1.Handle("GET", "/articles/{articleId}/comments", ListComments)
 	v1.Handle("POST", "/articles/{articleId}/comments", CreateComment)
+	v1.Handle("GET", "/articles/{articleId}/feedback", GetArticleFeedback).WithInterceptors(glueauth.Auth)
 
 	privateEndpoint := func(method, path string, handler any) *box.A {
 		return v1.Handle(method, path, handler).WithInterceptors(glueauth.Require)
@@ -63,6 +92,11 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 	privateEndpoint("DELETE", "/articles/{articleId}", DeleteArticle)
 	privateEndpoint("POST", "/articles/{articleId}/publish", PublishArticle)
 	privateEndpoint("POST", "/articles/{articleId}/unpublish", UnpublishArticle)
+	privateEndpoint("PUT", "/articles/{articleId}/like", LikeArticle)
+	privateEndpoint("DELETE", "/articles/{articleId}/like", UnlikeArticle)
+	privateEndpoint("PUT", "/articles/{articleId}/bookmark", BookmarkArticle)
+	privateEndpoint("DELETE", "/articles/{articleId}/bookmark", RemoveArticleBookmark)
+	privateEndpoint("GET", "/bookmarks", ListBookmarks)
 	privateEndpoint("POST", "/files", UploadFile).WithAttribute("filestorager", fs)
 	privateEndpoint("GET", "/files", ListFiles)
 	privateEndpoint("GET", "/files/{fileId}", RetrieveFile)

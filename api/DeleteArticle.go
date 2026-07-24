@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"net/http"
@@ -31,9 +32,42 @@ func DeleteArticle(w http.ResponseWriter, ctx context.Context) any {
 		}
 	}
 
-	// todo: handle errors properly
-	io.Copy(w, r)
+	body, err := io.ReadAll(r)
 	r.Close()
+	if err != nil {
+		return HttpError{
+			Status:      http.StatusInternalServerError,
+			Title:       "Could Not Delete Article",
+			Description: "No se pudo eliminar el artículo",
+		}
+	}
+	if len(bytes.TrimSpace(body)) == 0 {
+		return HttpError{
+			Status:      http.StatusNotFound,
+			Title:       "Article Not Found",
+			Description: "El artículo que intentas buscar no existe",
+		}
+	}
+
+	for {
+		interactions, err := GetInceptionClient(ctx).Remove(articleInteractionsCollection, inceptiondb.FindQuery{
+			Filter: JSON{"articleId": articleId},
+			Limit:  1000,
+		})
+		if err != nil {
+			return HttpError{
+				Status:      http.StatusInternalServerError,
+				Title:       "Could Not Delete Article Feedback",
+				Description: "El artículo se eliminó, pero no se pudo limpiar su feedback",
+			}
+		}
+		removed, _ := io.Copy(io.Discard, interactions)
+		interactions.Close()
+		if removed == 0 {
+			break
+		}
+	}
+	w.Write(body)
 
 	return nil
 }
