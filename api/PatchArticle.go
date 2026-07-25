@@ -150,7 +150,7 @@ func editorjs2HTML(data []byte) (string, error) {
 		case "list":
 			list := struct {
 				Style string
-				Items []string
+				Items []json.RawMessage
 			}{}
 			json.Unmarshal(block.Data, &list) // todo: handle error properly
 			tag := "ul"
@@ -158,8 +158,8 @@ func editorjs2HTML(data []byte) (string, error) {
 				tag = "ol"
 			}
 			fmt.Fprintf(result, "<%s>\n", tag)
-			for _, item := range list.Items {
-				fmt.Fprintf(result, "<li>%s</li>\n", item)
+			if err := renderEditorListItems(result, list.Items, tag); err != nil {
+				return "", err
 			}
 			fmt.Fprintf(result, "</%s>\n", tag)
 

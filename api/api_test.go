@@ -195,6 +195,27 @@ func TestEditorJs(t *testing.T) {
 			},
 			output: "<ol>\n<li>one</li>\n<li>two</li>\n</ol>\n",
 		},
+		{
+			block: JSON{
+				"type": "list",
+				"data": JSON{
+					"style": "unordered",
+					"items": []JSON{
+						{
+							"content": "one",
+							"items": []JSON{
+								{
+									"content": "one.one",
+									"items":   []JSON{{"content": "one.one.one"}},
+								},
+							},
+						},
+						{"content": "two"},
+					},
+				},
+			},
+			output: "<ul>\n<li>one<ul><li>one.one<ul><li>one.one.one</li>\n</ul></li>\n</ul></li>\n<li>two</li>\n</ul>\n",
+		},
 	} {
 
 		t.Run(c.block["type"].(string), func(t *testing.T) {
