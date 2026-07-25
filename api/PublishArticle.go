@@ -2,40 +2,33 @@ package api
 
 import (
 	"context"
-	"errors"
 	"log"
+	"net/http"
 	"strings"
 	"time"
-
-	"github.com/fulldump/box"
 
 	"gopress/glueauth"
 	"gopress/inceptiondb"
 )
 
-func PublishArticle(ctx context.Context) (*Article, error) {
-
-	db := GetInceptionClient(ctx)
-
-	filter := JSON{
-		"id":        box.GetUrlParameter(ctx, "articleId"),
-		"author_id": glueauth.GetAuth(ctx).User.ID,
-	}
-
-	article := &Article{}
-	err := db.FindOne("articles", inceptiondb.FindQuery{
-		Filter: filter,
-	}, article)
+func PublishArticle(ctx context.Context, r *http.Request) (*Article, error) {
+	article, _, _, err := FindAccessibleArticle(ctx)
 	if err != nil {
-		log.Println("publish article: db find:", err.Error())
-		return nil, errors.New("could not read from data storage")
+		return nil, err
 	}
-
-	article.Published = true
-	article.PublishOn = time.Now()
-
-	moderator := GetContentModerator(ctx)
+	revision, err := decodeArticleMutationRevision(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	if revision != article.Revision {
+		return nil, articleRevisionConflict(article.Revision)
+	}
+	// Check the lease before moderation, then build a fresh CAS filter afterwards.
+	if err := verifyArticleLease(ctx, article); err != nil {
+		return nil, err
+	}
 	article.Banned = false
+	moderator := GetContentModerator(ctx)
 	if moderator != nil {
 		content := strings.TrimSpace(removeSpaces(html2text(string(article.ContentHTML))))
 		if content == "" && len(article.Content.Data) > 0 {
@@ -44,38 +37,48 @@ func PublishArticle(ctx context.Context) (*Article, error) {
 		if content == "" {
 			content = article.Title
 		}
-
 		banned, err := moderator.Evaluate(ctx, content)
 		if err != nil {
-			log.Println("publish article: moderation:", err.Error())
-			return nil, errors.New("could not validate article content")
+			log.Println("publish article: moderation:", err)
+			return nil, HttpError{Status: http.StatusInternalServerError, Title: "Article Publish Failed", Description: "No se pudo validar el contenido del artículo"}
 		}
 		article.Banned = banned
-
-		if !article.Banned {
-			type tagGenerator interface {
-				GenerateTags(ctx context.Context, content string) ([]string, error)
-			}
-
-			if generator, ok := moderator.(tagGenerator); ok {
+		if !banned {
+			if generator, ok := moderator.(interface {
+				GenerateTags(context.Context, string) ([]string, error)
+			}); ok {
 				tags, err := generator.GenerateTags(ctx, content)
 				if err != nil {
-					log.Println("publish article: generate tags:", err.Error())
+					log.Println("publish article: generate tags:", err)
 				} else if len(tags) > 0 {
 					article.Tags = tags
 				}
 			}
 		}
 	}
-
-	_, err = db.Patch("articles", inceptiondb.PatchQuery{
-		Filter: filter,
-		Patch:  article,
-	})
+	filter, err := articleMutationFilter(ctx, article, revision)
 	if err != nil {
-		log.Println("publish article: db patch:", err.Error())
-		return nil, errors.New("could not write to data storage")
+		return nil, err
 	}
-
-	return article, nil
+	now := time.Now().UTC()
+	publishOn := article.PublishOn
+	if publishOn.IsZero() {
+		publishOn = now
+	}
+	auth := glueauth.GetAuth(ctx)
+	patched := &Article{}
+	matched, err := GetInceptionClient(ctx).PatchOne("articles", inceptiondb.PatchQuery{Filter: filter, Patch: JSON{
+		"published": true, "publishOn": publishOn, "banned": article.Banned, "tags": article.Tags,
+		"revision": revision + 1, "updatedOn": now,
+		"updated_by_id": auth.User.ID, "updated_by_nick": auth.User.Nick,
+	}}, patched)
+	if err != nil {
+		return nil, HttpError{Status: http.StatusInternalServerError, Title: "Article Publish Failed", Description: "No se pudo guardar el artículo"}
+	}
+	if !matched {
+		failure := articleMutationFailure(ctx, article, revision)
+		return nil, failure
+	}
+	setArticlePublicURL(patched)
+	return patched, nil
 }

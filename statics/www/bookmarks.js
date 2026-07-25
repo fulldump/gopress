@@ -19,7 +19,7 @@
   }
 
   function articlePath(article) {
-    return '/user/' + encodeURIComponent(article.authorNick) + '/article/' + encodeURIComponent(article.url);
+    return '/blog/' + encodeURIComponent(article.blogSlug) + '/article/' + encodeURIComponent(article.url);
   }
 
   function renderArticle(article) {
@@ -37,7 +37,7 @@
 
     var meta = element('div', 'article-meta');
     var author = element('a', '', '@' + article.authorNick);
-    author.href = '/user/' + encodeURIComponent(article.authorNick);
+    author.href = '/blog/' + encodeURIComponent(article.blogSlug);
     meta.appendChild(author);
     meta.appendChild(element('span', '', formatDate(article.publishOn)));
     card.appendChild(meta);
@@ -49,7 +49,7 @@
       try {
         var response = await fetch('/v1/articles/' + encodeURIComponent(article.id) + '/bookmark', {
           method: 'DELETE',
-          headers: { Accept: 'application/json' }
+          headers: window.gopressAuthHeaders({ Accept: 'application/json' })
         });
         if (response.status === 401) {
           window.gopressRequireLogin('/bookmarks');
@@ -90,7 +90,9 @@
     }
 
     try {
-      var response = await fetch('/v1/bookmarks', { headers: { Accept: 'application/json' } });
+      var response = await fetch('/v1/bookmarks', {
+        headers: window.gopressAuthHeaders({ Accept: 'application/json' })
+      });
       if (response.status === 401) {
         window.gopressRequireLogin('/bookmarks');
         return;

@@ -3,6 +3,8 @@ package api
 import (
 	"context"
 
+	"github.com/fulldump/box"
+
 	"gopress/glueauth"
 	"gopress/inceptiondb"
 )
@@ -10,15 +12,26 @@ import (
 func ListArticles(ctx context.Context) any {
 
 	auth := glueauth.GetAuth(ctx)
+	blogId := box.GetUrlParameter(ctx, "blogId")
+	var blog *Blog
+	var err error
+	if blogId == "" {
+		blog, err = EnsurePersonalBlog(ctx, auth)
+	} else {
+		blog, _, err = RequireBlogAccess(ctx, blogId)
+	}
+	if err != nil {
+		return err
+	}
 	query := inceptiondb.FindQuery{
 		Limit: 1000,
 		Filter: JSON{
-			"author_id": auth.User.ID,
+			"blog_id": blog.Id,
 		},
 	}
 
 	result := []*ArticleShort{}
-	GetInceptionClient(ctx).FindAll("articles", query, func(article *Article) {
+	err = GetInceptionClient(ctx).FindAll("articles", query, func(article *Article) {
 		result = append(result, &ArticleShort{
 			Id:        article.Id,
 			Title:     article.Title,
@@ -27,8 +40,16 @@ func ListArticles(ctx context.Context) any {
 			Stats:     article.Stats,
 			Tags:      article.Tags,
 			CreatedOn: article.CreatedOn,
+			UpdatedOn: article.UpdatedOn,
+			BlogId:    article.BlogId,
+			BlogSlug:  article.BlogSlug,
+			Revision:  article.Revision,
+			EditLock:  publicArticleLock(article.EditLock),
 		})
 	})
+	if err != nil {
+		return blogStorageError("list articles", err)
+	}
 
 	return result
 }

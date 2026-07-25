@@ -26,6 +26,7 @@
                     <div id="logout" hidden>
                         <img id="user_picture" class="nav-avatar" alt="" hidden>
                         <span id="user_nick"></span>
+                        <a href="/blogs">Blogs</a>
                         <a href="/bookmarks">Guardados</a>
                         <a href="/admin/">Administración</a>
                         <a href="/auth/logout">Salir</a>
@@ -46,12 +47,12 @@
                     {{ range $i, $article := .articles }}
                     <article class="article-card" itemscope itemtype="https://schema.org/Article">
                         <h2 itemprop="headline">
-                            <a href="/user/{{ .AuthorNick }}/article/{{ .Url }}" itemprop="url">{{ .Title }}</a>
+                            <a href="/blog/{{ .BlogSlug }}/article/{{ .Url }}" itemprop="url">{{ .Title }}</a>
                         </h2>
                         <div class="card-excerpt" itemprop="description">{{ .ContentSummary }}</div>
                         <div class="article-meta">
                             <span itemprop="author" itemscope itemtype="https://schema.org/Person">
-                                Por <a href="/user/{{ .AuthorNick }}" itemprop="url"><span itemprop="name">{{ .AuthorNick }}</span></a>
+                                Por <span itemprop="name">{{ .AuthorNick }}</span>
                             </span>
                             <time datetime="{{ .PublishOn.Format "2006-01-02" }}" itemprop="datePublished">{{ .PublishOn.Format "02/01/2006" }}</time>
                             <span>{{ .Stats.Views }} lecturas</span>
@@ -83,6 +84,6 @@
             </div>
         </footer>
     </div>
-    <script src="/public.js?v=2" defer></script>
+    <script src="/public.js?v=4" defer></script>
 </body>
 </html>

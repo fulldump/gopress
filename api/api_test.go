@@ -78,7 +78,11 @@ func TestHappyPath(t *testing.T) {
 				biff.AssertEqual(body["title"], "Hello world")
 			})
 			a.Alternative("delete article", func(a *biff.A) {
-				resp := apiRequestJohn("DELETE", "/v1/articles/hello-world").Do()
+				lock := apiRequestJohn("POST", "/v1/articles/hello-world/edit-lock/acquire").
+					WithBodyJson(JSON{"clientId": "delete-test"}).Do().BodyJsonMap()
+				resp := apiRequestJohn("DELETE", "/v1/articles/hello-world").
+					WithHeader(ArticleLockTokenHeader, lock["token"].(string)).
+					WithBodyJson(JSON{"revision": 1}).Do()
 
 				biff.AssertEqual(resp.StatusCode, 200)
 				body := resp.BodyJsonMap()
@@ -97,8 +101,12 @@ func TestHappyPath(t *testing.T) {
 				})
 			})
 			a.Alternative("modify article - content", func(a *biff.A) {
+				lock := apiRequestJohn("POST", "/v1/articles/hello-world/edit-lock/acquire").
+					WithBodyJson(JSON{"clientId": "patch-test"}).Do().BodyJsonMap()
 				resp := apiRequestJohn("PATCH", "/v1/articles/hello-world").
+					WithHeader(ArticleLockTokenHeader, lock["token"].(string)).
 					WithBodyJson(JSON{
+						"revision": 1,
 						"content": JSON{
 							"type": "editorjs",
 							"data": JSON{

@@ -48,7 +48,7 @@
       var active = button.dataset.active === 'true';
       var response = await fetch(endpoint + '/' + resource, {
         method: active ? 'DELETE' : 'PUT',
-        headers: { Accept: 'application/json' }
+        headers: window.gopressAuthHeaders({ Accept: 'application/json' })
       });
       if (response.status === 401) {
         window.gopressRequireLogin(loginReturnTarget());
@@ -155,7 +155,11 @@
     });
   });
 
-  fetch(endpoint + '/feedback', { headers: { Accept: 'application/json' } })
+  (window.gopressCurrentUser || Promise.resolve(null)).then(function () {
+    return fetch(endpoint + '/feedback', {
+      headers: window.gopressAuthHeaders({ Accept: 'application/json' })
+    });
+  })
     .then(function (response) {
       if (!response.ok) throw new Error('No se pudo cargar la valoración.');
       return response.json();

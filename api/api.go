@@ -18,11 +18,38 @@ import (
 type JSON = map[string]any
 
 func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.Filestorager, moderator ContentModerator) *box.B {
-	if err := db.CreateCollection(commentsCollection); err != nil && err != inceptiondb.ErrorAlreadyExist {
-		log.Println("initialize comments collection:", err.Error())
+	for _, collection := range []string{"articles", commentsCollection, articleInteractionsCollection, "files"} {
+		if err := db.CreateCollection(collection); err != nil && err != inceptiondb.ErrorAlreadyExist {
+			log.Panicf("initialize %s collection: %v", collection, err)
+		}
 	}
-	if err := db.CreateCollection(articleInteractionsCollection); err != nil && err != inceptiondb.ErrorAlreadyExist {
-		log.Println("initialize article interactions collection:", err.Error())
+	if err := InitializeBlogCollections(db); err != nil {
+		log.Panicf("initialize blog collections: %v", err)
+	}
+	if err := EnsureBlogIndexes(db); err != nil {
+		log.Panicf("initialize blog indexes: %v", err)
+	}
+	report, err := MigrateBlogs(db)
+	if err != nil {
+		log.Panicf("blog migration failed safely: %v (report: %+v)", err, report)
+	}
+	log.Printf("blog migration complete: scanned=%d authors=%d blogs_created=%d blogs_repaired=%d memberships_created=%d articles_patched=%d unchanged=%d",
+		report.ArticlesScanned, report.AuthorsFound, report.BlogsCreated, report.BlogsRepaired,
+		report.MembershipsCreated, report.ArticlesPatched, report.ArticlesUnchanged)
+	fileReport, err := MigrateFileBlogIds(db)
+	if err != nil {
+		log.Panicf("file blog migration failed safely: %v (report: %+v)", err, fileReport)
+	}
+	if fileReport.FilesScanned > 0 {
+		log.Printf("file blog migration complete: scanned=%d blogs_created=%d files_patched=%d unchanged=%d",
+			fileReport.FilesScanned, fileReport.BlogsCreated, fileReport.FilesPatched, fileReport.FilesUnchanged)
+	}
+	commentVersions, err := MigrateCommentArticleVersions(db)
+	if err != nil {
+		log.Panicf("comment article-version migration failed: %v", err)
+	}
+	if commentVersions > 0 {
+		log.Printf("comment migration complete: patched=%d", commentVersions)
 	}
 	if err := db.EnsureIndex(articleInteractionsCollection, &inceptiondb.IndexOptions{
 		Name:   "interaction-user-article-version-type",
@@ -65,6 +92,11 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 
 	// Public endpoints
 	b.Handle("GET", "/", RenderHome)
+	b.Handle("GET", "/blogs", RenderBlogs)
+	b.Handle("GET", "/blogs/", RedirectBlogsSlash)
+	b.Handle("GET", "/blog/{blogSlug}", RenderBlog)
+	b.Handle("GET", "/blog/{blogSlug}/article/{articleUrl}", RenderBlogArticle)
+	b.Handle("GET", "/blog/{blogSlug}/tag/{tag}", RenderBlogTag)
 	b.Handle("GET", "/user/{userNick}", RenderUser)
 	b.Handle("GET", "/user/{userNick}/article/{articleUrl}", RenderArticle)
 	b.Handle("GET", "/tag/{tag}", RenderTag)
@@ -92,6 +124,29 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 	privateEndpoint("DELETE", "/articles/{articleId}", DeleteArticle)
 	privateEndpoint("POST", "/articles/{articleId}/publish", PublishArticle)
 	privateEndpoint("POST", "/articles/{articleId}/unpublish", UnpublishArticle)
+	privateEndpoint("POST", "/articles/{articleId}/edit-lock/acquire", AcquireArticleLock)
+	privateEndpoint("POST", "/articles/{articleId}/edit-lock/renew", RenewArticleLock)
+	privateEndpoint("POST", "/articles/{articleId}/edit-lock/release", ReleaseArticleLock)
+	privateEndpoint("GET", "/blogs", ListBlogs)
+	privateEndpoint("POST", "/blogs", CreateBlog)
+	privateEndpoint("GET", "/blogs/{blogId}", GetBlog)
+	privateEndpoint("PATCH", "/blogs/{blogId}", PatchBlog)
+	privateEndpoint("GET", "/blogs/{blogId}/members", ListBlogMembers)
+	privateEndpoint("DELETE", "/blogs/{blogId}/members/{userId}", RemoveBlogMember)
+	privateEndpoint("GET", "/blogs/{blogId}/invitations", ListBlogInvitations)
+	privateEndpoint("POST", "/blogs/{blogId}/invitations", CreateBlogInvitation)
+	privateEndpoint("DELETE", "/blogs/{blogId}/invitations/{invitationId}", RevokeBlogInvitation)
+	privateEndpoint("POST", "/invitations/accept", AcceptBlogInvitation)
+	privateEndpoint("GET", "/blogs/{blogId}/articles", ListArticles)
+	privateEndpoint("POST", "/blogs/{blogId}/articles", CreateArticle)
+	privateEndpoint("GET", "/blogs/{blogId}/articles/{articleId}", GetArticle)
+	privateEndpoint("PATCH", "/blogs/{blogId}/articles/{articleId}", PatchArticle)
+	privateEndpoint("DELETE", "/blogs/{blogId}/articles/{articleId}", DeleteArticle)
+	privateEndpoint("POST", "/blogs/{blogId}/articles/{articleId}/publish", PublishArticle)
+	privateEndpoint("POST", "/blogs/{blogId}/articles/{articleId}/unpublish", UnpublishArticle)
+	privateEndpoint("POST", "/blogs/{blogId}/articles/{articleId}/edit-lock/acquire", AcquireArticleLock)
+	privateEndpoint("POST", "/blogs/{blogId}/articles/{articleId}/edit-lock/renew", RenewArticleLock)
+	privateEndpoint("POST", "/blogs/{blogId}/articles/{articleId}/edit-lock/release", ReleaseArticleLock)
 	privateEndpoint("PUT", "/articles/{articleId}/like", LikeArticle)
 	privateEndpoint("DELETE", "/articles/{articleId}/like", UnlikeArticle)
 	privateEndpoint("PUT", "/articles/{articleId}/bookmark", BookmarkArticle)

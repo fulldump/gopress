@@ -4,73 +4,59 @@ import (
 	"context"
 	"encoding/xml"
 	"net/http"
+	"net/url"
+	"sort"
+	"time"
 
 	"gopress/inceptiondb"
 )
 
+type sitemapURL struct {
+	Location  string `xml:"loc"`
+	LastMod   string `xml:"lastmod,omitempty"`
+	Frequency string `xml:"changefreq,omitempty"`
+	Priority  string `xml:"priority,omitempty"`
+}
+
+type sitemapURLSet struct {
+	XMLName xml.Name     `xml:"urlset"`
+	Xmlns   string       `xml:"xmlns,attr"`
+	URLs    []sitemapURL `xml:"url"`
+}
+
 func Sitemap(ctx context.Context, w http.ResponseWriter) {
-
-	w.Header().Set("content-type", "text/xml; charset=UTF-8")
-	// Begin XML
-	w.Write([]byte(xml.Header))
-	w.Write([]byte(`<urlset xmlns="http://www.google.com/schemas/sitemap/0.9">` + "\n"))
-
-	// Collect users
-	users := map[string]*Article{}
-	tags := map[string]*Article{}
-
-	// Article pages
-	params := inceptiondb.FindQuery{
-		Limit: 9999,
-		Filter: JSON{
-			"published": true,
-			"$ne":       JSON{"banned": true},
-		},
-	}
-	GetInceptionClient(ctx).FindAll("articles", params, func(article *Article) {
-		w.Write([]byte(`    <url>
-        <loc>https://gopress.org/user/` + article.AuthorNick + `/article/` + article.Url + `</loc>
-        <lastmod>` + article.PublishOn.UTC().Format("2006-01-02") + `</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.6</priority>
-    </url>`))
-
-		{
-			lastArticle, exist := users[article.AuthorId]
-			if !exist || article.PublishOn.After(lastArticle.PublishOn) {
-				users[article.AuthorId] = article
-			}
-		}
-
-		for _, tag := range article.Tags {
-			lastArticle, exist := tags[tag]
-			if !exist || article.PublishOn.After(lastArticle.PublishOn) {
-				tags[tag] = article
-			}
-		}
+	const origin = "https://gopress.org"
+	set := sitemapURLSet{Xmlns: "http://www.sitemaps.org/schemas/sitemap/0.9", URLs: []sitemapURL{
+		{Location: origin + "/", Frequency: "daily", Priority: "1.0"},
+		{Location: origin + "/blogs", Frequency: "daily", Priority: "0.8"},
+	}}
+	blogs := map[string]*Blog{}
+	_ = GetInceptionClient(ctx).FindAll(blogsCollection, inceptiondb.FindQuery{Limit: maxBlogs}, func(blog *Blog) {
+		blogs[blog.Id] = blog
+		set.URLs = append(set.URLs, sitemapURL{Location: origin + "/blog/" + url.PathEscape(blog.Slug),
+			LastMod: sitemapDate(blog.UpdatedOn), Frequency: "daily", Priority: "0.7"})
 	})
+	_ = GetInceptionClient(ctx).FindAll("articles", inceptiondb.FindQuery{Limit: 100000, Filter: JSON{
+		"published": true, "$ne": JSON{"banned": true},
+	}}, func(article *Article) {
+		blog := blogs[article.BlogId]
+		if blog == nil {
+			return
+		}
+		set.URLs = append(set.URLs, sitemapURL{Location: origin + articlePublicPath(blog.Slug, article.Url),
+			LastMod: sitemapDate(article.PublishOn), Frequency: "weekly", Priority: "0.6"})
+	})
+	sort.SliceStable(set.URLs, func(i, j int) bool { return set.URLs[i].Location < set.URLs[j].Location })
+	w.Header().Set("Content-Type", "application/xml; charset=UTF-8")
+	w.Write([]byte(xml.Header))
+	encoder := xml.NewEncoder(w)
+	encoder.Indent("", "  ")
+	_ = encoder.Encode(set)
+}
 
-	// User pages
-	for _, article := range users {
-		w.Write([]byte(`    <url>
-        <loc>https://gopress.org/user/` + article.AuthorNick + `</loc>
-        <lastmod>` + article.PublishOn.UTC().Format("2006-01-02") + `</lastmod>
-        <changefreq>daily</changefreq>
-        <priority>0.4</priority>
-    </url>`))
+func sitemapDate(value time.Time) string {
+	if value.IsZero() {
+		return ""
 	}
-
-	// Tag pages
-	for tag, lastArticle := range tags {
-		w.Write([]byte(`    <url>
-        <loc>https://gopress.org/tag/` + tag + `</loc>
-        <lastmod>` + lastArticle.PublishOn.UTC().Format("2006-01-02") + `</lastmod>
-        <changefreq>hourly</changefreq>
-        <priority>0.2</priority>
-    </url>`))
-	}
-
-	// End XML
-	w.Write([]byte(`</urlset>`))
-
+	return value.UTC().Format("2006-01-02")
 }

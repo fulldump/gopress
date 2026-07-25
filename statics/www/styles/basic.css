@@ -250,6 +250,117 @@ textarea:focus-visible {
   text-decoration-thickness: 0.06em;
 }
 
+.blog-directory {
+  display: grid;
+  gap: 1px;
+  border-block: 1px solid var(--color-surface-strong);
+  background: var(--color-surface-strong);
+}
+
+.blog-directory-card {
+  display: grid;
+  grid-template-columns: 8px 1fr;
+  gap: 1.25rem;
+  padding: 1.75rem 0;
+  background: var(--color-background);
+}
+
+.blog-directory-mark,
+.article-blog-mark {
+  display: inline-block;
+  border-radius: 999px;
+  background: var(--blog-accent, var(--color-accent));
+}
+
+.blog-directory-mark {
+  width: 8px;
+  min-height: 100%;
+}
+
+.blog-directory-card h2 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(1.7rem, 4vw, 2.3rem);
+  line-height: 1.1;
+}
+
+.blog-directory-card h2 a {
+  color: var(--color-heading);
+}
+
+.blog-directory-card p {
+  max-width: 620px;
+  margin: 0.7rem 0 0;
+  color: var(--color-muted);
+}
+
+.blog-directory-meta {
+  display: block;
+  margin-top: 0.8rem;
+  color: var(--color-muted);
+  font-size: 0.72rem;
+}
+
+.blog-hero {
+  position: relative;
+  padding-block: clamp(3.5rem, 8vw, 6rem) clamp(4rem, 9vw, 7rem);
+}
+
+.blog-hero.has-image {
+  width: min(960px, calc(100% - var(--page-gutter)));
+}
+
+.blog-hero-image {
+  width: 100%;
+  max-height: 430px;
+  margin-bottom: clamp(2rem, 5vw, 3.5rem);
+  border-radius: 6px;
+  object-fit: cover;
+  aspect-ratio: 16 / 7;
+}
+
+.blog-hero-copy {
+  max-width: 760px;
+  border-left: 7px solid var(--blog-accent, var(--color-accent));
+  padding-left: clamp(1.25rem, 4vw, 2.25rem);
+}
+
+.blog-hero h1 {
+  margin: 0;
+  color: var(--color-heading);
+  font-family: var(--font-serif);
+  font-size: clamp(2.8rem, 7vw, 5rem);
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  line-height: 1;
+}
+
+.blog-hero p {
+  max-width: 650px;
+  margin: 1.25rem 0 0;
+  color: var(--color-muted);
+  font-family: var(--font-serif);
+  font-size: clamp(1.1rem, 2vw, 1.3rem);
+}
+
+.article-blog-bar {
+  padding-top: 1.25rem;
+}
+
+.article-blog-bar a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--color-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.article-blog-mark {
+  width: 8px;
+  height: 8px;
+}
+
 .site-main {
   flex: 1 0 auto;
 }

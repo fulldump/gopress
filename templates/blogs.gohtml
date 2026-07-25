@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <title>Blogs — GoPress</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Descubre los blogs publicados en GoPress.">
+    <link rel="canonical" href="https://gopress.org/blogs">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/basic.css?v=8">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="manifest" href="/site.webmanifest">{{ .headTrailCode }}
+</head>
+<body>
+    <a class="skip-link" href="#main-content">Ir al contenido</a>
+    <div class="site-wrapper">
+        <header class="site-header">
+            <nav class="top-bar container" aria-label="Navegación principal">
+                <a class="brand" href="/">GoPress<span>.org</span></a>
+                <div class="auth-actions">
+                    <div id="login"><a href="/auth/login">Iniciar sesión</a></div>
+                    <div id="logout" hidden>
+                        <img id="user_picture" class="nav-avatar" alt="" hidden>
+                        <span id="user_nick"></span>
+                        <a href="/bookmarks">Guardados</a>
+                        <a href="/admin/">Administración</a>
+                        <a href="/auth/logout">Salir</a>
+                    </div>
+                </div>
+            </nav>
+            <div class="page-intro content-column">
+                <span class="eyebrow">Voces de la comunidad</span>
+                <h1>Blogs con identidad propia.</h1>
+                <p>Equipos y autores que escriben, editan y publican juntos.</p>
+            </div>
+        </header>
+        <main class="site-main" id="main-content">
+            <section class="content-column" aria-labelledby="blogs-title">
+                <header class="section-header"><h2 id="blogs-title">Todos los blogs</h2></header>
+                {{ if .blogs }}
+                <div class="blog-directory">
+                    {{ range .blogs }}
+                    <article class="blog-directory-card" style="--blog-accent: {{ .AccentColor }}">
+                        <span class="blog-directory-mark" aria-hidden="true"></span>
+                        <div>
+                            <h2><a href="/blog/{{ .Slug }}">{{ .Name }}</a></h2>
+                            {{ if .Description }}<p>{{ .Description }}</p>{{ end }}
+                            <span class="blog-directory-meta">/blog/{{ .Slug }} · {{ if eq .Language "en" }}English{{ else }}Español{{ end }}</span>
+                        </div>
+                    </article>
+                    {{ end }}
+                </div>
+                {{ else }}
+                <div class="empty-state"><h2>Aún no hay blogs.</h2><p>El primer espacio de publicación aparecerá aquí.</p></div>
+                {{ end }}
+            </section>
+        </main>
+        <footer class="site-footer"><div class="footer-content container"><p>GoPress es software libre construido por la comunidad.</p><nav class="footer-links" aria-label="Enlaces del proyecto"><a href="https://github.com/fulldump/gopress">GitHub</a><a href="https://www.twitch.tv/fulldump">Twitch</a><a href="https://www.youtube.com/@fulldump">YouTube</a></nav></div></footer>
+    </div>
+    <script src="/public.js?v=4" defer></script>
+</body>
+</html>

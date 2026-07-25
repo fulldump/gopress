@@ -41,9 +41,12 @@ func TestComments(t *testing.T) {
 
 	db := inceptiondb.NewClient(inceptiondb.Config{Base: databaseServer.URL + "/v1"})
 	article := &Article{
-		Id:        "published-article",
-		Published: true,
-		PublishOn: time.Now(),
+		Id:         "published-article",
+		CreatedOn:  time.Now().Add(-time.Hour).UTC(),
+		Published:  true,
+		PublishOn:  time.Now(),
+		AuthorId:   "comment-author",
+		AuthorNick: "writer",
 		ArticleUserFields: ArticleUserFields{
 			Title: "Published article",
 		},

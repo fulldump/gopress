@@ -27,13 +27,14 @@ const (
 )
 
 type Comment struct {
-	Id        string    `json:"id"`
-	ArticleId string    `json:"articleId"`
-	ParentId  string    `json:"parentId,omitempty"`
-	Name      string    `json:"name"`
-	Email     string    `json:"email,omitempty"`
-	Text      string    `json:"text"`
-	CreatedOn time.Time `json:"createdOn"`
+	Id               string    `json:"id"`
+	ArticleId        string    `json:"articleId"`
+	ArticleCreatedOn time.Time `json:"articleCreatedOn,omitempty"`
+	ParentId         string    `json:"parentId,omitempty"`
+	Name             string    `json:"name"`
+	Email            string    `json:"email,omitempty"`
+	Text             string    `json:"text"`
+	CreatedOn        time.Time `json:"createdOn"`
 }
 
 type PublicComment struct {
@@ -55,15 +56,16 @@ type CreateCommentRequest struct {
 
 func ListComments(ctx context.Context, w http.ResponseWriter) ([]*PublicComment, error) {
 	articleId := box.GetUrlParameter(ctx, "articleId")
-	if err := requirePublicArticle(ctx, articleId); err != nil {
+	article, err := getPublicArticle(ctx, articleId)
+	if err != nil {
 		return nil, err
 	}
 
 	comments := []*Comment{}
-	err := GetInceptionClient(ctx).FindAll(commentsCollection, inceptiondb.FindQuery{
+	err = GetInceptionClient(ctx).FindAll(commentsCollection, inceptiondb.FindQuery{
 		Limit: 1000,
 		Filter: JSON{
-			"articleId": articleId,
+			"articleId": articleId, "articleCreatedOn": article.CreatedOn,
 		},
 	}, func(comment *Comment) {
 		comments = append(comments, comment)
@@ -104,7 +106,8 @@ func ListComments(ctx context.Context, w http.ResponseWriter) ([]*PublicComment,
 
 func CreateComment(ctx context.Context, w http.ResponseWriter, r *http.Request) (*PublicComment, error) {
 	articleId := box.GetUrlParameter(ctx, "articleId")
-	if err := requirePublicArticle(ctx, articleId); err != nil {
+	article, err := getPublicArticle(ctx, articleId)
+	if err != nil {
 		return nil, err
 	}
 
@@ -149,8 +152,7 @@ func CreateComment(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 		parent := &Comment{}
 		err := GetInceptionClient(ctx).FindOne(commentsCollection, inceptiondb.FindQuery{
 			Filter: JSON{
-				"id":        input.ParentId,
-				"articleId": articleId,
+				"id": input.ParentId, "articleId": articleId, "articleCreatedOn": article.CreatedOn,
 			},
 		}, parent)
 		if err != nil {
@@ -162,13 +164,8 @@ func CreateComment(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	}
 
 	comment := &Comment{
-		Id:        "comment_" + uuid.New().String(),
-		ArticleId: articleId,
-		ParentId:  input.ParentId,
-		Name:      input.Name,
-		Email:     input.Email,
-		Text:      input.Text,
-		CreatedOn: time.Now().UTC(),
+		Id: "comment_" + uuid.New().String(), ArticleId: articleId, ArticleCreatedOn: article.CreatedOn,
+		ParentId: input.ParentId, Name: input.Name, Email: input.Email, Text: input.Text, CreatedOn: time.Now().UTC(),
 	}
 	if err := GetInceptionClient(ctx).Insert(commentsCollection, comment); err != nil {
 		log.Println("create comment: db insert:", err.Error())

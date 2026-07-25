@@ -2,21 +2,23 @@ package api
 
 import (
 	"context"
+	"net/http"
 
-	"gopress/glueauth"
 	"gopress/inceptiondb"
 )
 
-func ListFiles(ctx context.Context) ([]*File, error) {
-
-	auth := glueauth.GetAuth(ctx)
+func ListFiles(ctx context.Context, r *http.Request) ([]*File, error) {
+	blog, err := requireFileBlog(ctx, r)
+	if err != nil {
+		return nil, err
+	}
 
 	response := []*File{}
 
 	query := inceptiondb.FindQuery{
 		Limit: 1000,
 		Filter: JSON{
-			"author_id": auth.User.ID,
+			"blog_id": blog.Id,
 		},
 	}
 

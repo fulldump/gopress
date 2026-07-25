@@ -43,6 +43,7 @@ type BookmarkedArticle struct {
 	Id             string    `json:"id"`
 	Title          string    `json:"title"`
 	Url            string    `json:"url"`
+	BlogSlug       string    `json:"blogSlug"`
 	AuthorNick     string    `json:"authorNick"`
 	AuthorPicture  string    `json:"authorPicture"`
 	ContentSummary string    `json:"contentSummary"`
@@ -129,6 +130,7 @@ func ListBookmarks(ctx context.Context, w http.ResponseWriter) ([]*BookmarkedArt
 			Id:             article.Id,
 			Title:          article.Title,
 			Url:            article.Url,
+			BlogSlug:       article.BlogSlug,
 			AuthorNick:     article.AuthorNick,
 			AuthorPicture:  article.AuthorPicture,
 			ContentSummary: bookmarkSummary(article),

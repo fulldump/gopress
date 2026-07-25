@@ -1,0 +1,440 @@
+package api
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"io"
+	"mime/multipart"
+	"net/http"
+	"net/http/httptest"
+	"net/textproto"
+	"net/url"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/fulldump/apitest"
+	"github.com/fulldump/box"
+	inceptionapi "github.com/fulldump/inceptiondb/api"
+	"github.com/fulldump/inceptiondb/database"
+	"github.com/fulldump/inceptiondb/service"
+
+	"gopress/filestorage/localfilestore"
+	"gopress/glueauth"
+	"gopress/inceptiondb"
+)
+
+func TestBlogFileUploadAssociation(t *testing.T) {
+	db := newBlogTestDB(t)
+	fs, err := localfilestore.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := box.Box2Http(NewApi("", "test", db, fs, nil))
+	client := apitest.NewWithHandler(handler)
+	authHeader := `{"user":{"id":"owner","nick":"ana"}}`
+	requestAsOwner := func(method, path string) *apitest.Request {
+		return client.Request(method, path).WithHeader(glueauth.XGlueAuthentication, authHeader)
+	}
+	created := requestAsOwner(http.MethodPost, "/v1/blogs").WithBodyJson(JSON{
+		"slug": "files-blog", "name": "Files",
+	}).Do()
+	if created.StatusCode != http.StatusCreated {
+		t.Fatalf("create blog: %d %s", created.StatusCode, created.BodyString())
+	}
+	blogId := created.BodyJsonMap()["id"].(string)
+
+	upload := func(userHeader, targetBlog, filename, mime string, content []byte) (*httptest.ResponseRecorder, map[string]any) {
+		t.Helper()
+		body := &bytes.Buffer{}
+		writer := multipart.NewWriter(body)
+		header := textproto.MIMEHeader{}
+		header.Set("Content-Disposition", `form-data; name="file"; filename="`+filename+`"`)
+		header.Set("Content-Type", mime)
+		part, err := writer.CreatePart(header)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := part.Write(content); err != nil {
+			t.Fatal(err)
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatal(err)
+		}
+		request := httptest.NewRequest(http.MethodPost, "/v1/files?blogId="+url.QueryEscape(targetBlog), body)
+		request.Header.Set("Content-Type", writer.FormDataContentType())
+		request.Header.Set(glueauth.XGlueAuthentication, userHeader)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		payload := map[string]any{}
+		_ = json.Unmarshal(response.Body.Bytes(), &payload)
+		return response, payload
+	}
+
+	imageResponse, imagePayload := upload(authHeader, blogId, "header.png", "image/png", []byte("png"))
+	if imageResponse.Code != http.StatusCreated {
+		t.Fatalf("upload image: %d %s", imageResponse.Code, imageResponse.Body.String())
+	}
+	fileURL := imagePayload["file"].(map[string]any)["url"].(string)
+	file := &File{}
+	if err := db.FindOne("files", inceptiondb.FindQuery{Filter: JSON{"id": strings.TrimPrefix(fileURL, "/files/")}}, file); err != nil {
+		t.Fatal(err)
+	}
+	if file.BlogId != blogId || file.AuthorId != "owner" || file.Mime != "image/png" {
+		t.Fatalf("file association is incomplete: %+v", file)
+	}
+	if response := requestAsOwner(http.MethodPatch, "/v1/blogs/"+blogId).
+		WithBodyJson(JSON{"header_image": fileURL}).Do(); response.StatusCode != http.StatusOK {
+		t.Fatalf("set uploaded header: %d %s", response.StatusCode, response.BodyString())
+	}
+
+	other := requestAsOwner(http.MethodPost, "/v1/blogs").WithBodyJson(JSON{
+		"slug": "other-files", "name": "Other",
+	}).Do().BodyJsonMap()
+	if response := requestAsOwner(http.MethodPatch, "/v1/blogs/"+other["id"].(string)).
+		WithBodyJson(JSON{"header_image": fileURL}).Do(); response.StatusCode != http.StatusBadRequest {
+		t.Fatalf("cross-blog header accepted: %d %s", response.StatusCode, response.BodyString())
+	}
+	outsiderHeader := `{"user":{"id":"outsider","nick":"cora"}}`
+	if response, _ := upload(outsiderHeader, blogId, "foreign.png", "image/png", []byte("png")); response.Code != http.StatusForbidden {
+		t.Fatalf("outsider uploaded to blog: %d %s", response.Code, response.Body.String())
+	}
+	textResponse, textPayload := upload(authHeader, blogId, "notes.txt", "text/plain", []byte("not an image"))
+	if textResponse.Code != http.StatusCreated {
+		t.Fatalf("upload attachment: %d %s", textResponse.Code, textResponse.Body.String())
+	}
+	textURL := textPayload["file"].(map[string]any)["url"].(string)
+	if response := requestAsOwner(http.MethodPatch, "/v1/blogs/"+blogId).
+		WithBodyJson(JSON{"header_image": textURL}).Do(); response.StatusCode != http.StatusBadRequest {
+		t.Fatalf("non-image header accepted: %d %s", response.StatusCode, response.BodyString())
+	}
+}
+
+func TestFileBlogMigrationIsIdempotent(t *testing.T) {
+	db := newBlogTestDB(t)
+	for _, collection := range []string{"files", "articles"} {
+		if err := db.CreateCollection(collection); err != nil {
+			t.Fatal(err)
+		}
+	}
+	createdOn := time.Date(2025, 6, 1, 12, 0, 0, 0, time.UTC)
+	if err := db.Insert("files", &File{
+		Id: "legacy-file", AuthorId: "file-owner", AuthorNick: "file-author",
+		Name: "legacy.png", Mime: "image/png", CreatedOn: createdOn,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := InitializeBlogCollections(db); err != nil {
+		t.Fatal(err)
+	}
+	first, err := MigrateFileBlogIds(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.FilesPatched != 1 || first.BlogsCreated != 1 {
+		t.Fatalf("unexpected first migration: %+v", first)
+	}
+	file := &File{}
+	if err := db.FindOne("files", inceptiondb.FindQuery{Filter: JSON{"id": "legacy-file"}}, file); err != nil {
+		t.Fatal(err)
+	}
+	if file.BlogId != deterministicPersonalBlogId("file-owner") {
+		t.Fatalf("legacy file mapped to %q", file.BlogId)
+	}
+	second, err := MigrateFileBlogIds(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.FilesPatched != 0 || second.BlogsCreated != 0 || second.FilesUnchanged != 1 {
+		t.Fatalf("file migration is not idempotent: %+v", second)
+	}
+}
+
+func TestBlogMigrationRerunRepairsPartialState(t *testing.T) {
+	db := newBlogTestDB(t)
+	if err := db.CreateCollection("articles"); err != nil {
+		t.Fatal(err)
+	}
+	oldTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
+	for _, article := range []JSON{
+		{"id": "old", "author_id": "user-1", "author_nick": "old-nick", "createdOn": oldTime, "url": "old-url"},
+		{"id": "new", "author_id": "user-1", "author_nick": "new-nick", "createdOn": oldTime.Add(time.Hour), "url": "new-url"},
+	} {
+		if err := db.Insert("articles", article); err != nil {
+			t.Fatal(err)
+		}
+	}
+	first, err := MigrateBlogs(db)
+	if err != nil {
+		t.Fatalf("first migration: %v (%+v)", err, first)
+	}
+	blogId := deterministicPersonalBlogId("user-1")
+	blog := &Blog{}
+	if err := db.FindOne(blogsCollection, inceptiondb.FindQuery{Filter: JSON{"id": blogId}}, blog); err != nil {
+		t.Fatal(err)
+	}
+	if blog.Slug != "new-nick" || blog.OwnerNick != "new-nick" {
+		t.Fatalf("migration did not use most recent nick: %+v", blog)
+	}
+
+	patched := &Article{}
+	if matched, err := db.PatchOne("articles", inceptiondb.PatchQuery{Filter: JSON{"id": "new"}, Patch: JSON{
+		"blog_slug": "wrong", "revision": 0,
+	}}, patched); err != nil || !matched {
+		t.Fatalf("damage article: matched=%v err=%v", matched, err)
+	}
+	if matched, err := db.PatchOne(blogsCollection, inceptiondb.PatchQuery{Filter: JSON{"id": blogId}, Patch: JSON{
+		"slug": "", "accent_color": "",
+	}}, blog); err != nil || !matched {
+		t.Fatalf("damage blog: matched=%v err=%v", matched, err)
+	}
+	memberRows, err := db.Remove(blogMembersCollection, inceptiondb.FindQuery{Limit: 1, Filter: JSON{
+		"id": deterministicBlogMemberId(blogId, "user-1"),
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	io.Copy(io.Discard, memberRows)
+	memberRows.Close()
+
+	second, err := MigrateBlogs(db)
+	if err != nil {
+		t.Fatalf("repair migration: %v (%+v)", err, second)
+	}
+	if second.BlogsRepaired != 1 || second.MembershipsCreated != 1 || second.ArticlesPatched != 1 {
+		t.Fatalf("unexpected repair report: %+v", second)
+	}
+	article := &Article{}
+	if err := db.FindOne("articles", inceptiondb.FindQuery{Filter: JSON{"id": "new"}}, article); err != nil {
+		t.Fatal(err)
+	}
+	if article.Revision != 1 || article.BlogSlug != "new-nick" || article.Url != "new-url" || !article.CreatedOn.Equal(oldTime.Add(time.Hour)) {
+		t.Fatalf("article was not coherently repaired: %+v", article)
+	}
+	third, err := MigrateBlogs(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if third.BlogsCreated != 0 || third.BlogsRepaired != 0 || third.MembershipsCreated != 0 || third.ArticlesPatched != 0 {
+		t.Fatalf("migration is not idempotent: %+v", third)
+	}
+}
+
+func TestBlogMigrationRejectsEmptyAuthor(t *testing.T) {
+	db := newBlogTestDB(t)
+	if err := db.CreateCollection("articles"); err != nil {
+		t.Fatal(err)
+	}
+	createdOn := time.Now().UTC()
+	if err := db.Insert("articles", JSON{"id": "orphan", "author_id": "", "createdOn": createdOn}); err != nil {
+		t.Fatal(err)
+	}
+	report, err := MigrateBlogs(db)
+	if err == nil || len(report.Errors) == 0 {
+		t.Fatalf("orphan article was silently migrated: report=%+v err=%v", report, err)
+	}
+	orphan := &migrationArticle{}
+	if err := db.FindOne("articles", inceptiondb.FindQuery{Filter: JSON{"id": "orphan"}}, orphan); err != nil {
+		t.Fatal(err)
+	}
+	if orphan.BlogId != "" {
+		t.Fatalf("orphan article was mapped to blog %q", orphan.BlogId)
+	}
+}
+
+func TestBlogAccessInvitationsAndArticleLocks(t *testing.T) {
+	db := newBlogTestDB(t)
+	fs, err := localfilestore.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := apitest.NewWithHandler(NewApi("", "test", db, fs, nil))
+	requestAs := func(userId, nick, method, path string) *apitest.Request {
+		return client.Request(method, path).WithHeader(glueauth.XGlueAuthentication,
+			`{"user":{"id":"`+userId+`","nick":"`+nick+`"}}`)
+	}
+
+	createBlog := requestAs("owner", "ana", http.MethodPost, "/v1/blogs").WithBodyJson(JSON{
+		"slug": "team-blog", "name": "Team", "language": "en", "accent_color": "#12ABEF",
+	}).Do()
+	if createBlog.StatusCode != http.StatusCreated {
+		t.Fatalf("create blog: %d %s", createBlog.StatusCode, createBlog.BodyString())
+	}
+	blogId := createBlog.BodyJsonMap()["id"].(string)
+	forged := &BlogMember{Id: deterministicBlogMemberId(blogId, "outsider"), BlogId: blogId,
+		UserId: "outsider", UserNick: "cora", Role: BlogRoleOwner, CreatedOn: time.Now().UTC()}
+	if err := db.Insert(blogMembersCollection, forged); err != nil {
+		t.Fatal(err)
+	}
+	if response := requestAs("outsider", "cora", http.MethodGet, "/v1/blogs/"+blogId).Do(); response.StatusCode != http.StatusForbidden {
+		t.Fatalf("membership role overrode authoritative owner: %d", response.StatusCode)
+	}
+	inviteResponse := requestAs("owner", "ana", http.MethodPost, "/v1/blogs/"+blogId+"/invitations").Do()
+	if inviteResponse.StatusCode != http.StatusCreated {
+		t.Fatalf("create invite: %d %s", inviteResponse.StatusCode, inviteResponse.BodyString())
+	}
+	invite := inviteResponse.BodyJsonMap()
+	token := strings.TrimPrefix(invite["inviteUrl"].(string), "/admin/#/invite/")
+	if token == "" || strings.Contains(inviteResponse.BodyString(), "token_hash") {
+		t.Fatalf("invitation leaked hash or omitted token URL: %s", inviteResponse.BodyString())
+	}
+	accepted := requestAs("editor", "bea", http.MethodPost, "/v1/invitations/accept").
+		WithBodyJson(JSON{"token": token}).Do()
+	if accepted.StatusCode != http.StatusOK {
+		t.Fatalf("accept invite: %d %s", accepted.StatusCode, accepted.BodyString())
+	}
+	if response := requestAs("editor", "bea", http.MethodPatch, "/v1/blogs/"+blogId).
+		WithBodyJson(JSON{"name": "Forbidden"}).Do(); response.StatusCode != http.StatusForbidden {
+		t.Fatalf("editor changed config: %d", response.StatusCode)
+	}
+
+	created := requestAs("editor", "bea", http.MethodPost, "/v1/blogs/"+blogId+"/articles").
+		WithBodyJson(JSON{"title": "Shared article"}).Do()
+	if created.StatusCode != http.StatusOK {
+		t.Fatalf("editor create article: %d %s", created.StatusCode, created.BodyString())
+	}
+	article := created.BodyJsonMap()
+	articleId := article["id"].(string)
+	root := "/v1/blogs/" + blogId + "/articles/" + articleId
+	secondBlog := requestAs("owner", "ana", http.MethodPost, "/v1/blogs").WithBodyJson(JSON{
+		"slug": "other-blog", "name": "Other",
+	}).Do().BodyJsonMap()
+	wrongRoot := "/v1/blogs/" + secondBlog["id"].(string) + "/articles/" + articleId
+	if response := requestAs("owner", "ana", http.MethodGet, wrongRoot).Do(); response.StatusCode != http.StatusNotFound {
+		t.Fatalf("cross-blog article lookup returned %d", response.StatusCode)
+	}
+
+	ownerLock := requestAs("owner", "ana", http.MethodPost, root+"/edit-lock/acquire").
+		WithBodyJson(JSON{"clientId": "owner-tab"}).Do()
+	if ownerLock.StatusCode != http.StatusOK {
+		t.Fatalf("acquire lock: %d %s", ownerLock.StatusCode, ownerLock.BodyString())
+	}
+	ownerToken := ownerLock.BodyJsonMap()["token"].(string)
+	if response := requestAs("owner", "ana", http.MethodPost, root+"/edit-lock/acquire").
+		WithBodyJson(JSON{"clientId": "owner-tab"}).Do(); response.StatusCode != http.StatusLocked || errorCode(response) != "article_locked" {
+		t.Fatalf("same client replaced active token: %d %s", response.StatusCode, response.BodyString())
+	}
+	if response := requestAs("editor", "bea", http.MethodPost, root+"/edit-lock/acquire").
+		WithBodyJson(JSON{"clientId": "editor-tab"}).Do(); response.StatusCode != http.StatusLocked {
+		t.Fatalf("editor bypassed lock: %d", response.StatusCode)
+	}
+	visible := requestAs("editor", "bea", http.MethodGet, root).Do()
+	for _, secret := range []string{"token_hash", "holder_user_id", "client_id", ownerToken} {
+		if strings.Contains(visible.BodyString(), secret) {
+			t.Fatalf("article response exposed %q: %s", secret, visible.BodyString())
+		}
+	}
+	replacement := "A"
+	if ownerToken[0] == 'A' {
+		replacement = "B"
+	}
+	badToken := replacement + ownerToken[1:]
+	if response := requestAs("owner", "ana", http.MethodPost, root+"/edit-lock/renew").
+		WithHeader(ArticleLockTokenHeader, badToken).Do(); response.StatusCode != http.StatusConflict || errorCode(response) != "edit_lock_lost" {
+		t.Fatalf("wrong-token renew: %d %s", response.StatusCode, response.BodyString())
+	}
+	if response := requestAs("owner", "ana", http.MethodPost, root+"/edit-lock/renew").
+		WithHeader(ArticleLockTokenHeader, ownerToken).Do(); response.StatusCode != http.StatusOK {
+		t.Fatalf("renew lock: %d %s", response.StatusCode, response.BodyString())
+	}
+
+	patchBody := JSON{"revision": article["revision"], "title": "Revised", "content": JSON{
+		"type": "editorjs", "data": JSON{"blocks": []JSON{{"type": "paragraph", "data": JSON{"text": "<script>x</script>safe"}}}},
+	}}
+	patchedResponse := requestAs("owner", "ana", http.MethodPatch, root).
+		WithHeader(ArticleLockTokenHeader, ownerToken).WithBodyJson(patchBody).Do()
+	if patchedResponse.StatusCode != http.StatusOK {
+		t.Fatalf("patch article: %d %s", patchedResponse.StatusCode, patchedResponse.BodyString())
+	}
+	patchedArticle := patchedResponse.BodyJsonMap()
+	if strings.Contains(patchedArticle["content_html"].(string), "<script") {
+		t.Fatal("server-generated HTML was not sanitized")
+	}
+	if stale := requestAs("owner", "ana", http.MethodPatch, root).
+		WithHeader(ArticleLockTokenHeader, ownerToken).WithBodyJson(patchBody).Do(); stale.StatusCode != http.StatusConflict || errorCode(stale) != "revision_conflict" {
+		t.Fatalf("stale revision: %d %s", stale.StatusCode, stale.BodyString())
+	}
+	if released := requestAs("owner", "ana", http.MethodPost, root+"/edit-lock/release").
+		WithHeader(ArticleLockTokenHeader, ownerToken).Do(); released.StatusCode != http.StatusNoContent {
+		t.Fatalf("release lock: %d %s", released.StatusCode, released.BodyString())
+	}
+	if secondRelease := requestAs("owner", "ana", http.MethodPost, root+"/edit-lock/release").
+		WithHeader(ArticleLockTokenHeader, ownerToken).Do(); secondRelease.StatusCode != http.StatusConflict {
+		t.Fatalf("second release: %d", secondRelease.StatusCode)
+	}
+
+	editorLock := requestAs("editor", "bea", http.MethodPost, root+"/edit-lock/acquire").
+		WithBodyJson(JSON{"clientId": "editor-tab"}).Do()
+	editorToken := editorLock.BodyJsonMap()["token"].(string)
+	expired := &Article{}
+	if matched, err := db.PatchOne("articles", inceptiondb.PatchQuery{Filter: JSON{"id": articleId}, Patch: JSON{
+		"_edit_lock": JSON{"expires_at": time.Now().Add(-time.Second).UnixMilli()},
+	}}, expired); err != nil || !matched {
+		t.Fatalf("expire lock: matched=%v err=%v", matched, err)
+	}
+	if publish := requestAs("editor", "bea", http.MethodPost, root+"/publish").
+		WithHeader(ArticleLockTokenHeader, editorToken).
+		WithBodyJson(JSON{"revision": patchedArticle["revision"]}).Do(); publish.StatusCode != http.StatusConflict {
+		t.Fatalf("expired lease published: %d %s", publish.StatusCode, publish.BodyString())
+	}
+	freshLock := requestAs("editor", "bea", http.MethodPost, root+"/edit-lock/acquire").
+		WithBodyJson(JSON{"clientId": "editor-tab-2"}).Do()
+	if freshLock.StatusCode != http.StatusOK {
+		t.Fatalf("acquire after expiry: %d %s", freshLock.StatusCode, freshLock.BodyString())
+	}
+	freshToken := freshLock.BodyJsonMap()["token"].(string)
+	firstPublish := requestAs("editor", "bea", http.MethodPost, root+"/publish").
+		WithHeader(ArticleLockTokenHeader, freshToken).
+		WithBodyJson(JSON{"revision": patchedArticle["revision"]}).Do()
+	if firstPublish.StatusCode != http.StatusOK {
+		t.Fatalf("first publish: %d %s", firstPublish.StatusCode, firstPublish.BodyString())
+	}
+	publishOn := firstPublish.BodyJsonMap()["publishOn"]
+	secondPublish := requestAs("editor", "bea", http.MethodPost, root+"/publish").
+		WithHeader(ArticleLockTokenHeader, freshToken).
+		WithBodyJson(JSON{"revision": firstPublish.BodyJsonMap()["revision"]}).Do()
+	if secondPublish.StatusCode != http.StatusOK || secondPublish.BodyJsonMap()["publishOn"] != publishOn {
+		t.Fatalf("republish changed publishOn: first=%v second=%v", publishOn, secondPublish.BodyJsonMap()["publishOn"])
+	}
+
+	removed := requestAs("owner", "ana", http.MethodDelete, "/v1/blogs/"+blogId+"/members/editor").Do()
+	if removed.StatusCode != http.StatusOK {
+		t.Fatalf("remove editor: %d %s", removed.StatusCode, removed.BodyString())
+	}
+	if denied := requestAs("editor", "bea", http.MethodGet, root).Do(); denied.StatusCode != http.StatusForbidden {
+		t.Fatalf("removed editor retained article access: %d", denied.StatusCode)
+	}
+	reused := requestAs("editor", "bea", http.MethodPost, "/v1/invitations/accept").WithBodyJson(JSON{"token": token}).Do()
+	if reused.StatusCode != http.StatusGone {
+		t.Fatalf("accepted invitation was reusable: %d %s", reused.StatusCode, reused.BodyString())
+	}
+	member := &BlogMember{}
+	if err := db.FindOne(blogMembersCollection, inceptiondb.FindQuery{Filter: JSON{
+		"id": deterministicBlogMemberId(blogId, "editor"),
+	}}, member); !errors.Is(err, io.EOF) {
+		t.Fatalf("used invitation recreated removed member: %+v err=%v", member, err)
+	}
+	if ownerRemoval := requestAs("owner", "ana", http.MethodDelete, "/v1/blogs/"+blogId+"/members/owner").Do(); ownerRemoval.StatusCode != http.StatusForbidden {
+		t.Fatalf("owner removal returned %d", ownerRemoval.StatusCode)
+	}
+}
+
+func errorCode(response *apitest.Response) string {
+	body := response.BodyJsonMap()
+	errorBody, _ := body["error"].(map[string]any)
+	code, _ := errorBody["code"].(string)
+	return code
+}
+
+func newBlogTestDB(t *testing.T) *inceptiondb.Client {
+	t.Helper()
+	store := database.NewDatabase(&database.Config{Dir: t.TempDir()})
+	if err := store.Load(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Stop() })
+	server := httptest.NewServer(box.Box2Http(inceptionapi.Build(service.NewService(store), "", "test")))
+	t.Cleanup(server.Close)
+	return inceptiondb.NewClient(inceptiondb.Config{Base: server.URL + "/v1"})
+}

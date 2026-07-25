@@ -74,10 +74,10 @@ func (c *Client) CreateCollection(name string) error {
 		return nil
 	}
 
-	// body, _ := io.ReadAll(resp.Body)
-	// log.Println("CreateCollection: " + string(body))
+	apiError := ApiError{}
+	json.NewDecoder(resp.Body).Decode(&apiError)
 
-	if resp.StatusCode == http.StatusConflict {
+	if resp.StatusCode == http.StatusConflict || apiErrorAlreadyExists(apiError, "collection") {
 		return ErrorAlreadyExist
 	}
 	if resp.StatusCode == http.StatusForbidden {
@@ -128,6 +128,11 @@ type IndexOptions struct {
 type ApiError struct {
 	Description string `json:"description"`
 	Message     string `json:"message"`
+}
+
+func apiErrorAlreadyExists(apiError ApiError, resource string) bool {
+	message := strings.ToLower(apiError.Description + " " + apiError.Message)
+	return strings.Contains(message, resource) && strings.Contains(message, "already exists")
 }
 
 func (a *ApiError) Error() string {
@@ -188,7 +193,7 @@ func (c *Client) CreateIndex(collection string, options *IndexOptions) error {
 	apiError := ApiError{}
 	json.NewDecoder(resp.Body).Decode(&apiError)
 
-	if resp.StatusCode == http.StatusConflict || strings.Contains(apiError.Message, "already exists") {
+	if resp.StatusCode == http.StatusConflict || apiErrorAlreadyExists(apiError, "index") {
 		return ErrorAlreadyExist
 	}
 	if resp.StatusCode == http.StatusForbidden {
@@ -431,6 +436,10 @@ func (c *Client) Patch(collection string, query PatchQuery) (io.ReadCloser, erro
 	if resp.StatusCode == http.StatusOK {
 		return resp.Body, nil
 	}
+	if resp.StatusCode == http.StatusNoContent {
+		resp.Body.Close()
+		return io.NopCloser(bytes.NewReader(nil)), nil
+	}
 
 	defer func() {
 		io.Copy(os.Stdout, resp.Body)
@@ -445,6 +454,23 @@ func (c *Client) Patch(collection string, query PatchQuery) (io.ReadCloser, erro
 	}
 
 	return nil, ErrorUnexpected
+}
+
+func (c *Client) PatchOne(collection string, query PatchQuery, item interface{}) (bool, error) {
+	query.Limit = 1
+	r, err := c.Patch(collection, query)
+	if err != nil {
+		return false, err
+	}
+	defer r.Close()
+	if err := json.NewDecoder(r).Decode(item); err != nil {
+		if errors.Is(err, io.EOF) {
+			return false, nil
+		}
+		return false, err
+	}
+	io.Copy(io.Discard, r)
+	return true, nil
 }
 
 func (c *Client) FindOne(collection string, query FindQuery, item interface{}) error {

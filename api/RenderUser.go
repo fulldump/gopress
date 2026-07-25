@@ -2,58 +2,31 @@ package api
 
 import (
 	"context"
-	"fmt"
-	"html/template"
-	"log"
 	"net/http"
-	"sort"
+	"net/url"
 
 	"github.com/fulldump/box"
 
 	"gopress/inceptiondb"
-	"gopress/templates"
 )
 
-func RenderUser(w http.ResponseWriter, ctx context.Context) error {
-	// todo: limit page size to 10
-	// todo: sort by date DESC
-
-	userNick := box.GetUrlParameter(ctx, "userNick")
-
-	params := inceptiondb.FindQuery{
-		Limit: 1000,
-		Filter: JSON{
-			"author_nick": userNick,
-			"published":   true,
-			"$ne":         JSON{"banned": true},
-		},
-	}
-	list := []*Article{}
-	GetInceptionClient(ctx).FindAll("articles", params, func(article *Article) {
-		if article.ContentSummary == "" {
-			article.ContentSummary = template.HTML(HtmlSummary(string(article.ContentHTML), 50))
-		}
-		list = append(list, article)
-	}) // todo: handle error properly
-	if len(list) == 0 {
-		return HttpError{
-			Status:      http.StatusNotFound,
-			Title:       "Blog Not Found",
-			Description: fmt.Sprintf("El blog '%s' todavía no existe", userNick),
-		}
-	}
-
-	sort.Slice(list, func(i, j int) bool {
-		return list[i].PublishOn.Unix() > list[j].PublishOn.Unix()
-	})
-
-	err := templates.Execute(ctx, "user", w, map[string]any{
-		"userNick": userNick,
-		"articles": list,
-	})
+func RenderUser(w http.ResponseWriter, r *http.Request, ctx context.Context) error {
+	blog, err := findPersonalBlogByNick(ctx, box.GetUrlParameter(ctx, "userNick"))
 	if err != nil {
-		log.Println("Error rendering home:", err.Error())
+		return err
 	}
-
+	http.Redirect(w, r, "/blog/"+url.PathEscape(blog.Slug), http.StatusPermanentRedirect)
 	return nil
+}
+
+func findPersonalBlogByNick(ctx context.Context, nick string) (*Blog, error) {
+	blog := &Blog{}
+	err := GetInceptionClient(ctx).FindOne(blogsCollection, inceptiondb.FindQuery{Filter: JSON{
+		"personal": true,
+		"$or":      []JSON{{"owner_nick": nick}, {"legacy_nicks": nick}},
+	}}, blog)
+	if err != nil {
+		return nil, blogNotFound()
+	}
+	return blog, nil
 }

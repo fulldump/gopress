@@ -7,7 +7,9 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
+	"time"
 
 	"github.com/fulldump/box"
 	"golang.org/x/net/html"
@@ -17,64 +19,64 @@ import (
 )
 
 func PatchArticle(r *http.Request, ctx context.Context) any {
-
 	db := GetInceptionClient(ctx)
 	auth := glueauth.GetAuth(ctx)
-
-	articleId := box.GetUrlParameter(ctx, "articleId")
-
-	article := &Article{}
-	err := db.FindOne("articles", inceptiondb.FindQuery{
-		Filter: JSON{
-			"id":        articleId,
-			"author_id": auth.User.ID,
-		},
-	}, article)
+	article, _, _, err := FindAccessibleArticle(ctx)
 	if err != nil {
-		log.Println("patch article: db find:", err.Error())
-		return JSON{
-			"error": "could not read from data storage",
-		}
+		return err
 	}
-
-	oldTitle := article.Title
-
-	err = json.NewDecoder(r.Body).Decode(&article.ArticleUserFields)
+	input := struct {
+		Title    *string  `json:"title,omitempty"`
+		Content  *Content `json:"content,omitempty"`
+		Revision *uint64  `json:"revision"`
+	}{}
+	if err = decodeBlogJSON(box.GetResponse(ctx), r, &input); err != nil {
+		log.Println("patch article: json decode:", err)
+		return invalidArticle("No se pudo leer el JSON")
+	}
+	if input.Revision == nil {
+		return invalidArticle("revision es obligatoria")
+	}
+	if input.Title == nil && input.Content == nil {
+		return invalidArticle("title o content son obligatorios")
+	}
+	if *input.Revision != article.Revision {
+		return articleRevisionConflict(article.Revision)
+	}
+	if input.Title != nil {
+		article.Title = *input.Title
+	}
+	if input.Content != nil {
+		article.Content = *input.Content
+	}
+	if article.Content.Type != "editorjs" {
+		return invalidArticle("content.type debe ser editorjs")
+	}
+	contentHTML, err := editorjs2HTML(article.Content.Data)
 	if err != nil {
-		log.Println("patch article: json decode:", err.Error())
-		return JSON{
-			"error": "could not read JSON",
-		}
+		return invalidArticle("El contenido del artículo no es válido")
 	}
-
-	// If title has changed, update slug
-	if oldTitle != article.Title {
-		article.Url = Slug(article.Title)
-	}
-
-	contentHtml, err := editorjs2HTML(article.Content.Data)
+	article.ContentHTML = template.HTML(HtmlSanitizer(contentHTML))
+	filter, err := articleMutationFilter(ctx, article, *input.Revision)
 	if err != nil {
-		return JSON{
-			"error": "invalid payload to transform from editorjs 2 html",
-		}
+		return err
 	}
-	article.ContentHTML = template.HTML(contentHtml)
-
-	_, err = db.Patch("articles", inceptiondb.PatchQuery{
-		Filter: JSON{
-			"id":        articleId,
-			"author_id": auth.User.ID,
-		},
-		Patch: article,
-	})
+	now := time.Now().UTC()
+	patched := &Article{}
+	matched, err := db.PatchOne("articles", inceptiondb.PatchQuery{Filter: filter, Patch: JSON{
+		"title": article.Title, "content": article.Content, "content_html": article.ContentHTML,
+		"revision": *input.Revision + 1, "updatedOn": now,
+		"updated_by_id": auth.User.ID, "updated_by_nick": auth.User.Nick,
+	}}, patched)
 	if err != nil {
 		log.Println("patch article: db patch:", err.Error())
-		return JSON{
-			"error": "could not write to data storage",
-		}
+		return HttpError{Status: http.StatusInternalServerError, Title: "Article Save Failed", Description: "No se pudo guardar el artículo"}
 	}
-
-	return article
+	if !matched {
+		return articleMutationFailure(ctx, article, *input.Revision)
+	}
+	setArticlePublicURL(patched)
+	return patched
 }
 
 type EditorJs struct {
@@ -292,5 +294,47 @@ func editorjs2HTML(data []byte) (string, error) {
 		}
 	}
 
-	return result.String(), nil
+	return HtmlSanitizer(result.String()), nil
+}
+
+func renderEditorListItems(result *strings.Builder, items []json.RawMessage, tag string) error {
+	for _, raw := range items {
+		text := ""
+		children := []json.RawMessage{}
+		if err := json.Unmarshal(raw, &text); err != nil {
+			item := struct {
+				Content string
+				Items   []json.RawMessage
+			}{}
+			if err := json.Unmarshal(raw, &item); err != nil {
+				return err
+			}
+			text = item.Content
+			children = item.Items
+		}
+		fmt.Fprintf(result, "<li>%s", text)
+		if len(children) > 0 {
+			fmt.Fprintf(result, "<%s>", tag)
+			if err := renderEditorListItems(result, children, tag); err != nil {
+				return err
+			}
+			fmt.Fprintf(result, "</%s>", tag)
+		}
+		fmt.Fprint(result, "</li>\n")
+	}
+	return nil
+}
+
+func safeEditorURL(value string) string {
+	parsed, err := url.Parse(strings.TrimSpace(value))
+	if err != nil {
+		return ""
+	}
+	if parsed.IsAbs() && parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return ""
+	}
+	if !parsed.IsAbs() && !strings.HasPrefix(parsed.Path, "/") {
+		return ""
+	}
+	return value
 }

@@ -3,53 +3,43 @@
 
   var login = document.getElementById('login');
   var logout = document.getElementById('logout');
+  var currentUser = null;
+  var localAuthHosts = ['localhost', '127.0.0.1', '::1'];
+
+  window.gopressAuthHeaders = function (initial) {
+    var headers = new Headers(initial || {});
+    if (localAuthHosts.includes(window.location.hostname) && currentUser && currentUser.id) {
+      headers.set('X-Glue-Authentication', JSON.stringify({
+        session: { id: 'local-development' },
+        user: {
+          id: currentUser.id,
+          nick: currentUser.nick || '',
+          picture: currentUser.picture || '',
+          email: currentUser.email || ''
+        }
+      }));
+    }
+    return headers;
+  };
 
   function showAnonymous() {
     if (login) login.hidden = false;
     if (logout) logout.hidden = true;
   }
 
-  function rememberLoginReturn(target) {
-    try {
-      window.sessionStorage.setItem('gopressLoginReturn', target);
-    } catch (error) {
-      // Login still works when storage is unavailable, without the return shortcut.
-    }
+  function loginUrl(target) {
+    return '/auth/login?redirect=' + encodeURIComponent(target);
   }
 
   window.gopressRequireLogin = function (target) {
-    rememberLoginReturn(target);
-    window.location.href = '/auth/login?redirect=' + encodeURIComponent(target);
+    window.location.href = loginUrl(target);
   };
 
   if (login) {
     var loginLink = login.querySelector('a[href="/auth/login"]');
     if (loginLink) {
-      loginLink.addEventListener('click', function () {
-        rememberLoginReturn(window.location.pathname + window.location.search + window.location.hash);
-      });
+      loginLink.href = loginUrl(window.location.pathname + window.location.search + window.location.hash);
     }
-  }
-
-  function resumeAfterLogin() {
-    var target;
-    try {
-      target = window.sessionStorage.getItem('gopressLoginReturn');
-      window.sessionStorage.removeItem('gopressLoginReturn');
-    } catch (error) {
-      return false;
-    }
-    if (!target) return false;
-
-    var destination;
-    try {
-      destination = new URL(target, window.location.origin);
-    } catch (error) {
-      return false;
-    }
-    if (destination.origin !== window.location.origin || destination.href === window.location.href) return false;
-    window.location.replace(destination.href);
-    return true;
   }
 
   window.gopressCurrentUser = fetch('/auth/me', { headers: { Accept: 'application/json' } })
@@ -63,7 +53,7 @@
         return null;
       }
 
-      if (resumeAfterLogin()) return me;
+      currentUser = me;
       if (login) login.hidden = true;
       if (logout) logout.hidden = false;
       var nick = document.getElementById('user_nick');

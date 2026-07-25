@@ -28,6 +28,12 @@ var Error string
 //go:embed bookmarks.gohtml
 var Bookmarks string
 
+//go:embed blogs.gohtml
+var Blogs string
+
+//go:embed blog.gohtml
+var Blog string
+
 type Templates interface {
 	Get(name string) *template.Template
 }
@@ -45,6 +51,8 @@ func NewEmbeddedTemplates() (*EmbeddedTemplates, error) {
 		"tag":       Tag,
 		"error":     Error,
 		"bookmarks": Bookmarks,
+		"blogs":     Blogs,
+		"blog":      Blog,
 	}
 	list := map[string]*template.Template{}
 

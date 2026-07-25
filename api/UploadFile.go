@@ -30,6 +30,10 @@ var ErrorPersistenceRead = errors.New("unexpected internal error reading from pe
 func UploadFile(w http.ResponseWriter, r *http.Request, ctx context.Context) (any, error) {
 
 	auth := glueauth.GetAuth(ctx)
+	blog, err := requireFileBlog(ctx, r)
+	if err != nil {
+		return nil, err
+	}
 
 	response := &UploadFileOutput{
 		Files: []*File{},
@@ -53,7 +57,10 @@ func UploadFile(w http.ResponseWriter, r *http.Request, ctx context.Context) (an
 			break // todo: previously was continue (too risky?)
 		}
 
-		name := part.FormName()
+		name := part.FileName()
+		if name == "" {
+			name = part.FormName()
+		}
 		mime := part.Header.Get("Content-Type")
 		log.Printf("Name: %s; Mime: %s", name, mime)
 
@@ -79,6 +86,7 @@ func UploadFile(w http.ResponseWriter, r *http.Request, ctx context.Context) (an
 
 		file := &File{
 			Id:            fileId,
+			BlogId:        blog.Id,
 			AuthorId:      auth.User.ID,
 			AuthorNick:    auth.User.Nick,
 			AuthorPicture: auth.User.Picture,
@@ -95,6 +103,9 @@ func UploadFile(w http.ResponseWriter, r *http.Request, ctx context.Context) (an
 			return nil, ErrorPersistenceWrite
 		}
 
+	}
+	if len(response.Files) == 0 {
+		return nil, ErrorUploadFilesMultipart
 	}
 
 	w.WriteHeader(http.StatusCreated)

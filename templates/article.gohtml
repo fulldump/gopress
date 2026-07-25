@@ -1,14 +1,15 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="{{ .blog.Language }}">
 <head>
     <meta charset="utf-8">
-    <title>{{ .article.Title }} — GoPress</title>
+    <title>{{ .article.Title }} — {{ .blog.Name }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="{{ .og_description }}">
+    <link rel="canonical" href="{{ .og_url }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+Pro:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles/basic.css?v=7">
+    <link rel="stylesheet" href="/styles/basic.css?v=8">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
@@ -16,12 +17,12 @@
     <meta property="og:title" content="{{ .og_title }}">
     <meta property="og:url" content="{{ .og_url }}">
     <meta property="og:image" content="{{ .og_image }}">
-    <meta property="og:site_name" content="GoPress, blogs para todos">
+    <meta property="og:site_name" content="{{ .blog.Name }}">
     <meta property="og:description" content="{{ .og_description }}">
     <meta name="twitter:card" content="summary">{{ .headTrailCode }}
 </head>
-<body>
-    <a class="skip-link" href="#main-content">Ir al contenido</a>
+<body style="--color-accent: {{ .blog.AccentColor }}; --color-accent-hover: {{ .blog.AccentColor }}; --blog-accent: {{ .blog.AccentColor }}">
+    <a class="skip-link" href="#main-content">{{ if eq .blog.Language "en" }}Skip to content{{ else }}Ir al contenido{{ end }}</a>
     <div class="site-wrapper">
         <header class="site-header">
             <nav class="top-bar container" aria-label="Navegación principal">
@@ -31,12 +32,16 @@
                     <div id="logout" hidden>
                         <img id="user_picture" class="nav-avatar" alt="" hidden>
                         <span id="user_nick"></span>
+                        <a href="/blogs">Blogs</a>
                         <a href="/bookmarks">Guardados</a>
                         <a href="/admin/">Administración</a>
                         <a href="/auth/logout">Salir</a>
                     </div>
                 </div>
             </nav>
+            <div class="article-blog-bar content-column">
+                <a href="/blog/{{ .blog.Slug }}"><span class="article-blog-mark" aria-hidden="true"></span>{{ .blog.Name }}</a>
+            </div>
         </header>
 
         <main class="site-main" id="main-content">
@@ -46,15 +51,15 @@
                         <h1 class="post-title" itemprop="headline">{{ .article.Title }}</h1>
                         <div class="post-meta">
                             <span itemprop="author" itemscope itemtype="https://schema.org/Person">
-                                Por <a href="/user/{{ .article.AuthorNick }}" itemprop="url"><span itemprop="name">{{ .article.AuthorNick }}</span></a>
+                                {{ if eq .blog.Language "en" }}By{{ else }}Por{{ end }} <span itemprop="name">{{ .article.AuthorNick }}</span>
                             </span>
                             <time datetime="{{ .article.PublishOn.Format "2006-01-02" }}" itemprop="datePublished">{{ .article.PublishOn.Format "02/01/2006" }}</time>
-                            <span>{{ .article.Stats.Views }} lecturas</span>
+                            <span>{{ .article.Stats.Views }} {{ if eq .blog.Language "en" }}reads{{ else }}lecturas{{ end }}</span>
                         </div>
                         {{ if .article.Tags }}
                         <div class="post-tags" aria-label="Etiquetas del artículo">
                             {{ range $j, $tag := .article.Tags }}
-                            <a class="tag" href="/tag/{{ $tag }}" itemprop="about">#{{ $tag }}</a>
+                            <a class="tag" href="/blog/{{ $.blog.Slug }}/tag/{{ $tag }}" itemprop="about">#{{ $tag }}</a>
                             {{ end }}
                         </div>
                         {{ end }}
@@ -142,8 +147,9 @@
 
         <footer class="site-footer">
             <div class="footer-content container">
-                <p>GoPress es software libre construido por la comunidad.</p>
+                <p>{{ .blog.Name }} · GoPress.org</p>
                 <nav class="footer-links" aria-label="Enlaces del proyecto">
+                    <a href="/blog/{{ .blog.Slug }}">{{ if eq .blog.Language "en" }}More posts{{ else }}Más publicaciones{{ end }}</a>
                     <a href="https://github.com/fulldump/gopress">GitHub</a>
                     <a href="https://www.twitch.tv/fulldump">Twitch</a>
                     <a href="https://www.youtube.com/@fulldump">YouTube</a>
@@ -151,8 +157,8 @@
             </div>
         </footer>
     </div>
-    <script src="/public.js?v=2" defer></script>
+    <script src="/public.js?v=4" defer></script>
     <script src="/comments.js?v=2" defer></script>
-    <script src="/article-feedback.js?v=1" defer></script>
+    <script src="/article-feedback.js?v=2" defer></script>
 </body>
 </html>

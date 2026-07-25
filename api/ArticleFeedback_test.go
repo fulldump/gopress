@@ -59,8 +59,11 @@ func TestArticleFeedback(t *testing.T) {
 			},
 		},
 		{
-			Id:        "draft-article",
-			Published: false,
+			Id:         "draft-article",
+			CreatedOn:  originalCreatedOn.Add(time.Minute),
+			Published:  false,
+			AuthorId:   "user-a",
+			AuthorNick: "writer",
 			ArticleUserFields: ArticleUserFields{
 				Title: "Draft article",
 			},
@@ -181,7 +184,15 @@ func TestArticleFeedback(t *testing.T) {
 			t.Fatalf("non-owner deletion changed feedback: %#v", feedback)
 		}
 
-		response = authRequest(http.MethodDelete, "/v1/articles/published-article", userA).Do()
+		lockResponse := authRequest(http.MethodPost, "/v1/articles/published-article/edit-lock/acquire", userA).
+			WithBodyJson(JSON{"clientId": "feedback-test"}).Do()
+		if lockResponse.StatusCode != http.StatusOK {
+			t.Fatalf("expected lock status 200, got %d: %s", lockResponse.StatusCode, lockResponse.BodyString())
+		}
+		lockToken := lockResponse.BodyJsonMap()["token"].(string)
+		response = authRequest(http.MethodDelete, "/v1/articles/published-article", userA).
+			WithHeader(ArticleLockTokenHeader, lockToken).
+			WithBodyJson(JSON{"revision": 1}).Do()
 		if response.StatusCode != http.StatusOK {
 			t.Fatalf("expected status 200, got %d", response.StatusCode)
 		}
