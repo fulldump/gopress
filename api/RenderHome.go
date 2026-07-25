@@ -24,7 +24,11 @@ func RenderHome(ctx context.Context, w http.ResponseWriter) {
 	}
 
 	list := []*Article{}
+	publicBlogs := publicBlogIds(ctx)
 	GetInceptionClient(ctx).FindAll("articles", query, func(article *Article) {
+		if !publicBlogs[article.BlogId] {
+			return
+		}
 		if article.ContentSummary == "" {
 			article.ContentSummary = template.HTML(HtmlSummary(string(article.ContentHTML), 50))
 		}

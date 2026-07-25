@@ -16,7 +16,9 @@ import (
 
 func RenderBlogs(ctx context.Context, w http.ResponseWriter) error {
 	blogs := []*Blog{}
-	if err := GetInceptionClient(ctx).FindAll(blogsCollection, inceptiondb.FindQuery{Limit: maxBlogs}, func(blog *Blog) {
+	if err := GetInceptionClient(ctx).FindAll(blogsCollection, inceptiondb.FindQuery{Limit: maxBlogs, Filter: JSON{
+		"$ne": JSON{"banned": true},
+	}}, func(blog *Blog) {
 		blogs = append(blogs, blog)
 	}); err != nil {
 		return blogStorageError("render blogs", err)
@@ -75,10 +77,29 @@ func renderBlogFeed(ctx context.Context, w http.ResponseWriter, blog *Blog, tag 
 
 func getPublicBlogBySlug(ctx context.Context, slug string) (*Blog, error) {
 	blog := &Blog{}
-	if err := GetInceptionClient(ctx).FindOne(blogsCollection, inceptiondb.FindQuery{Filter: JSON{"slug": slug}}, blog); err != nil {
+	if err := GetInceptionClient(ctx).FindOne(blogsCollection, inceptiondb.FindQuery{Filter: JSON{
+		"slug": slug, "$ne": JSON{"banned": true},
+	}}, blog); err != nil {
 		return nil, blogNotFound()
 	}
 	return blog, nil
+}
+
+func publicBlogIds(ctx context.Context) map[string]bool {
+	result := map[string]bool{}
+	_ = GetInceptionClient(ctx).FindAll(blogsCollection, inceptiondb.FindQuery{Limit: maxBlogs, Filter: JSON{
+		"$ne": JSON{"banned": true},
+	}}, func(blog *Blog) {
+		result[blog.Id] = true
+	})
+	return result
+}
+
+func isPublicBlog(ctx context.Context, blogId string) bool {
+	blog := &Blog{}
+	return GetInceptionClient(ctx).FindOne(blogsCollection, inceptiondb.FindQuery{Filter: JSON{
+		"id": blogId, "$ne": JSON{"banned": true},
+	}}, blog) == nil
 }
 
 func ensureArticleSummary(article *Article) {

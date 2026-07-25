@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 	"github.com/fulldump/box"
 
 	"gopress/filestorage"
+	"gopress/glueauth"
 	"gopress/inceptiondb"
 )
 
@@ -22,14 +22,27 @@ func GetFile(w http.ResponseWriter, ctx context.Context) error {
 	err := GetInceptionClient(ctx).FindOne("files", inceptiondb.FindQuery{Filter: JSON{"id": fileId}}, file)
 	if err != nil {
 		log.Println(err.Error())
-		return errors.New("file not found")
+		return fileNotFound()
+	}
+	if file.BlogId == "" {
+		return fileNotFound()
+	}
+	blog := &Blog{}
+	if err := GetInceptionClient(ctx).FindOne(blogsCollection, inceptiondb.FindQuery{Filter: JSON{"id": file.BlogId}}, blog); err != nil {
+		return fileNotFound()
+	}
+	if blog.Banned {
+		auth := glueauth.GetAuth(ctx)
+		if auth == nil || auth.User.ID != blog.OwnerId {
+			return fileNotFound()
+		}
 	}
 
 	fs := box.GetBoxContext(ctx).Action.GetAttribute("filestorager").(filestorage.Filestorager)
 	r, err := fs.OpenReader(fileId)
 	if err != nil {
 		log.Println(err.Error())
-		return errors.New("file not found")
+		return fileNotFound()
 	}
 
 	w.Header().Set("Content-Type", file.Mime) // todo: only if not empty?
@@ -37,4 +50,8 @@ func GetFile(w http.ResponseWriter, ctx context.Context) error {
 	io.Copy(w, r) // todo: handle error properly
 
 	return nil
+}
+
+func fileNotFound() HttpError {
+	return HttpError{Status: http.StatusNotFound, Title: "File Not Found", Description: "El archivo no existe"}
 }

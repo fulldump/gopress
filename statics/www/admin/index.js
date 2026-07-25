@@ -284,6 +284,10 @@ const AppShell = {
           <router-link :to="{ name: 'posts', params: { blogId: currentBlogId, filter: 'published' } }">Entradas</router-link>
           <router-link :to="{ name: 'settings', params: { blogId: currentBlogId } }">Ajustes</router-link>
         </nav>
+        <div v-if="activeBlog && activeBlog.banned" class="ban-banner" role="alert">
+          <strong>Este blog está baneado.</strong><span>No aparece públicamente y no puede crear ni publicar entradas.</span>
+          <router-link :to="{ name: 'settings', params: { blogId: currentBlogId } }">Solicitar revisión</router-link>
+        </div>
         <router-view v-slot="{ Component, route }">
           <component :is="Component" :key="viewKey(route)"></component>
         </router-view>
@@ -292,6 +296,7 @@ const AppShell = {
     computed: {
         store() { return store; },
         currentBlogId() { return this.$route.params.blogId || ''; },
+        activeBlog() { return store.blogs.find((blog) => String(idOf(blog)) === String(this.currentBlogId)) || null; },
     },
     mounted() {
         loadBlogs().catch(() => {});
@@ -328,9 +333,9 @@ const BlogsPage = {
         <div v-if="loading" class="state"><span class="spinner"></span> Cargando blogs...</div>
         <div v-else-if="!blogs.length" class="state empty-state"><strong>Tu directorio está vacío</strong><span>Crea el primer blog para empezar a publicar.</span></div>
         <div v-else class="blog-list">
-          <router-link v-for="blog in blogs" :key="idOf(blog)" class="blog-row" :to="{ name: 'posts', params: { blogId: idOf(blog), filter: 'published' } }">
+          <router-link v-for="blog in blogs" :key="idOf(blog)" class="blog-row" :class="{ 'banned-blog-row': blog.banned }" :to="{ name: 'posts', params: { blogId: idOf(blog), filter: 'published' } }">
             <div><div class="row-title">{{ blog.name }}</div><div class="row-meta">/blog/{{ blog.slug }}</div></div>
-            <span class="role-badge">{{ roleLabel(blog) }}</span><span class="row-arrow" aria-hidden="true">→</span>
+            <span v-if="blog.banned" class="role-badge banned-badge">Baneado</span><span class="role-badge">{{ roleLabel(blog) }}</span><span class="row-arrow" aria-hidden="true">→</span>
           </router-link>
         </div>
       </main>
@@ -371,8 +376,9 @@ const PostsPage = {
       <main class="page">
         <div class="page-heading">
           <div><p class="eyebrow">{{ blogName }}</p><h1>Entradas</h1><p>Escribe, revisa y publica el trabajo editorial de este blog.</p></div>
-          <button class="button primary" @click="createArticle" :disabled="creating"><span v-if="creating" class="spinner"></span>{{ creating ? 'Creando' : 'Nueva entrada' }}</button>
+          <button class="button primary" @click="createArticle" :disabled="creating || isBanned"><span v-if="creating" class="spinner"></span>{{ creating ? 'Creando' : 'Nueva entrada' }}</button>
         </div>
+        <p v-if="isBanned" class="notice error" role="alert">Este blog está baneado. Sus entradas no son públicas y no se puede crear ni publicar contenido nuevo. Puedes solicitar una revisión desde Ajustes.</p>
         <div class="tabs" aria-label="Estado de las entradas">
           <router-link :to="{ name: 'posts', params: { blogId, filter: 'published' } }">Publicadas <span class="count">{{ published.length }}</span></router-link>
           <router-link :to="{ name: 'posts', params: { blogId, filter: 'drafts' } }">Borradores <span class="count">{{ drafts.length }}</span></router-link>
@@ -386,7 +392,7 @@ const PostsPage = {
               <div class="row-title">{{ article.title || 'Sin título' }}</div><div class="row-meta">{{ articleDate(article) }}</div>
             </router-link>
             <div class="row-actions">
-              <button v-if="!articleIsPublished(article)" class="button small" @click="runAction(article, 'publish')" :disabled="isBusy(article)">Publicar</button>
+              <button v-if="!articleIsPublished(article)" class="button small" @click="runAction(article, 'publish')" :disabled="isBusy(article) || isBanned">Publicar</button>
               <button v-else class="button small" @click="runAction(article, 'unpublish')" :disabled="isBusy(article)">Despublicar</button>
               <button class="button quiet small danger" @click="deleteArticle(article)" :disabled="isBusy(article)">Borrar</button>
             </div>
@@ -399,9 +405,10 @@ const PostsPage = {
     },
     computed: {
         blogId() { return this.$route.params.blogId; },
+        blog() { return store.blogs.find((item) => String(idOf(item)) === String(this.blogId)) || null; },
+        isBanned() { return Boolean(this.blog && this.blog.banned); },
         blogName() {
-            const blog = store.blogs.find((item) => String(idOf(item)) === String(this.blogId));
-            return blog ? blog.name : 'Blog';
+            return this.blog ? this.blog.name : 'Blog';
         },
         published() { return this.articles.filter(articleIsPublished); },
         drafts() { return this.articles.filter((article) => !articleIsPublished(article)); },
@@ -505,6 +512,16 @@ const SettingsPage = {
         <template v-else>
           <p v-if="!isOwner" class="notice warning" role="status">Tienes acceso de editor. Puedes consultar estos ajustes, pero solo el propietario puede modificarlos.</p>
           <p v-if="error" class="notice error" role="alert">{{ error }}</p>
+          <section v-if="blog.banned && isOwner" class="ban-review-panel" aria-labelledby="review-title">
+            <p class="eyebrow">Moderación</p><h2 id="review-title">Blog baneado</h2>
+            <p>El blog y todas sus entradas están ocultos de las páginas públicas. No puedes crear ni publicar contenido hasta que se apruebe una revisión.</p>
+            <div v-if="blog.review_requested_on" class="notice" role="status"><strong>Revisión solicitada.</strong> El equipo de moderación revisará el blog.</div>
+            <form v-else class="review-form" @submit.prevent="requestReview">
+              <div class="field"><label for="review-message">Explica por qué debe revisarse el baneo</label><textarea id="review-message" v-model="reviewMessage" required minlength="10" maxlength="2000" placeholder="Describe los cambios realizados o el motivo de la solicitud."></textarea><small>Entre 10 y 2000 caracteres.</small></div>
+              <button class="button primary" :disabled="reviewSubmitting || reviewMessage.trim().length < 10">{{ reviewSubmitting ? 'Enviando...' : 'Solicitar revisión' }}</button>
+              <p v-if="reviewError" class="notice error" role="alert">{{ reviewError }}</p>
+            </form>
+          </section>
           <div class="settings-layout" :class="{ 'read-only-settings': !isOwner }">
             <nav class="settings-index" aria-label="Secciones de ajustes"><a href="#general" @click.prevent="scrollTo('general')">General</a><a v-if="isOwner" href="#members" @click.prevent="scrollTo('members')">Miembros</a><a v-if="isOwner" href="#invitations" @click.prevent="scrollTo('invitations')">Invitaciones</a></nav>
             <div class="settings-content">
@@ -569,6 +586,7 @@ const SettingsPage = {
             membersLoading: false, invitesLoading: false, saving: false, saved: false, memberBusy: '',
             inviteBusy: '', inviteCreating: false, newInviteLink: '', newInviteId: '', copied: false,
             headerUploading: false, headerUploadError: '',
+            reviewMessage: '', reviewSubmitting: false, reviewError: '',
         };
     },
     computed: {
@@ -651,6 +669,23 @@ const SettingsPage = {
             this.form.header_image = '';
             this.headerUploadError = '';
             this.saved = false;
+        },
+        async requestReview() {
+            if (!this.isOwner || !this.blog.banned) return;
+            this.reviewSubmitting = true;
+            this.reviewError = '';
+            try {
+                const result = await request(`/v1/blogs/${encodeURIComponent(this.blogId)}/review-request`, {
+                    method: 'POST', body: { message: this.reviewMessage },
+                });
+                this.blog = { ...this.blog, ...entity(result, 'blog') };
+                this.reviewMessage = '';
+                await loadBlogs(true);
+            } catch (error) {
+                this.reviewError = errorMessage(error, 'No se pudo solicitar la revisión.');
+            } finally {
+                this.reviewSubmitting = false;
+            }
         },
         async loadMembers() {
             this.membersLoading = true;
@@ -810,7 +845,7 @@ const EditorPage = {
             <div class="editor-toolbar-actions">
               <span class="save-state" :class="saveState" aria-live="polite">{{ saveLabel }}</span>
               <button v-if="saveState === 'error'" class="button small" @click="retrySave" :disabled="lockState !== 'editable'">Reintentar</button>
-              <button v-if="!articleIsPublished(article)" class="button primary small" @click="publish" :disabled="actionBusy || lockState !== 'editable'">{{ actionBusy ? 'Publicando...' : 'Publicar' }}</button>
+              <button v-if="!articleIsPublished(article)" class="button primary small" @click="publish" :disabled="actionBusy || lockState !== 'editable' || isBanned">{{ actionBusy ? 'Publicando...' : 'Publicar' }}</button>
               <button v-else class="button small" @click="unpublish" :disabled="actionBusy || lockState !== 'editable'">{{ actionBusy ? 'Procesando...' : 'Despublicar' }}</button>
             </div>
           </div>
@@ -844,6 +879,10 @@ const EditorPage = {
     computed: {
         blogId() { return this.$route.params.blogId; },
         articleId() { return this.$route.params.articleId; },
+        isBanned() {
+            const blog = store.blogs.find((item) => String(idOf(item)) === String(this.blogId));
+            return Boolean(blog && blog.banned);
+        },
         articleRoot() { return `/v1/blogs/${encodeURIComponent(this.blogId)}/articles/${encodeURIComponent(this.articleId)}`; },
         saveLabel() {
             return {
@@ -865,7 +904,7 @@ const EditorPage = {
             return (this.lockState === 'blocked' || this.lockState === 'lost') && !this.acquiringPromise;
         },
         publicUrl() {
-            if (!this.article || !this.article.url) return '';
+            if (!this.article || !this.article.url || this.isBanned) return '';
             const blog = store.blogs.find((item) => String(idOf(item)) === String(this.blogId));
             const slug = this.article.blog_slug || this.article.blogSlug || (blog && blog.slug);
             return slug ? `/blog/${encodeURIComponent(slug)}/article/${encodeURIComponent(this.article.url)}` : '';

@@ -36,19 +36,24 @@ const (
 )
 
 type Blog struct {
-	Id          string       `json:"id"`
-	Slug        string       `json:"slug"`
-	Name        string       `json:"name"`
-	Description string       `json:"description"`
-	Language    BlogLanguage `json:"language"`
-	AccentColor string       `json:"accent_color"`
-	HeaderImage string       `json:"header_image"`
-	OwnerId     string       `json:"owner_id"`
-	OwnerNick   string       `json:"owner_nick"`
-	Personal    bool         `json:"personal"`
-	LegacyNicks []string     `json:"legacy_nicks"`
-	CreatedOn   time.Time    `json:"createdOn"`
-	UpdatedOn   time.Time    `json:"updatedOn"`
+	Id                   string       `json:"id"`
+	Slug                 string       `json:"slug"`
+	Name                 string       `json:"name"`
+	Description          string       `json:"description"`
+	Language             BlogLanguage `json:"language"`
+	AccentColor          string       `json:"accent_color"`
+	HeaderImage          string       `json:"header_image"`
+	Banned               bool         `json:"banned"`
+	BannedOn             *time.Time   `json:"banned_on,omitempty"`
+	BannedByArticleId    string       `json:"banned_by_article_id,omitempty"`
+	ReviewRequestedOn    *time.Time   `json:"review_requested_on,omitempty"`
+	ReviewRequestMessage string       `json:"review_request_message,omitempty"`
+	OwnerId              string       `json:"owner_id"`
+	OwnerNick            string       `json:"owner_nick"`
+	Personal             bool         `json:"personal"`
+	LegacyNicks          []string     `json:"legacy_nicks"`
+	CreatedOn            time.Time    `json:"createdOn"`
+	UpdatedOn            time.Time    `json:"updatedOn"`
 }
 
 type BlogMember struct {

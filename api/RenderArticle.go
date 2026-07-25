@@ -26,7 +26,9 @@ func RenderArticle(w http.ResponseWriter, ctx context.Context, r *http.Request) 
 		return articleNotFound()
 	}
 	blog := &Blog{}
-	if err := GetInceptionClient(ctx).FindOne(blogsCollection, inceptiondb.FindQuery{Filter: JSON{"id": article.BlogId}}, blog); err != nil {
+	if err := GetInceptionClient(ctx).FindOne(blogsCollection, inceptiondb.FindQuery{Filter: JSON{
+		"id": article.BlogId, "$ne": JSON{"banned": true},
+	}}, blog); err != nil {
 		return blogNotFound()
 	}
 	http.Redirect(w, r, articlePublicPath(blog.Slug, article.Url), http.StatusPermanentRedirect)

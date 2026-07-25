@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/fulldump/box"
 	"github.com/fulldump/box/boxopenapi"
@@ -37,6 +38,11 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 		report.ArticlesScanned, report.AuthorsFound, report.BlogsCreated, report.BlogsRepaired,
 		report.MembershipsCreated, report.ArticlesPatched, report.ArticlesUnchanged, report.ArticlesSkipped)
 	logMigrationWarnings("article", report.Errors)
+	banReport, err := ReconcileBannedBlogs(db, time.Time{})
+	if err != nil {
+		log.Panicf("initial blog ban reconciliation failed: %v", err)
+	}
+	logBlogBanReport("initial", banReport)
 	fileReport, err := MigrateFileBlogIds(db)
 	if err != nil {
 		log.Panicf("file blog migration failed safely: %v (report: %+v)", err, fileReport)
@@ -104,7 +110,7 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 	b.Handle("GET", "/tag/{tag}", RenderTag)
 	b.Handle("GET", "/user/{userNick}/tag/{tag}", RenderUserTag)
 	b.Handle("GET", "/bookmarks", RenderBookmarks)
-	b.Handle("GET", "/files/{fileId}", GetFile).WithAttribute("filestorager", fs)
+	b.Handle("GET", "/files/{fileId}", GetFile).WithInterceptors(glueauth.Auth).WithAttribute("filestorager", fs)
 	b.Handle("GET", "/sitemap.xml", Sitemap)
 	b.Handle("GET", "/version", func() string {
 		return version
@@ -138,6 +144,7 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 	privateEndpoint("GET", "/blogs/{blogId}/invitations", ListBlogInvitations)
 	privateEndpoint("POST", "/blogs/{blogId}/invitations", CreateBlogInvitation)
 	privateEndpoint("DELETE", "/blogs/{blogId}/invitations/{invitationId}", RevokeBlogInvitation)
+	privateEndpoint("POST", "/blogs/{blogId}/review-request", RequestBlogReview)
 	privateEndpoint("POST", "/invitations/accept", AcceptBlogInvitation)
 	privateEndpoint("GET", "/blogs/{blogId}/articles", ListArticles)
 	privateEndpoint("POST", "/blogs/{blogId}/articles", CreateArticle)

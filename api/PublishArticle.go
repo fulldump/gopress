@@ -12,9 +12,12 @@ import (
 )
 
 func PublishArticle(ctx context.Context, r *http.Request) (*Article, error) {
-	article, _, _, err := FindAccessibleArticle(ctx)
+	article, blog, _, err := FindAccessibleArticle(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if blog.Banned {
+		return nil, blogBanned()
 	}
 	revision, err := decodeArticleMutationRevision(ctx, r)
 	if err != nil {
@@ -59,6 +62,13 @@ func PublishArticle(ctx context.Context, r *http.Request) (*Article, error) {
 	filter, err := articleMutationFilter(ctx, article, revision)
 	if err != nil {
 		return nil, err
+	}
+	if article.Banned {
+		// Fail closed: the moderation decision itself is enough to hide the blog, even if article persistence later conflicts.
+		if _, err := banBlogForArticle(GetInceptionClient(ctx), article); err != nil {
+			log.Printf("publish article: ban blog: %v", err)
+			return nil, HttpError{Status: http.StatusInternalServerError, Title: "Article Publish Failed", Description: "No se pudo bloquear el blog tras detectar contenido prohibido"}
+		}
 	}
 	now := time.Now().UTC()
 	publishOn := article.PublishOn

@@ -59,7 +59,7 @@ func ListBlogs(ctx context.Context) ([]*BlogWithRole, error) {
 			continue
 		}
 		blog := &Blog{}
-		if err := db.FindOne(blogsCollection, inceptiondb.FindQuery{Filter: JSON{"id": member.BlogId}}, blog); err == nil && blog.OwnerId != auth.User.ID {
+		if err := db.FindOne(blogsCollection, inceptiondb.FindQuery{Filter: JSON{"id": member.BlogId}}, blog); err == nil && blog.OwnerId != auth.User.ID && !blog.Banned {
 			byId[blog.Id] = &BlogWithRole{Blog: blog, Role: BlogRoleEditor}
 		}
 	}

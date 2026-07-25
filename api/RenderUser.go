@@ -24,6 +24,7 @@ func findPersonalBlogByNick(ctx context.Context, nick string) (*Blog, error) {
 	err := GetInceptionClient(ctx).FindOne(blogsCollection, inceptiondb.FindQuery{Filter: JSON{
 		"personal": true,
 		"$or":      []JSON{{"owner_nick": nick}, {"legacy_nicks": nick}},
+		"$ne":      JSON{"banned": true},
 	}}, blog)
 	if err != nil {
 		return nil, blogNotFound()

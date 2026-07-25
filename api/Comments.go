@@ -202,6 +202,9 @@ func getPublicArticle(ctx context.Context, articleId string) (*Article, error) {
 			Description: "El artículo no existe o no está publicado",
 		}
 	}
+	if !isPublicBlog(ctx, article.BlogId) {
+		return nil, HttpError{Status: http.StatusNotFound, Title: "Article Not Found", Description: "El artículo no existe o no está publicado"}
+	}
 	return article, nil
 }
 

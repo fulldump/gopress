@@ -218,6 +218,8 @@ func TestArticleFeedback(t *testing.T) {
 
 		replacement := &Article{
 			Id:         "published-article",
+			BlogId:     deterministicPersonalBlogId("user-a"),
+			BlogSlug:   "writer",
 			CreatedOn:  time.Now().UTC(),
 			Published:  true,
 			PublishOn:  time.Now(),

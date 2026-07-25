@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 
 	"gopress/api"
 	"gopress/filestorage"
@@ -66,24 +67,52 @@ func Gopress(c *Config, version string) Runner {
 	}
 
 	return func() (start, stop func() error) {
+		reconcilerStop := make(chan struct{})
+		reconcilerDone := make(chan struct{})
+		reconcilerStarted := make(chan struct{})
+		var startReconciler sync.Once
+		var stopReconciler sync.Once
+		startWorker := func() {
+			startReconciler.Do(func() {
+				close(reconcilerStarted)
+				go func() {
+					defer close(reconcilerDone)
+					api.RunBlogBanReconciler(db, reconcilerStop)
+				}()
+			})
+		}
+		stopWorker := func(wait bool) {
+			stopReconciler.Do(func() { close(reconcilerStop) })
+			select {
+			case <-reconcilerStarted:
+				if wait {
+					<-reconcilerDone
+				}
+			default:
+			}
+		}
 
 		start = func() error {
+			startWorker()
 			log.Println("Gopress listening on", server.Addr)
-			err = server.ListenAndServe()
-			if err == http.ErrServerClosed {
-				err = nil
+			startErr := server.ListenAndServe()
+			stopWorker(true)
+			if startErr == http.ErrServerClosed {
+				startErr = nil
 			}
-			return err
+			return startErr
 		}
 
 		stop = func() error {
 			log.Println("Stop gopress")
-			err = server.Shutdown(context.Background())
-			if err != nil {
-				log.Println("db server shutdown:", err.Error())
+			stopWorker(false)
+			stopErr := server.Shutdown(context.Background())
+			if stopErr != nil {
+				log.Println("db server shutdown:", stopErr.Error())
 			}
+			stopWorker(true)
 
-			return err
+			return stopErr
 		}
 
 		return

@@ -58,6 +58,9 @@ func RequireBlogAccess(ctx context.Context, blogId string) (*Blog, BlogRole, err
 	if blog.OwnerId == auth.User.ID {
 		return blog, BlogRoleOwner, nil
 	}
+	if blog.Banned {
+		return nil, "", blogNotFound()
+	}
 	member := &BlogMember{}
 	if err := GetInceptionClient(ctx).FindOne(blogMembersCollection, inceptiondb.FindQuery{Filter: JSON{
 		"id": deterministicBlogMemberId(blog.Id, auth.User.ID), "blog_id": blog.Id, "user_id": auth.User.ID,

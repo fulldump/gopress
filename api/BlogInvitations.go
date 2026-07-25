@@ -78,8 +78,12 @@ func ListBlogInvitations(ctx context.Context) ([]*PublicBlogInvitation, error) {
 
 func CreateBlogInvitation(ctx context.Context, w http.ResponseWriter) (*CreateBlogInvitationResponse, error) {
 	blogId := box.GetUrlParameter(ctx, "blogId")
-	if _, err := RequireBlogOwner(ctx, blogId); err != nil {
+	blog, err := RequireBlogOwner(ctx, blogId)
+	if err != nil {
 		return nil, err
+	}
+	if blog.Banned {
+		return nil, blogBanned()
 	}
 	auth, _ := requireBlogAuth(ctx)
 	random := make([]byte, 32)
@@ -149,6 +153,9 @@ func AcceptBlogInvitation(ctx context.Context, w http.ResponseWriter, r *http.Re
 	blog := &Blog{}
 	if err := db.FindOne(blogsCollection, inceptiondb.FindQuery{Filter: JSON{"id": invitation.BlogId}}, blog); err != nil {
 		return nil, blogNotFound()
+	}
+	if blog.Banned {
+		return nil, invitationUnavailable()
 	}
 	if blog.OwnerId == auth.User.ID {
 		return nil, HttpError{Status: http.StatusConflict, Title: "Invitation Not Needed", Code: "invitation_not_needed", Description: "Ya eres propietario de este blog"}

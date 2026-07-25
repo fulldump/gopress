@@ -126,6 +126,9 @@ func ListBookmarks(ctx context.Context, w http.ResponseWriter) ([]*BookmarkedArt
 		if err != nil {
 			return nil, feedbackPersistenceError("No se pudieron cargar los artículos guardados", err)
 		}
+		if !isPublicBlog(ctx, article.BlogId) {
+			continue
+		}
 		result = append(result, &BookmarkedArticle{
 			Id:             article.Id,
 			Title:          article.Title,

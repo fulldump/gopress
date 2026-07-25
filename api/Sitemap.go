@@ -31,7 +31,9 @@ func Sitemap(ctx context.Context, w http.ResponseWriter) {
 		{Location: origin + "/blogs", Frequency: "daily", Priority: "0.8"},
 	}}
 	blogs := map[string]*Blog{}
-	_ = GetInceptionClient(ctx).FindAll(blogsCollection, inceptiondb.FindQuery{Limit: maxBlogs}, func(blog *Blog) {
+	_ = GetInceptionClient(ctx).FindAll(blogsCollection, inceptiondb.FindQuery{Limit: maxBlogs, Filter: JSON{
+		"$ne": JSON{"banned": true},
+	}}, func(blog *Blog) {
 		blogs[blog.Id] = blog
 		set.URLs = append(set.URLs, sitemapURL{Location: origin + "/blog/" + url.PathEscape(blog.Slug),
 			LastMod: sitemapDate(blog.UpdatedOn), Frequency: "daily", Priority: "0.7"})

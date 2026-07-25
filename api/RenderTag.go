@@ -29,7 +29,11 @@ func RenderTag(w http.ResponseWriter, ctx context.Context) error {
 		},
 	}
 	list := []*Article{}
+	publicBlogs := publicBlogIds(ctx)
 	GetInceptionClient(ctx).FindAll("articles", params, func(article *Article) {
+		if !publicBlogs[article.BlogId] {
+			return
+		}
 		if article.ContentSummary == "" {
 			article.ContentSummary = template.HTML(HtmlSummary(string(article.ContentHTML), 50))
 		}

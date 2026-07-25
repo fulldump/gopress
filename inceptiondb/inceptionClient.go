@@ -11,6 +11,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"time"
 )
 
 type Config struct {
@@ -20,7 +21,7 @@ type Config struct {
 	ApiSecret  string `json:"api_secret"`
 }
 
-var DefaultHttpClient = &http.Client{} // TODO: tune client
+var DefaultHttpClient = &http.Client{Timeout: 30 * time.Second}
 
 type Client struct {
 	config     Config

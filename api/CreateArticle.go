@@ -49,6 +49,9 @@ func CreateArticle(input *CreateArticleRequest, ctx context.Context) any {
 	if err != nil {
 		return err
 	}
+	if blog.Banned {
+		return blogBanned()
+	}
 	now := time.Now().UTC()
 
 	newArticle := &Article{
