@@ -26,9 +26,11 @@ func PatchArticle(r *http.Request, ctx context.Context) any {
 		return err
 	}
 	input := struct {
-		Title    *string  `json:"title,omitempty"`
-		Content  *Content `json:"content,omitempty"`
-		Revision *uint64  `json:"revision"`
+		Title        *string  `json:"title,omitempty"`
+		Url          *string  `json:"url,omitempty"`
+		AutomaticUrl *bool    `json:"automatic_url,omitempty"`
+		Content      *Content `json:"content,omitempty"`
+		Revision     *uint64  `json:"revision"`
 	}{}
 	if err = decodeBlogJSON(box.GetResponse(ctx), r, &input); err != nil {
 		log.Println("patch article: json decode:", err)
@@ -37,14 +39,26 @@ func PatchArticle(r *http.Request, ctx context.Context) any {
 	if input.Revision == nil {
 		return invalidArticle("revision es obligatoria")
 	}
-	if input.Title == nil && input.Content == nil {
-		return invalidArticle("title o content son obligatorios")
+	if input.Title == nil && input.Url == nil && input.AutomaticUrl == nil && input.Content == nil {
+		return invalidArticle("title, url, automatic_url o content son obligatorios")
 	}
 	if *input.Revision != article.Revision {
 		return articleRevisionConflict(article.Revision)
 	}
 	if input.Title != nil {
 		article.Title = *input.Title
+	}
+	if input.AutomaticUrl != nil {
+		article.AutomaticUrl = *input.AutomaticUrl
+	}
+	if input.Url != nil {
+		article.Url = strings.TrimSpace(*input.Url)
+	}
+	if article.AutomaticUrl && !article.Published && input.Title != nil {
+		article.Url = Slug(article.Title)
+	}
+	if article.Url == "" || Slug(article.Url) != article.Url {
+		return invalidArticle("url debe contener solo letras minúsculas, números y guiones, con un máximo de 80 caracteres")
 	}
 	if input.Content != nil {
 		article.Content = *input.Content
@@ -62,12 +76,30 @@ func PatchArticle(r *http.Request, ctx context.Context) any {
 		return err
 	}
 	now := time.Now().UTC()
+	articleWriteMu.Lock()
+	if article.AutomaticUrl && !article.Published {
+		article.Url, err = availableArticleURL(db, article.BlogId, article.Id, article.Url)
+	} else {
+		var available bool
+		available, err = articleURLAvailable(db, article.BlogId, article.Id, article.Url)
+		if err == nil && !available {
+			articleWriteMu.Unlock()
+			return articleURLConflict()
+		}
+	}
+	if err != nil {
+		articleWriteMu.Unlock()
+		log.Println("patch article: url availability:", err.Error())
+		return HttpError{Status: http.StatusInternalServerError, Title: "Article Save Failed", Description: "No se pudo validar la URL del artículo"}
+	}
 	patched := &Article{}
 	matched, err := db.PatchOne("articles", inceptiondb.PatchQuery{Filter: filter, Patch: JSON{
-		"title": article.Title, "content": article.Content, "content_html": article.ContentHTML,
+		"title": article.Title, "url": article.Url, "automatic_url": article.AutomaticUrl,
+		"content": article.Content, "content_html": article.ContentHTML,
 		"revision": *input.Revision + 1, "updatedOn": now,
 		"updated_by_id": auth.User.ID, "updated_by_nick": auth.User.Nick,
 	}}, patched)
+	articleWriteMu.Unlock()
 	if err != nil {
 		log.Println("patch article: db patch:", err.Error())
 		return HttpError{Status: http.StatusInternalServerError, Title: "Article Save Failed", Description: "No se pudo guardar el artículo"}

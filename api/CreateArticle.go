@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	articleCreateMu  sync.Mutex
+	articleWriteMu   sync.Mutex
 	articleIdPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,100}$`)
 )
 
@@ -68,8 +68,8 @@ func CreateArticle(input *CreateArticleRequest, ctx context.Context) any {
 		Revision:      1,
 		Published:     false,
 		ArticleUserFields: ArticleUserFields{
-			Title: input.Title,
-			Url:   Slug(input.Title) + "-" + uuid.New().String(),
+			Title:        input.Title,
+			AutomaticUrl: true,
 			Content: Content{
 				Type: "editorjs",
 				Data: json.RawMessage("{}"),
@@ -77,19 +77,24 @@ func CreateArticle(input *CreateArticleRequest, ctx context.Context) any {
 		},
 	}
 
-	articleCreateMu.Lock()
+	articleWriteMu.Lock()
 	existing := &Article{}
 	findErr := GetInceptionClient(ctx).FindOne("articles", inceptiondb.FindQuery{Filter: JSON{"id": input.Id}}, existing)
 	if findErr == nil {
-		articleCreateMu.Unlock()
+		articleWriteMu.Unlock()
 		return HttpError{Status: http.StatusConflict, Title: "Article Already Exists", Description: "Ya existe un artículo con ese id"}
 	}
 	if !errors.Is(findErr, io.EOF) {
-		articleCreateMu.Unlock()
+		articleWriteMu.Unlock()
 		return HttpError{Status: http.StatusInternalServerError, Title: "Article Create Failed", Description: "No se pudo comprobar el id del artículo"}
 	}
+	newArticle.Url, err = availableArticleURL(GetInceptionClient(ctx), blog.Id, input.Id, Slug(input.Title))
+	if err != nil {
+		articleWriteMu.Unlock()
+		return HttpError{Status: http.StatusInternalServerError, Title: "Article Create Failed", Description: "No se pudo generar la URL del artículo"}
+	}
 	err = GetInceptionClient(ctx).Insert("articles", newArticle)
-	articleCreateMu.Unlock()
+	articleWriteMu.Unlock()
 	if err != nil {
 		log.Println("create article: insert:", err.Error())
 		return JSON{

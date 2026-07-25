@@ -303,6 +303,13 @@ a { color: var(--green); }
 .title-input { padding: 0 0 15px; font-family: Georgia, "Times New Roman", serif; font-size: clamp(34px, 6vw, 50px); font-weight: 700; line-height: 1.08; letter-spacing: -0.035em; border: 0; border-bottom: 1px solid transparent; border-radius: 0; }
 .title-input:focus { border-bottom-color: var(--accent); outline: 3px solid color-mix(in srgb, var(--accent) 35%, transparent); outline-offset: 5px; }
 .title-input:disabled { color: var(--ink); background: transparent; opacity: 1; }
+.editor-url { width: min(650px, 100%); margin: 0 auto 34px; }
+.editor-url-label { display: flex; align-items: center; gap: 8px; }
+.url-mode { padding: 2px 7px; color: var(--green); background: var(--green-soft); border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+.editor-url .input-prefix span { max-width: 65%; padding-right: 0; overflow: hidden; text-overflow: ellipsis; }
+.editor-url-help { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+.url-mode-button { flex: 0 0 auto; padding: 0; color: var(--green); background: none; border: 0; font-size: 12px; font-weight: 750; text-decoration: underline; cursor: pointer; }
+.url-mode-button:disabled { color: var(--muted); cursor: not-allowed; }
 .editor-surface { position: relative; min-height: 350px; }
 .editor-surface.is-readonly #editorjs { opacity: 0.78; }
 .readonly-overlay { position: absolute; z-index: 4; top: 3px; right: 0; padding: 4px 8px; color: var(--muted); background: #edf1ee; border: 1px solid var(--line); border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; pointer-events: none; }
@@ -352,6 +359,8 @@ a { color: var(--green); }
   .editor-toolbar-actions .button { padding: 7px 10px; }
   .save-state { min-width: 66px; max-width: 76px; font-size: 11px; }
   .editor-wrap { width: calc(100% - 30px); padding-top: 34px; }
+  .editor-url-help { align-items: flex-start; flex-direction: column; gap: 7px; }
+  .editor-url .input-prefix span { max-width: 52%; font-size: 12px; }
   .notice { align-items: flex-start; flex-direction: column; }
   .invite-box { padding: 28px 20px; }
 }

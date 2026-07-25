@@ -65,6 +65,7 @@ type ArticleStats struct {
 
 type ArticleUserFields struct {
 	Url            string        `json:"url"`
+	AutomaticUrl   bool          `json:"automatic_url,omitempty"`
 	Title          string        `json:"title"`
 	Content        Content       `json:"content"`
 	ContentHTML    template.HTML `json:"content_html"`    // it works like a cache

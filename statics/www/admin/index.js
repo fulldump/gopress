@@ -181,6 +181,23 @@ function articleRevision(article) {
     return article && (article.revision !== undefined ? article.revision : article.version);
 }
 
+function articleSlug(value) {
+    const normalized = String(value || '').toLowerCase().trim();
+    let result = '';
+    let lastHyphen = false;
+    for (const character of normalized) {
+        if (/[a-z0-9]/.test(character)) {
+            result += character;
+            lastHyphen = false;
+        } else if (result && !lastHyphen) {
+            result += '-';
+            lastHyphen = true;
+        }
+    }
+    result = result.replace(/^-+|-+$/g, '').slice(0, 80).replace(/-+$/g, '');
+    return result || 'article';
+}
+
 function articleDate(article) {
     const raw = article && (article.updatedOn || article.updated_on || article.updatedAt
         || article.createdOn || article.created_on || article.createdAt);
@@ -856,7 +873,18 @@ const EditorPage = {
               <button v-if="lockState === 'conflict'" class="button quiet small" @click="reloadFromServer">Descartar y recargar</button>
             </div>
             <p v-if="error" class="notice error" role="alert">{{ error }}</p>
-            <div class="editor-heading"><input class="title-input" v-model="article.title" @input="markDirty" :disabled="lockState !== 'editable'" maxlength="240" placeholder="Título del artículo" aria-label="Título del artículo"></div>
+            <div class="editor-heading"><input class="title-input" v-model="article.title" @input="handleTitleInput" :disabled="lockState !== 'editable'" maxlength="240" placeholder="Título del artículo" aria-label="Título del artículo"></div>
+            <div class="editor-url field">
+              <div class="editor-url-label"><label for="article-url">URL pública</label><span v-if="article.automatic_url && !articleIsPublished(article)" class="url-mode">Automática</span></div>
+              <div class="input-prefix"><span>{{ publicUrlPrefix }}</span><input id="article-url" v-model.trim="article.url" @input="handleUrlInput" :disabled="lockState !== 'editable'" maxlength="80" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" spellcheck="false" autocomplete="off" aria-describedby="article-url-help"></div>
+              <div id="article-url-help" class="editor-url-help">
+                <small v-if="articleIsPublished(article)">La entrada está publicada. Cambiar esta URL romperá los enlaces anteriores.</small>
+                <small v-else-if="article.automatic_url">Se actualiza automáticamente a partir del título hasta que publiques.</small>
+                <small v-else>URL personalizada. Puedes volver a generarla desde el título.</small>
+                <button v-if="!articleIsPublished(article) && !article.automatic_url" type="button" class="url-mode-button" @click="useAutomaticUrl" :disabled="lockState !== 'editable'">Usar el título automáticamente</button>
+                <button v-else-if="articleIsPublished(article)" type="button" class="url-mode-button" @click="useTitleUrl" :disabled="lockState !== 'editable'">Generar desde el título</button>
+              </div>
+            </div>
             <div class="editor-surface" :class="{ 'is-readonly': lockState !== 'editable' }">
               <div v-if="lockState !== 'editable'" class="readonly-overlay" aria-hidden="true">Solo lectura</div>
               <div id="editorjs"></div>
@@ -905,9 +933,14 @@ const EditorPage = {
         },
         publicUrl() {
             if (!this.article || !this.article.url || this.isBanned) return '';
+            return this.publicUrlPrefix ? `${this.publicUrlPrefix}${encodeURIComponent(this.article.url)}` : '';
+        },
+        blogSlug() {
             const blog = store.blogs.find((item) => String(idOf(item)) === String(this.blogId));
-            const slug = this.article.blog_slug || this.article.blogSlug || (blog && blog.slug);
-            return slug ? `/blog/${encodeURIComponent(slug)}/article/${encodeURIComponent(this.article.url)}` : '';
+            return this.article && (this.article.blog_slug || this.article.blogSlug) || (blog && blog.slug) || '';
+        },
+        publicUrlPrefix() {
+            return this.blogSlug ? `/blog/${encodeURIComponent(this.blogSlug)}/article/` : '';
         },
     },
     async mounted() {
@@ -1144,6 +1177,26 @@ const EditorPage = {
             await this.setEditorReadOnly(true);
         },
         isDirty() { return this.changeGeneration > this.savedGeneration; },
+        handleTitleInput() {
+            if (!articleIsPublished(this.article) && this.article.automatic_url) {
+                this.article.url = articleSlug(this.article.title);
+            }
+            this.markDirty();
+        },
+        handleUrlInput() {
+            this.article.automatic_url = false;
+            this.markDirty();
+        },
+        useAutomaticUrl() {
+            this.article.automatic_url = true;
+            this.article.url = articleSlug(this.article.title);
+            this.markDirty();
+        },
+        useTitleUrl() {
+            this.article.automatic_url = false;
+            this.article.url = articleSlug(this.article.title);
+            this.markDirty();
+        },
         markDirty() {
             if (this.lockState !== 'editable' || this.destroyed) return;
             this.changeGeneration += 1;
@@ -1170,6 +1223,8 @@ const EditorPage = {
             const generation = this.changeGeneration;
             const token = this.lockToken;
             const title = this.article.title;
+            const url = this.article.url;
+            const automaticUrl = Boolean(this.article.automatic_url);
             const root = this.articleRoot;
             let succeeded = false;
             this.saveState = 'saving';
@@ -1179,11 +1234,12 @@ const EditorPage = {
                     const result = await request(root, {
                         method: 'PATCH',
                         headers: { 'X-Edit-Lock-Token': token },
-                        body: { revision, title, content: { type: 'editorjs', data: content } },
+                        body: { revision, title, url, automatic_url: automaticUrl, content: { type: 'editorjs', data: content } },
                     });
                     const updated = entity(result, 'article') || {};
                     if (updated.revision !== undefined) this.article.revision = updated.revision;
-                    if (updated.url !== undefined) this.article.url = updated.url;
+                    if (updated.url !== undefined && generation === this.changeGeneration) this.article.url = updated.url;
+                    if (updated.automatic_url !== undefined && generation === this.changeGeneration) this.article.automatic_url = updated.automatic_url;
                     if (updated.published !== undefined) this.article.published = updated.published;
                     this.savedGeneration = Math.max(this.savedGeneration, generation);
                     succeeded = true;
