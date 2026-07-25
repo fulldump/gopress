@@ -33,17 +33,19 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 	if err != nil {
 		log.Panicf("blog migration failed safely: %v (report: %+v)", err, report)
 	}
-	log.Printf("blog migration complete: scanned=%d authors=%d blogs_created=%d blogs_repaired=%d memberships_created=%d articles_patched=%d unchanged=%d",
+	log.Printf("blog migration complete: scanned=%d authors=%d blogs_created=%d blogs_repaired=%d memberships_created=%d articles_patched=%d unchanged=%d skipped=%d",
 		report.ArticlesScanned, report.AuthorsFound, report.BlogsCreated, report.BlogsRepaired,
-		report.MembershipsCreated, report.ArticlesPatched, report.ArticlesUnchanged)
+		report.MembershipsCreated, report.ArticlesPatched, report.ArticlesUnchanged, report.ArticlesSkipped)
+	logMigrationWarnings("article", report.Errors)
 	fileReport, err := MigrateFileBlogIds(db)
 	if err != nil {
 		log.Panicf("file blog migration failed safely: %v (report: %+v)", err, fileReport)
 	}
 	if fileReport.FilesScanned > 0 {
-		log.Printf("file blog migration complete: scanned=%d blogs_created=%d files_patched=%d unchanged=%d",
-			fileReport.FilesScanned, fileReport.BlogsCreated, fileReport.FilesPatched, fileReport.FilesUnchanged)
+		log.Printf("file blog migration complete: scanned=%d blogs_created=%d files_patched=%d unchanged=%d skipped=%d",
+			fileReport.FilesScanned, fileReport.BlogsCreated, fileReport.FilesPatched, fileReport.FilesUnchanged, fileReport.FilesSkipped)
 	}
+	logMigrationWarnings("file", fileReport.Errors)
 	commentVersions, err := MigrateCommentArticleVersions(db)
 	if err != nil {
 		log.Panicf("comment article-version migration failed: %v", err)
@@ -165,6 +167,17 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 	b.Handle("GET", "/*", statics.ServeStatics(staticsDir)).WithName("serveStatics")
 
 	return b
+}
+
+func logMigrationWarnings(kind string, warnings []string) {
+	const maxWarnings = 10
+	for index, warning := range warnings {
+		if index == maxWarnings {
+			log.Printf("%s migration: %d additional warnings omitted", kind, len(warnings)-maxWarnings)
+			break
+		}
+		log.Printf("%s migration warning: %s", kind, warning)
+	}
 }
 
 func buildOpenApi(b *box.B) {

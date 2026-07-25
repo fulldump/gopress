@@ -20,24 +20,30 @@ type BlogMigrationReport struct {
 	MembershipsCreated int      `json:"membershipsCreated"`
 	ArticlesPatched    int      `json:"articlesPatched"`
 	ArticlesUnchanged  int      `json:"articlesUnchanged"`
+	ArticlesSkipped    int      `json:"articlesSkipped"`
 	Errors             []string `json:"errors"`
 }
 
 type FileBlogMigrationReport struct {
-	FilesScanned   int `json:"filesScanned"`
-	BlogsCreated   int `json:"blogsCreated"`
-	FilesPatched   int `json:"filesPatched"`
-	FilesUnchanged int `json:"filesUnchanged"`
+	FilesScanned   int      `json:"filesScanned"`
+	BlogsCreated   int      `json:"blogsCreated"`
+	FilesPatched   int      `json:"filesPatched"`
+	FilesUnchanged int      `json:"filesUnchanged"`
+	FilesSkipped   int      `json:"filesSkipped"`
+	Errors         []string `json:"errors"`
 }
 
 type migrationArticle struct {
-	Id         string    `json:"id"`
-	AuthorId   string    `json:"author_id"`
-	AuthorNick string    `json:"author_nick"`
-	CreatedOn  time.Time `json:"createdOn"`
-	BlogId     string    `json:"blog_id"`
-	BlogSlug   string    `json:"blog_slug"`
-	Revision   uint64    `json:"revision"`
+	Id                 string    `json:"id"`
+	AuthorId           string    `json:"author_id"`
+	AuthorNick         string    `json:"author_nick"`
+	CreatedOn          time.Time `json:"createdOn"`
+	PublishOn          time.Time `json:"publishOn"`
+	UpdatedOn          time.Time `json:"updatedOn"`
+	BlogId             string    `json:"blog_id"`
+	BlogSlug           string    `json:"blog_slug"`
+	Revision           uint64    `json:"revision"`
+	recoveredCreatedOn bool
 }
 
 type migrationAuthor struct {
@@ -87,15 +93,32 @@ func MigrateBlogs(db *inceptiondb.Client) (*BlogMigrationReport, error) {
 
 	authors := map[string]*migrationAuthor{}
 	seenArticleIds := map[string]bool{}
-	for _, article := range articles {
+	validArticles := make([]*migrationArticle, 0, len(articles))
+	for row, article := range articles {
 		article.AuthorId = strings.TrimSpace(article.AuthorId)
-		if article.Id == "" || article.AuthorId == "" || article.CreatedOn.IsZero() {
-			return migrationFailure(report, fmt.Errorf("article %q has an empty id, author_id, or createdOn", article.Id))
+		if article.Id == "" || article.AuthorId == "" {
+			report.ArticlesSkipped++
+			report.Errors = append(report.Errors, fmt.Sprintf("article row %d (id=%q) has an empty id or author_id", row, article.Id))
+			continue
+		}
+		if article.CreatedOn.IsZero() {
+			switch {
+			case !article.PublishOn.IsZero():
+				article.CreatedOn = article.PublishOn.UTC()
+			case !article.UpdatedOn.IsZero():
+				article.CreatedOn = article.UpdatedOn.UTC()
+			default:
+				report.ArticlesSkipped++
+				report.Errors = append(report.Errors, fmt.Sprintf("article row %d (id=%q) has no usable creation date", row, article.Id))
+				continue
+			}
+			article.recoveredCreatedOn = true
 		}
 		if seenArticleIds[article.Id] {
 			return migrationFailure(report, fmt.Errorf("duplicate article id %q", article.Id))
 		}
 		seenArticleIds[article.Id] = true
+		validArticles = append(validArticles, article)
 		author := authors[article.AuthorId]
 		if author == nil {
 			author = &migrationAuthor{UserId: article.AuthorId}
@@ -103,6 +126,7 @@ func MigrateBlogs(db *inceptiondb.Client) (*BlogMigrationReport, error) {
 		}
 		author.Articles = append(author.Articles, article)
 	}
+	articles = validArticles
 	report.AuthorsFound = len(authors)
 
 	userIds := make([]string, 0, len(authors))
@@ -190,13 +214,16 @@ func MigrateBlogs(db *inceptiondb.Client) (*BlogMigrationReport, error) {
 		if article.Revision < 1 {
 			patch["revision"] = uint64(1)
 		}
+		if article.recoveredCreatedOn {
+			patch["createdOn"] = article.CreatedOn
+		}
 		if len(patch) == 0 {
 			report.ArticlesUnchanged++
 			continue
 		}
 		var patched migrationArticle
 		matched, err := db.PatchOne("articles", inceptiondb.PatchQuery{Filter: JSON{
-			"id": article.Id, "author_id": article.AuthorId, "createdOn": article.CreatedOn,
+			"id": article.Id, "author_id": article.AuthorId,
 		}, Patch: patch}, &patched)
 		if err != nil || !matched {
 			if err == nil {
@@ -210,7 +237,7 @@ func MigrateBlogs(db *inceptiondb.Client) (*BlogMigrationReport, error) {
 }
 
 func MigrateFileBlogIds(db *inceptiondb.Client) (*FileBlogMigrationReport, error) {
-	report := &FileBlogMigrationReport{}
+	report := &FileBlogMigrationReport{Errors: []string{}}
 	blogSlugMu.Lock()
 	defer blogSlugMu.Unlock()
 
@@ -233,11 +260,15 @@ func MigrateFileBlogIds(db *inceptiondb.Client) (*FileBlogMigrationReport, error
 	sort.Slice(files, func(i, j int) bool { return files[i].Id < files[j].Id })
 	for _, file := range files {
 		if file.Id == "" || strings.TrimSpace(file.AuthorId) == "" {
-			return report, fmt.Errorf("file %q has an empty id or author_id", file.Id)
+			report.FilesSkipped++
+			report.Errors = append(report.Errors, fmt.Sprintf("file %q has an empty id or author_id", file.Id))
+			continue
 		}
 		if file.BlogId != "" {
 			if blogsById[file.BlogId] == nil {
-				return report, fmt.Errorf("file %q references unknown blog %q", file.Id, file.BlogId)
+				report.FilesSkipped++
+				report.Errors = append(report.Errors, fmt.Sprintf("file %q references unknown blog %q", file.Id, file.BlogId))
+				continue
 			}
 			report.FilesUnchanged++
 			continue

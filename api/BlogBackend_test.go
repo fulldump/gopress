@@ -231,8 +231,8 @@ func TestBlogMigrationRejectsEmptyAuthor(t *testing.T) {
 		t.Fatal(err)
 	}
 	report, err := MigrateBlogs(db)
-	if err == nil || len(report.Errors) == 0 {
-		t.Fatalf("orphan article was silently migrated: report=%+v err=%v", report, err)
+	if err != nil || len(report.Errors) != 1 || report.ArticlesSkipped != 1 {
+		t.Fatalf("orphan article was not safely skipped: report=%+v err=%v", report, err)
 	}
 	orphan := &migrationArticle{}
 	if err := db.FindOne("articles", inceptiondb.FindQuery{Filter: JSON{"id": "orphan"}}, orphan); err != nil {
@@ -240,6 +240,43 @@ func TestBlogMigrationRejectsEmptyAuthor(t *testing.T) {
 	}
 	if orphan.BlogId != "" {
 		t.Fatalf("orphan article was mapped to blog %q", orphan.BlogId)
+	}
+}
+
+func TestBlogMigrationSkipsMalformedRowsAndRecoversDates(t *testing.T) {
+	db := newBlogTestDB(t)
+	if err := db.CreateCollection("articles"); err != nil {
+		t.Fatal(err)
+	}
+	publishedOn := time.Date(2024, 8, 2, 10, 0, 0, 0, time.UTC)
+	for _, article := range []JSON{
+		{"id": "broken", "author_id": "", "createdOn": publishedOn},
+		{"id": "recoverable", "author_id": "author", "author_nick": "writer", "publishOn": publishedOn},
+	} {
+		if err := db.Insert("articles", article); err != nil {
+			t.Fatal(err)
+		}
+	}
+	report, err := MigrateBlogs(db)
+	if err != nil {
+		t.Fatalf("migration aborted on malformed legacy row: %v (%+v)", err, report)
+	}
+	if report.ArticlesScanned != 2 || report.ArticlesSkipped != 1 || report.ArticlesPatched != 1 || len(report.Errors) != 1 {
+		t.Fatalf("unexpected migration report: %+v", report)
+	}
+	recovered := &migrationArticle{}
+	if err := db.FindOne("articles", inceptiondb.FindQuery{Filter: JSON{"id": "recoverable"}}, recovered); err != nil {
+		t.Fatal(err)
+	}
+	if recovered.BlogId != deterministicPersonalBlogId("author") || !recovered.CreatedOn.Equal(publishedOn) {
+		t.Fatalf("recoverable article was not migrated: %+v", recovered)
+	}
+	broken := &migrationArticle{}
+	if err := db.FindOne("articles", inceptiondb.FindQuery{Filter: JSON{"id": "broken"}}, broken); err != nil {
+		t.Fatal(err)
+	}
+	if broken.BlogId != "" {
+		t.Fatalf("malformed row was modified: %+v", broken)
 	}
 }
 
