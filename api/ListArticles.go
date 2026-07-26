@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/fulldump/box"
 
@@ -9,12 +10,16 @@ import (
 	"gopress/inceptiondb"
 )
 
-func ListArticles(ctx context.Context) any {
+func ListArticles(ctx context.Context, r *http.Request) any {
+	offset, err := listOffset(r)
+	if err != nil {
+		return err
+	}
 
 	auth := glueauth.GetAuth(ctx)
 	blogId := box.GetUrlParameter(ctx, "blogId")
 	var blog *Blog
-	var err error
+	err = nil
 	if blogId == "" {
 		blog, err = EnsurePersonalBlog(ctx, auth)
 	} else {
@@ -23,11 +28,23 @@ func ListArticles(ctx context.Context) any {
 	if err != nil {
 		return err
 	}
+	filter := JSON{"blog_id": blog.Id}
+	if value := r.URL.Query().Get("published"); value != "" {
+		switch value {
+		case "true":
+			filter["published"] = true
+		case "false":
+			filter["published"] = false
+		default:
+			return HttpError{Status: http.StatusBadRequest, Title: "Invalid Publication Filter", Description: "published must be true or false"}
+		}
+	}
 	query := inceptiondb.FindQuery{
-		Limit: 1000,
-		Filter: JSON{
-			"blog_id": blog.Id,
-		},
+		Index:   "articles-admin-updated-v2",
+		Skip:    offset,
+		Limit:   listPageSize + 1,
+		Reverse: true,
+		Filter:  filter,
 	}
 
 	result := []*ArticleShort{}
@@ -56,6 +73,5 @@ func ListArticles(ctx context.Context) any {
 	if err != nil {
 		return blogStorageError("list articles", err)
 	}
-
-	return result
+	return pageFromLookahead(result, offset)
 }

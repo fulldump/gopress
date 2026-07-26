@@ -6,10 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"errors"
-	"io"
 	"net/http"
-	"sort"
 	"strings"
 	"time"
 
@@ -61,19 +58,25 @@ type CreateBlogInvitationResponse struct {
 	InviteUrl string `json:"inviteUrl"`
 }
 
-func ListBlogInvitations(ctx context.Context) ([]*PublicBlogInvitation, error) {
+func ListBlogInvitations(ctx context.Context, r *http.Request) (ListPage[*PublicBlogInvitation], error) {
+	offset, err := listOffset(r)
+	if err != nil {
+		return ListPage[*PublicBlogInvitation]{}, err
+	}
 	blogId := box.GetUrlParameter(ctx, "blogId")
 	if _, err := RequireBlogOwner(ctx, blogId); err != nil {
-		return nil, err
+		return ListPage[*PublicBlogInvitation]{}, err
 	}
 	result := []*PublicBlogInvitation{}
-	if err := GetInceptionClient(ctx).FindAll(blogInvitationsCollection, inceptiondb.FindQuery{Limit: maxBlogInvitations, Filter: JSON{"blog_id": blogId}}, func(invitation *BlogInvitation) {
+	if err := GetInceptionClient(ctx).FindAll(blogInvitationsCollection, inceptiondb.FindQuery{
+		Index: "blog-invitations-created-v2", Skip: offset, Limit: listPageSize + 1, Reverse: true, Filter: JSON{
+			"blog_id": blogId, "status": BlogInvitationPending,
+		}}, func(invitation *BlogInvitation) {
 		result = append(result, publicBlogInvitation(invitation))
 	}); err != nil {
-		return nil, blogStorageError("list invitations", err)
+		return ListPage[*PublicBlogInvitation]{}, blogStorageError("list invitations", err)
 	}
-	sort.Slice(result, func(i, j int) bool { return result[i].CreatedOn.After(result[j].CreatedOn) })
-	return result, nil
+	return pageFromLookahead(result, offset), nil
 }
 
 func CreateBlogInvitation(ctx context.Context, w http.ResponseWriter) (*CreateBlogInvitationResponse, error) {
@@ -160,25 +163,16 @@ func AcceptBlogInvitation(ctx context.Context, w http.ResponseWriter, r *http.Re
 	if blog.OwnerId == auth.User.ID {
 		return nil, HttpError{Status: http.StatusConflict, Title: "Invitation Not Needed", Code: "invitation_not_needed", Description: "Ya eres propietario de este blog"}
 	}
-	membershipId := deterministicBlogMemberId(blog.Id, auth.User.ID)
-	blogSlugMu.Lock()
-	existingMember := &BlogMember{}
-	memberFindErr := db.FindOne(blogMembersCollection, inceptiondb.FindQuery{Filter: JSON{
-		"id": membershipId, "blog_id": blog.Id, "user_id": auth.User.ID,
-	}}, existingMember)
-	if memberFindErr == nil && existingMember.Role == BlogRoleEditor {
-		blogSlugMu.Unlock()
+	existingMember := findBlogMember(blog.Members, auth.User.ID)
+	if existingMember != nil && existingMember.Role == BlogRoleEditor {
 		return nil, HttpError{Status: http.StatusConflict, Title: "Invitation Not Needed", Code: "invitation_not_needed", Description: "Ya eres editor de este blog"}
 	}
-	if memberFindErr != nil && !errors.Is(memberFindErr, io.EOF) {
-		blogSlugMu.Unlock()
-		return nil, blogStorageError("find invitation membership", memberFindErr)
-	}
-	membershipCreated := errors.Is(memberFindErr, io.EOF)
-	membershipErr := ensureEditorMembership(db, blog, auth.User.ID, auth.User.Nick, now)
-	blogSlugMu.Unlock()
+	membershipCreated, alreadyEditor, membershipErr := ensureEditorMembership(db, blog, auth.User.ID, auth.User.Nick, now)
 	if membershipErr != nil {
 		return nil, blogStorageError("create invitation membership", membershipErr)
+	}
+	if alreadyEditor {
+		return nil, HttpError{Status: http.StatusConflict, Title: "Invitation Not Needed", Code: "invitation_not_needed", Description: "Ya eres editor de este blog"}
 	}
 	claimed := &BlogInvitation{}
 	matched, err := db.PatchOne(blogInvitationsCollection, inceptiondb.PatchQuery{Filter: JSON{
@@ -187,26 +181,28 @@ func AcceptBlogInvitation(ctx context.Context, w http.ResponseWriter, r *http.Re
 		"accepted_by_nick": auth.User.Nick, "acceptedOn": now}}, claimed)
 	if err != nil {
 		if membershipCreated {
-			removeInvitationMembership(db, blog.Id, auth.User.ID)
+			removeInvitationMembership(db, blog.Id, auth.User.ID, now)
 		}
 		return nil, blogStorageError("accept invitation", err)
 	}
 	if !matched {
 		if membershipCreated {
-			removeInvitationMembership(db, blog.Id, auth.User.ID)
+			removeInvitationMembership(db, blog.Id, auth.User.ID, now)
 		}
 		return nil, invitationUnavailable()
 	}
 	return &BlogWithRole{Blog: blog, Role: BlogRoleEditor}, nil
 }
 
-func removeInvitationMembership(db *inceptiondb.Client, blogId, userId string) {
-	removed, err := db.Remove(blogMembersCollection, inceptiondb.FindQuery{Limit: 1, Filter: JSON{
-		"id": deterministicBlogMemberId(blogId, userId), "blog_id": blogId, "user_id": userId, "role": BlogRoleEditor,
-	}})
-	if err == nil && removed != nil {
-		removed.Close()
-	}
+func removeInvitationMembership(db *inceptiondb.Client, blogId, userId string, createdOn time.Time) {
+	_, _ = mutateBlogMembers(db, blogId, func(current *Blog) (bool, error) {
+		member := findBlogMember(current.Members, userId)
+		if member == nil || member.Id != deterministicBlogMemberId(blogId, userId) || member.Role != BlogRoleEditor || !member.CreatedOn.Equal(createdOn) {
+			return false, nil
+		}
+		current.Members = removeBlogMemberByUser(current.Members, userId)
+		return true, nil
+	})
 }
 
 func hashBlogInvitationToken(token string) string {

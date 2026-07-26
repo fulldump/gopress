@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+Pro:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles/basic.css?v=10">
+    <link rel="stylesheet" href="/styles/basic.css?v=11">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
@@ -40,9 +40,9 @@
         <main class="site-main" id="main-content">
             <section class="content-column" aria-label="Artículos etiquetados como {{ .tag }}">
                 {{ if .articles }}
-                <div class="article-feed">
+                <div class="article-feed pagination-list" data-pagination-list>
                     {{ range $i, $article := .articles }}
-                    <article class="article-card" itemscope itemtype="https://schema.org/Article">
+                    <article class="article-card pagination-item" data-pagination-item data-item-id="{{ .Id }}" itemscope itemtype="https://schema.org/Article">
                         <h2 itemprop="headline">
                             <a href="{{ .PublicUrl }}" itemprop="url">{{ .Title }}</a>
                         </h2>
@@ -65,6 +65,7 @@
                     </article>
                     {{ end }}
                 </div>
+                {{ if .nextURL }}<div class="pagination-control" data-pagination-control><a class="load-more-button" data-load-more href="{{ .nextURL }}">{{ t .locale "pagination.load_more" }}</a><span class="pagination-status" data-pagination-status role="status" aria-live="polite"></span></div>{{ end }}
                 {{ else }}
                 <div class="empty-state"><h2>{{ t .locale "tag.empty" }}</h2></div>
                 {{ end }}
@@ -81,6 +82,6 @@
             </div>
         </footer>
     </div>
-    <script id="gopress-i18n" type="application/json">{{ json .messages }}</script><script src="/public.js?v=7" defer></script>
+    <script id="gopress-i18n" type="application/json">{{ json .messages }}</script><script src="/public.js?v=8" defer></script>
 </body>
 </html>

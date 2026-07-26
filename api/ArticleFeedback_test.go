@@ -73,12 +73,29 @@ func TestArticleFeedback(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	legacyInteraction := &ArticleInteraction{
+		Id: "interaction-legacy", ArticleId: "published-article", ArticleCreatedOn: originalCreatedOn,
+		UserId: "migration-user", Type: interactionBookmark, CreatedOn: time.Now().UTC(),
+	}
+	if err := db.Insert(articleInteractionsCollection, legacyInteraction); err != nil {
+		t.Fatal(err)
+	}
 
 	fs, err := localfilestore.New(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	client := apitest.NewWithHandler(NewApi("", "test-version", db, fs, nil))
+	migrated := &ArticleInteraction{}
+	if err := db.FindOne(articleInteractionsCollection, inceptiondb.FindQuery{Filter: JSON{"id": legacyInteraction.Id}}, migrated); err != nil {
+		t.Fatal(err)
+	}
+	if migrated.TargetKind != targetArticle || migrated.TargetId != "published-article" || !migrated.TargetCreatedOn.Equal(originalCreatedOn) {
+		t.Fatalf("legacy interaction was not migrated: %#v", migrated)
+	}
+	if count, err := MigrateArticleInteractions(db); err != nil || count != 0 {
+		t.Fatalf("interaction migration must be idempotent, count=%d err=%v", count, err)
+	}
 	feedbackPath := "/v1/articles/published-article/feedback"
 	likePath := "/v1/articles/published-article/like"
 	bookmarkPath := "/v1/articles/published-article/bookmark"
@@ -151,10 +168,17 @@ func TestArticleFeedback(t *testing.T) {
 		if len(bookmarks) != 1 || bookmarks[0].(map[string]any)["id"] != "published-article" {
 			t.Fatalf("unexpected bookmarks: %#v", bookmarks)
 		}
+		saved := authRequest(http.MethodGet, "/v1/saved/articles", userA).Do().BodyJsonMap()
+		if len(saved["items"].([]any)) != 1 || saved["hasMore"] != false || fmt.Sprint(saved["nextOffset"]) != "1" {
+			t.Fatalf("unexpected saved articles envelope: %#v", saved)
+		}
 
 		otherBookmarks := authRequest(http.MethodGet, "/v1/bookmarks", userB).Do().BodyJson().([]any)
 		if len(otherBookmarks) != 0 {
 			t.Fatalf("bookmarks must be private per user: %#v", otherBookmarks)
+		}
+		if otherSaved := authRequest(http.MethodGet, "/v1/saved/articles", userB).Do().BodyJsonMap()["items"].([]any); len(otherSaved) != 0 {
+			t.Fatalf("saved articles must be private per user: %#v", otherSaved)
 		}
 
 		feedback = authRequest(http.MethodDelete, bookmarkPath, userA).Do().BodyJsonMap()
@@ -175,6 +199,21 @@ func TestArticleFeedback(t *testing.T) {
 	})
 
 	t.Run("deleting an article removes its feedback", func(t *testing.T) {
+		exactComment := &Comment{Id: "comment_exact-cleanup", ArticleId: "published-article", ArticleCreatedOn: originalCreatedOn,
+			Name: "Exact", Text: "Delete me", CreatedOn: time.Now().UTC()}
+		staleComment := &Comment{Id: "comment_stale-cleanup", ArticleId: "published-article", ArticleCreatedOn: originalCreatedOn.Add(-time.Minute),
+			Name: "Stale", Text: "Keep me", CreatedOn: time.Now().Add(time.Millisecond).UTC()}
+		for _, comment := range []*Comment{exactComment, staleComment} {
+			if err := db.Insert(commentsCollection, comment); err != nil {
+				t.Fatal(err)
+			}
+			if err := db.Insert(articleInteractionsCollection, &ArticleInteraction{
+				Id: "interaction-" + comment.Id, TargetKind: targetComment, TargetId: comment.Id,
+				TargetCreatedOn: comment.CreatedOn, UserId: userA, Type: interactionLike, CreatedOn: time.Now().UTC(),
+			}); err != nil {
+				t.Fatal(err)
+			}
+		}
 		response := authRequest(http.MethodDelete, "/v1/articles/published-article", userB).Do()
 		if response.StatusCode != http.StatusNotFound {
 			t.Fatalf("expected non-owner status 404, got %d", response.StatusCode)
@@ -203,6 +242,18 @@ func TestArticleFeedback(t *testing.T) {
 		}, interaction)
 		if !errors.Is(err, io.EOF) {
 			t.Fatalf("expected deleted feedback, got %#v and error %v", interaction, err)
+		}
+		if err := db.FindOne(commentsCollection, inceptiondb.FindQuery{Filter: JSON{"id": exactComment.Id}}, &Comment{}); !errors.Is(err, io.EOF) {
+			t.Fatalf("exact-version comment was not deleted: %v", err)
+		}
+		if err := db.FindOne(articleInteractionsCollection, inceptiondb.FindQuery{Filter: JSON{"targetId": exactComment.Id}}, &ArticleInteraction{}); !errors.Is(err, io.EOF) {
+			t.Fatalf("exact-version comment interaction was not deleted: %v", err)
+		}
+		if err := db.FindOne(commentsCollection, inceptiondb.FindQuery{Filter: JSON{"id": staleComment.Id}}, &Comment{}); err != nil {
+			t.Fatalf("stale-version comment should remain: %v", err)
+		}
+		if err := db.FindOne(articleInteractionsCollection, inceptiondb.FindQuery{Filter: JSON{"targetId": staleComment.Id}}, &ArticleInteraction{}); err != nil {
+			t.Fatalf("stale-version comment interaction should remain: %v", err)
 		}
 		staleInteraction := &ArticleInteraction{
 			Id:               "interaction-stale",

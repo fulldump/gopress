@@ -33,6 +33,13 @@ type FileBlogMigrationReport struct {
 	Errors         []string `json:"errors"`
 }
 
+type BlogMemberMigrationReport struct {
+	LegacyCollectionFound bool `json:"legacyCollectionFound"`
+	LegacyRowsScanned     int  `json:"legacyRowsScanned"`
+	EditorsMigrated       int  `json:"editorsMigrated"`
+	BlogsPatched          int  `json:"blogsPatched"`
+}
+
 type migrationArticle struct {
 	Id                 string    `json:"id"`
 	AuthorId           string    `json:"author_id"`
@@ -181,10 +188,7 @@ func MigrateBlogs(db *inceptiondb.Client) (*BlogMigrationReport, error) {
 		if blog.Personal && blog.Id != deterministicPersonalBlogId(blog.OwnerId) {
 			return migrationFailure(report, fmt.Errorf("personal blog %q has a non-deterministic id", blog.Id))
 		}
-		member := &BlogMember{}
-		memberMissing := db.FindOne(blogMembersCollection, inceptiondb.FindQuery{Filter: JSON{
-			"id": deterministicBlogMemberId(blog.Id, blog.OwnerId),
-		}}, member) != nil
+		memberMissing := !hasCanonicalOwnerMember(blog)
 		if err := ensureOwnerMembership(db, blog); err != nil {
 			return migrationFailure(report, fmt.Errorf("ensure owner for blog %q: %w", blog.Id, err))
 		}
@@ -417,10 +421,35 @@ func ensureMigratedPersonalBlog(db *inceptiondb.Client, author *migrationAuthor,
 		updated.OwnerNick != blog.OwnerNick || updated.CreatedOn != blog.CreatedOn || updated.UpdatedOn != blog.UpdatedOn ||
 		strings.Join(updated.LegacyNicks, "\x00") != strings.Join(blog.LegacyNicks, "\x00")
 	if repaired {
+		patch := JSON{}
+		if updated.Slug != blog.Slug {
+			patch["slug"] = updated.Slug
+		}
+		if updated.Name != blog.Name {
+			patch["name"] = updated.Name
+		}
+		if updated.Language != blog.Language {
+			patch["language"] = updated.Language
+		}
+		if updated.AccentColor != blog.AccentColor {
+			patch["accent_color"] = updated.AccentColor
+		}
+		if updated.OwnerNick != blog.OwnerNick {
+			patch["owner_nick"] = updated.OwnerNick
+		}
+		if updated.CreatedOn != blog.CreatedOn {
+			patch["createdOn"] = updated.CreatedOn
+		}
+		if updated.UpdatedOn != blog.UpdatedOn {
+			patch["updatedOn"] = updated.UpdatedOn
+		}
+		if strings.Join(updated.LegacyNicks, "\x00") != strings.Join(blog.LegacyNicks, "\x00") {
+			patch["legacy_nicks"] = updated.LegacyNicks
+		}
 		patched := &Blog{}
 		matched, err := db.PatchOne(blogsCollection, inceptiondb.PatchQuery{Filter: JSON{
 			"id": blog.Id, "owner_id": author.UserId, "personal": true,
-		}, Patch: &updated}, patched)
+		}, Patch: patch}, patched)
 		if err != nil || !matched {
 			if err == nil {
 				err = errors.New("patch returned no blog")
@@ -429,12 +458,136 @@ func ensureMigratedPersonalBlog(db *inceptiondb.Client, author *migrationAuthor,
 		}
 		blog = patched
 	}
-	member := &BlogMember{}
-	memberMissing := db.FindOne(blogMembersCollection, inceptiondb.FindQuery{Filter: JSON{"id": deterministicBlogMemberId(blog.Id, blog.OwnerId)}}, member) != nil
+	memberMissing := !hasCanonicalOwnerMember(blog)
 	if err := ensureOwnerMembership(db, blog); err != nil {
 		return nil, false, false, false, err
 	}
 	return blog, false, repaired, memberMissing, nil
+}
+
+func MigrateEmbeddedBlogMembers(db *inceptiondb.Client) (*BlogMemberMigrationReport, error) {
+	report := &BlogMemberMigrationReport{}
+	blogs := map[string]*Blog{}
+	if err := db.FindAll(blogsCollection, inceptiondb.FindQuery{Limit: maxBlogMigrationRows}, func(blog *Blog) {
+		blogs[blog.Id] = blog
+	}); err != nil {
+		return report, fmt.Errorf("scan blogs for member migration: %w", err)
+	}
+
+	legacyEditors := map[string][]BlogMember{}
+	if _, err := db.GetCollection(legacyBlogMembersCollection); err == nil {
+		report.LegacyCollectionFound = true
+	} else if !errors.Is(err, inceptiondb.ErrorNotFound) {
+		return report, fmt.Errorf("inspect legacy blog members collection: %w", err)
+	}
+	if report.LegacyCollectionFound {
+		rows := []BlogMember{}
+		if err := db.FindAll(legacyBlogMembersCollection, inceptiondb.FindQuery{Limit: maxBlogMigrationRows}, func(member *BlogMember) {
+			rows = append(rows, *member)
+		}); err != nil {
+			return report, fmt.Errorf("scan legacy blog members: %w", err)
+		}
+		report.LegacyRowsScanned = len(rows)
+		seenIdentities := map[string]bool{}
+		seenIds := map[string]string{}
+		for row, member := range rows {
+			identity := member.BlogId + "\x00" + member.UserId
+			if seenIdentities[identity] {
+				return report, fmt.Errorf("dangerous duplicate legacy membership for blog %q and user %q", member.BlogId, member.UserId)
+			}
+			seenIdentities[identity] = true
+			if previous, exists := seenIds[member.Id]; member.Id != "" && exists && previous != identity {
+				return report, fmt.Errorf("dangerous duplicate legacy membership id %q", member.Id)
+			}
+			seenIds[member.Id] = identity
+			if member.Role != BlogRoleEditor {
+				continue
+			}
+			blog := blogs[member.BlogId]
+			if blog == nil || member.UserId == "" {
+				return report, fmt.Errorf("legacy editor row %d references an invalid blog or user", row)
+			}
+			if member.UserId == blog.OwnerId {
+				continue
+			}
+			member.Id = deterministicBlogMemberId(blog.Id, member.UserId)
+			member.BlogId = blog.Id
+			member.Role = BlogRoleEditor
+			legacyEditors[blog.Id] = append(legacyEditors[blog.Id], member)
+			report.EditorsMigrated++
+		}
+	}
+
+	blogIds := make([]string, 0, len(blogs))
+	for blogId, blog := range blogs {
+		if _, err := canonicalizeBlogMembers(blog, blog.Members, true); err != nil {
+			return report, err
+		}
+		blogIds = append(blogIds, blogId)
+	}
+	sort.Strings(blogIds)
+	for _, blogId := range blogIds {
+		patched := false
+		updated, err := mutateBlogMembers(db, blogId, func(current *Blog) (bool, error) {
+			patched = false
+			canonical, err := canonicalizeBlogMembers(current, current.Members, true)
+			if err != nil {
+				return false, err
+			}
+			for _, legacy := range legacyEditors[blogId] {
+				if findBlogMember(canonical, legacy.UserId) == nil {
+					canonical = append(canonical, legacy)
+				}
+			}
+			sort.Slice(canonical, func(i, j int) bool { return canonical[i].Id < canonical[j].Id })
+			if current.MembersRevision != 0 && blogMembersEqual(current.Members, canonical) {
+				return false, nil
+			}
+			current.Members = canonical
+			patched = true
+			return true, nil
+		})
+		if err != nil {
+			return report, fmt.Errorf("migrate members for blog %q: %w", blogId, err)
+		}
+		blogs[blogId] = updated
+		if patched {
+			report.BlogsPatched++
+		}
+	}
+
+	for _, blogId := range blogIds {
+		blog := &Blog{}
+		if err := db.FindOne(blogsCollection, inceptiondb.FindQuery{Filter: JSON{"id": blogId}}, blog); err != nil {
+			return report, fmt.Errorf("verify member migration for blog %q: %w", blogId, err)
+		}
+		canonical, err := canonicalizeBlogMembers(blog, blog.Members, true)
+		if err != nil || blog.MembersRevision == 0 || !blogMembersEqual(blog.Members, canonical) {
+			return report, fmt.Errorf("verify member migration for blog %q failed", blogId)
+		}
+		for _, expected := range legacyEditors[blogId] {
+			member := findBlogMember(blog.Members, expected.UserId)
+			if member == nil || member.Role != BlogRoleEditor {
+				return report, fmt.Errorf("verify legacy editor %q for blog %q failed", expected.UserId, blogId)
+			}
+		}
+	}
+	if report.LegacyCollectionFound {
+		if err := db.DropCollection(legacyBlogMembersCollection); err != nil {
+			return report, fmt.Errorf("drop legacy blog members collection: %w", err)
+		}
+		if _, err := db.GetCollection(legacyBlogMembersCollection); err == nil {
+			return report, errors.New("legacy blog members collection is still visible after drop")
+		} else if !errors.Is(err, inceptiondb.ErrorNotFound) {
+			return report, fmt.Errorf("verify legacy blog members collection drop: %w", err)
+		}
+	}
+	return report, nil
+}
+
+func hasCanonicalOwnerMember(blog *Blog) bool {
+	owner := findBlogMember(blog.Members, blog.OwnerId)
+	return owner != nil && *owner == canonicalOwnerMember(blog)
 }
 
 func deterministicMigrationSlug(nick, userId string, occupied map[string]string) (string, error) {

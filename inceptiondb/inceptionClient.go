@@ -45,6 +45,7 @@ func NewClient(config Config) *Client {
 var ErrorAlreadyExist = errors.New("already exists")
 var ErrorForbidden = errors.New("forbidden, your credentials does not have access")
 var ErrorUnauthorized = errors.New("unauthorized, missing credentials")
+var ErrorNotFound = errors.New("not found")
 var ErrorUnexpected = errors.New("unexpected error")
 
 func (c *Client) CreateCollection(name string) error {
@@ -102,12 +103,28 @@ func (c *Client) DropCollection(name string) error {
 	req.Header.Set("Api-Key", c.config.ApiKey)
 	req.Header.Set("Api-Secret", c.config.ApiSecret)
 
-	_, err = c.HttpClient.Do(req)
+	resp, err := c.HttpClient.Do(req)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+	}()
 
-	return nil
+	if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices {
+		return nil
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return ErrorNotFound
+	}
+	if resp.StatusCode == http.StatusForbidden {
+		return ErrorForbidden
+	}
+	if resp.StatusCode == http.StatusUnauthorized {
+		return ErrorUnauthorized
+	}
+	return ErrorUnexpected
 }
 
 func (c *Client) EnsureCollection(name string) error {
@@ -134,6 +151,11 @@ type ApiError struct {
 func apiErrorAlreadyExists(apiError ApiError, resource string) bool {
 	message := strings.ToLower(apiError.Description + " " + apiError.Message)
 	return strings.Contains(message, resource) && strings.Contains(message, "already exists")
+}
+
+func apiErrorNotFound(apiError ApiError, resource string) bool {
+	message := strings.ToLower(apiError.Description + " " + apiError.Message)
+	return strings.Contains(message, resource) && (strings.Contains(message, "not found") || strings.Contains(message, "does not exist"))
 }
 
 func (a *ApiError) Error() string {
@@ -315,7 +337,9 @@ func (c *Client) Find(collection string, query FindQuery) (io.ReadCloser, error)
 	if resp.StatusCode == http.StatusUnauthorized {
 		return nil, ErrorUnauthorized
 	}
-
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, ErrorNotFound
+	}
 	return nil, ErrorUnexpected
 }
 
@@ -396,6 +420,9 @@ func (c *Client) Remove(collection string, query FindQuery) (io.ReadCloser, erro
 	}
 	if resp.StatusCode == http.StatusUnauthorized {
 		return nil, ErrorUnauthorized
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, ErrorNotFound
 	}
 
 	return nil, ErrorUnexpected
@@ -514,6 +541,10 @@ func (c *Client) GetCollection(collection string) (*GetCollectionInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("persistence read error")
 	}
+	defer func() {
+		io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+	}()
 
 	if resp.StatusCode == http.StatusOK {
 		output := &GetCollectionInfo{}
@@ -528,6 +559,13 @@ func (c *Client) GetCollection(collection string) (*GetCollectionInfo, error) {
 	}
 	if resp.StatusCode == http.StatusUnauthorized {
 		return nil, ErrorUnauthorized
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, ErrorNotFound
+	}
+	apiError := ApiError{}
+	if err := json.NewDecoder(resp.Body).Decode(&apiError); err == nil && apiErrorNotFound(apiError, "collection") {
+		return nil, ErrorNotFound
 	}
 
 	return nil, ErrorUnexpected

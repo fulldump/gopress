@@ -30,12 +30,11 @@ func MigrateArticleLocalization(db *inceptiondb.Client) (int, error) {
 		if article.ContentRevision == 0 {
 			patch["content_revision"] = uint64(1)
 		}
-		if len(patch) == 0 {
-			continue
-		}
-		patch["updatedOn"] = article.UpdatedOn
 		if article.UpdatedOn.IsZero() {
 			patch["updatedOn"] = time.Now().UTC()
+		}
+		if len(patch) == 0 {
+			continue
 		}
 		matched, err := db.PatchOne("articles", inceptiondb.PatchQuery{Filter: articleIdentityFilter(article), Patch: patch}, &Article{})
 		if err != nil {

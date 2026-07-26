@@ -3,43 +3,24 @@ package api
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
-	"sort"
 
 	"github.com/fulldump/box"
 
-	"gopress/i18n"
-	"gopress/inceptiondb"
 	"gopress/templates"
 )
 
-func RenderTag(w http.ResponseWriter, ctx context.Context) error {
-	// todo: limit page size to 10
-	// todo: sort by date DESC
-
+func RenderTag(w http.ResponseWriter, r *http.Request, ctx context.Context) error {
 	tag := box.GetUrlParameter(ctx, "tag")
-
-	params := inceptiondb.FindQuery{
-		Limit: 1000,
-		Filter: JSON{
-			"tags":      tag,
-			"published": true,
-			"$ne":       JSON{"banned": true},
-		},
+	offset, err := listOffset(r)
+	if err != nil {
+		return err
 	}
-	list := []*Article{}
-	publicBlogs := map[string]*Blog{}
-	_ = GetInceptionClient(ctx).FindAll(blogsCollection, inceptiondb.FindQuery{Limit: maxBlogs, Filter: JSON{"$ne": JSON{"banned": true}}}, func(blog *Blog) { publicBlogs[blog.Id] = blog })
-	preferred := contentLanguageFromLocale(string(i18n.GetLocale(ctx)))
-	GetInceptionClient(ctx).FindAll("articles", params, func(article *Article) {
-		blog := publicBlogs[article.BlogId]
-		if blog == nil {
-			return
-		}
-		list = append(list, preparePublicArticle(article, blog, preferred))
-	}) // todo: handle error properly
-	if len(list) == 0 {
+	page, err := publicArticlePage(ctx, JSON{"tags": tag, "published": true, "$ne": JSON{"banned": true}}, offset)
+	if err != nil {
+		return blogStorageError("render tag articles", err)
+	}
+	if offset == 0 && len(page.Items) == 0 {
 		return HttpError{
 			Status:      http.StatusNotFound,
 			Title:       "Tag Not Found",
@@ -47,19 +28,14 @@ func RenderTag(w http.ResponseWriter, ctx context.Context) error {
 		}
 	}
 
-	sort.Slice(list, func(i, j int) bool {
-		return list[i].PublishOn.Unix() > list[j].PublishOn.Unix()
-	})
-
 	w.Header().Set("X-Robots-Tag", "noindex")
-	err := templates.Execute(ctx, "tag", w, map[string]any{
+	err = templates.Execute(ctx, "tag", w, map[string]any{
 		"tag":      tag,
-		"articles": list,
+		"articles": page.Items,
+		"nextURL":  nextPageURL(r, page.NextOffset, page.HasMore),
 	})
-
 	if err != nil {
-		log.Println("Error rendering home:", err.Error())
+		return fmt.Errorf("error rendering tag: %w", err)
 	}
-
 	return nil
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -189,14 +188,11 @@ func TestBlogMigrationRerunRepairsPartialState(t *testing.T) {
 	}}, blog); err != nil || !matched {
 		t.Fatalf("damage blog: matched=%v err=%v", matched, err)
 	}
-	memberRows, err := db.Remove(blogMembersCollection, inceptiondb.FindQuery{Limit: 1, Filter: JSON{
-		"id": deterministicBlogMemberId(blogId, "user-1"),
-	}})
-	if err != nil {
-		t.Fatal(err)
+	if matched, err := db.PatchOne(blogsCollection, inceptiondb.PatchQuery{Filter: JSON{
+		"id": blogId, "members_revision": blog.MembersRevision,
+	}, Patch: JSON{"members": []BlogMember{}, "members_revision": blog.MembersRevision + 1}}, blog); err != nil || !matched {
+		t.Fatalf("damage owner membership: matched=%v err=%v", matched, err)
 	}
-	io.Copy(io.Discard, memberRows)
-	memberRows.Close()
 
 	second, err := MigrateBlogs(db)
 	if err != nil {
@@ -299,13 +295,33 @@ func TestBlogAccessInvitationsAndArticleLocks(t *testing.T) {
 		t.Fatalf("create blog: %d %s", createBlog.StatusCode, createBlog.BodyString())
 	}
 	blogId := createBlog.BodyJsonMap()["id"].(string)
+	if strings.Contains(createBlog.BodyString(), "members") {
+		t.Fatalf("create blog leaked embedded members: %s", createBlog.BodyString())
+	}
+	persisted := &Blog{}
+	if err := db.FindOne(blogsCollection, inceptiondb.FindQuery{Filter: JSON{"id": blogId}}, persisted); err != nil {
+		t.Fatal(err)
+	}
+	if !hasCanonicalOwnerMember(persisted) || persisted.MembersRevision != 1 {
+		t.Fatalf("blog was not inserted with its owner atomically: %+v", persisted)
+	}
 	forged := &BlogMember{Id: deterministicBlogMemberId(blogId, "outsider"), BlogId: blogId,
 		UserId: "outsider", UserNick: "cora", Role: BlogRoleOwner, CreatedOn: time.Now().UTC()}
-	if err := db.Insert(blogMembersCollection, forged); err != nil {
-		t.Fatal(err)
+	if matched, err := db.PatchOne(blogsCollection, inceptiondb.PatchQuery{Filter: JSON{
+		"id": blogId, "members_revision": persisted.MembersRevision,
+	}, Patch: JSON{"members": append(persisted.Members, *forged), "members_revision": persisted.MembersRevision + 1}}, persisted); err != nil || !matched {
+		t.Fatalf("forge embedded owner: matched=%v err=%v", matched, err)
 	}
 	if response := requestAs("outsider", "cora", http.MethodGet, "/v1/blogs/"+blogId).Do(); response.StatusCode != http.StatusForbidden {
 		t.Fatalf("membership role overrode authoritative owner: %d", response.StatusCode)
+	}
+	for _, response := range []*apitest.Response{
+		requestAs("owner", "ana", http.MethodGet, "/v1/blogs").Do(),
+		requestAs("owner", "ana", http.MethodGet, "/v1/blogs/"+blogId).Do(),
+	} {
+		if response.StatusCode != http.StatusOK || strings.Contains(response.BodyString(), "members") || strings.Contains(response.BodyString(), "outsider") {
+			t.Fatalf("blog response leaked embedded members: %d %s", response.StatusCode, response.BodyString())
+		}
 	}
 	inviteResponse := requestAs("owner", "ana", http.MethodPost, "/v1/blogs/"+blogId+"/invitations").Do()
 	if inviteResponse.StatusCode != http.StatusCreated {
@@ -320,6 +336,19 @@ func TestBlogAccessInvitationsAndArticleLocks(t *testing.T) {
 		WithBodyJson(JSON{"token": token}).Do()
 	if accepted.StatusCode != http.StatusOK {
 		t.Fatalf("accept invite: %d %s", accepted.StatusCode, accepted.BodyString())
+	}
+	for _, response := range []*apitest.Response{
+		accepted,
+		requestAs("editor", "bea", http.MethodGet, "/v1/blogs").Do(),
+		requestAs("editor", "bea", http.MethodGet, "/v1/blogs/"+blogId).Do(),
+	} {
+		if response.StatusCode != http.StatusOK || strings.Contains(response.BodyString(), "members") || strings.Contains(response.BodyString(), `"user_nick":"bea"`) {
+			t.Fatalf("editor blog response leaked embedded members: %d %s", response.StatusCode, response.BodyString())
+		}
+	}
+	members := requestAs("owner", "ana", http.MethodGet, "/v1/blogs/"+blogId+"/members").Do()
+	if members.StatusCode != http.StatusOK || !strings.Contains(members.BodyString(), `"user_id":"owner"`) || !strings.Contains(members.BodyString(), `"user_id":"editor"`) {
+		t.Fatalf("owner member API changed: %d %s", members.StatusCode, members.BodyString())
 	}
 	if response := requestAs("editor", "bea", http.MethodPatch, "/v1/blogs/"+blogId).
 		WithBodyJson(JSON{"name": "Forbidden"}).Do(); response.StatusCode != http.StatusForbidden {
@@ -446,14 +475,135 @@ func TestBlogAccessInvitationsAndArticleLocks(t *testing.T) {
 	if reused.StatusCode != http.StatusGone {
 		t.Fatalf("accepted invitation was reusable: %d %s", reused.StatusCode, reused.BodyString())
 	}
-	member := &BlogMember{}
-	if err := db.FindOne(blogMembersCollection, inceptiondb.FindQuery{Filter: JSON{
-		"id": deterministicBlogMemberId(blogId, "editor"),
-	}}, member); !errors.Is(err, io.EOF) {
-		t.Fatalf("used invitation recreated removed member: %+v err=%v", member, err)
+	blogAfterRemoval := &Blog{}
+	if err := db.FindOne(blogsCollection, inceptiondb.FindQuery{Filter: JSON{"id": blogId}}, blogAfterRemoval); err != nil {
+		t.Fatal(err)
+	}
+	if member := findBlogMember(blogAfterRemoval.Members, "editor"); member != nil {
+		t.Fatalf("used invitation recreated removed member: %+v", member)
 	}
 	if ownerRemoval := requestAs("owner", "ana", http.MethodDelete, "/v1/blogs/"+blogId+"/members/owner").Do(); ownerRemoval.StatusCode != http.StatusForbidden {
 		t.Fatalf("owner removal returned %d", ownerRemoval.StatusCode)
+	}
+}
+
+func TestEmbeddedBlogMemberMigrationDropsLegacyCollectionAndReruns(t *testing.T) {
+	db := newBlogTestDB(t)
+	if err := InitializeBlogCollections(db); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.CreateCollection(legacyBlogMembersCollection); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	blog := &Blog{Id: "legacy-blog", Slug: "legacy-blog", Name: "Legacy", Language: BlogLanguageES,
+		AccentColor: "#2563EB", OwnerId: "owner", OwnerNick: "ana", CreatedOn: now, UpdatedOn: now}
+	if err := db.Insert(blogsCollection, blog); err != nil {
+		t.Fatal(err)
+	}
+	for _, member := range []BlogMember{
+		{Id: "legacy-owner", BlogId: blog.Id, UserId: "forged", Role: BlogRoleOwner, CreatedOn: now},
+		{Id: "legacy-editor", BlogId: blog.Id, UserId: "editor", UserNick: "bea", Role: BlogRoleEditor, CreatedOn: now},
+	} {
+		if err := db.Insert(legacyBlogMembersCollection, &member); err != nil {
+			t.Fatal(err)
+		}
+	}
+	report, err := MigrateEmbeddedBlogMembers(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !report.LegacyCollectionFound || report.LegacyRowsScanned != 2 || report.EditorsMigrated != 1 || report.BlogsPatched != 1 {
+		t.Fatalf("unexpected migration report: %+v", report)
+	}
+	if _, err := db.GetCollection(legacyBlogMembersCollection); !errors.Is(err, inceptiondb.ErrorNotFound) {
+		t.Fatalf("legacy collection remains visible: %v", err)
+	}
+	persisted := &Blog{}
+	if err := db.FindOne(blogsCollection, inceptiondb.FindQuery{Filter: JSON{"id": blog.Id}}, persisted); err != nil {
+		t.Fatal(err)
+	}
+	if !hasCanonicalOwnerMember(persisted) || findBlogMember(persisted.Members, "editor") == nil || findBlogMember(persisted.Members, "forged") != nil {
+		t.Fatalf("members were not canonicalized: %+v", persisted.Members)
+	}
+	rerun, err := MigrateEmbeddedBlogMembers(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rerun.LegacyCollectionFound || rerun.BlogsPatched != 0 {
+		t.Fatalf("missing-collection rerun changed data: %+v", rerun)
+	}
+}
+
+func TestEmbeddedBlogMemberMigrationRejectsDuplicateEditors(t *testing.T) {
+	db := newBlogTestDB(t)
+	if err := InitializeBlogCollections(db); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.CreateCollection(legacyBlogMembersCollection); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	blog := &Blog{Id: "duplicate-blog", Slug: "duplicate-blog", Name: "Duplicate", Language: BlogLanguageES,
+		AccentColor: "#2563EB", OwnerId: "owner", CreatedOn: now, UpdatedOn: now}
+	if err := insertBlogWithOwner(db, blog); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"duplicate-a", "duplicate-b"} {
+		if err := db.Insert(legacyBlogMembersCollection, &BlogMember{Id: id, BlogId: blog.Id, UserId: "editor", Role: BlogRoleEditor, CreatedOn: now}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := MigrateEmbeddedBlogMembers(db); err == nil || !strings.Contains(err.Error(), "dangerous duplicate") {
+		t.Fatalf("duplicate migration error = %v", err)
+	}
+	if _, err := db.GetCollection(legacyBlogMembersCollection); err != nil {
+		t.Fatalf("failed migration dropped source collection: %v", err)
+	}
+}
+
+func TestBlogMemberCASRejectsStaleArrayReplacement(t *testing.T) {
+	db := newBlogTestDB(t)
+	if err := InitializeBlogCollections(db); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	blog := &Blog{Id: "cas-blog", Slug: "cas-blog", Name: "CAS", Language: BlogLanguageES,
+		AccentColor: "#2563EB", OwnerId: "owner", CreatedOn: now, UpdatedOn: now}
+	if err := insertBlogWithOwner(db, blog); err != nil {
+		t.Fatal(err)
+	}
+	first := &Blog{}
+	second := &Blog{}
+	if err := db.FindOne(blogsCollection, inceptiondb.FindQuery{Filter: JSON{"id": blog.Id}}, first); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.FindOne(blogsCollection, inceptiondb.FindQuery{Filter: JSON{"id": blog.Id}}, second); err != nil {
+		t.Fatal(err)
+	}
+	first.Members = append(first.Members, BlogMember{Id: deterministicBlogMemberId(blog.Id, "editor-a"), BlogId: blog.Id,
+		UserId: "editor-a", Role: BlogRoleEditor, CreatedOn: now})
+	if matched, err := db.PatchOne(blogsCollection, inceptiondb.PatchQuery{Filter: JSON{
+		"id": blog.Id, "members_revision": first.MembersRevision,
+	}, Patch: JSON{"members": first.Members, "members_revision": first.MembersRevision + 1}}, &Blog{}); err != nil || !matched {
+		t.Fatalf("first CAS: matched=%v err=%v", matched, err)
+	}
+	second.Members = append(second.Members, BlogMember{Id: deterministicBlogMemberId(blog.Id, "editor-b"), BlogId: blog.Id,
+		UserId: "editor-b", Role: BlogRoleEditor, CreatedOn: now})
+	if matched, err := db.PatchOne(blogsCollection, inceptiondb.PatchQuery{Filter: JSON{
+		"id": blog.Id, "members_revision": second.MembersRevision,
+	}, Patch: JSON{"members": second.Members, "members_revision": second.MembersRevision + 1}}, &Blog{}); err != nil || matched {
+		t.Fatalf("stale CAS: matched=%v err=%v", matched, err)
+	}
+	if _, _, err := ensureEditorMembership(db, second, "editor-b", "editor", now); err != nil {
+		t.Fatal(err)
+	}
+	persisted := &Blog{}
+	if err := db.FindOne(blogsCollection, inceptiondb.FindQuery{Filter: JSON{"id": blog.Id}}, persisted); err != nil {
+		t.Fatal(err)
+	}
+	if len(persisted.Members) != 3 || findBlogMember(persisted.Members, "editor-a") == nil || findBlogMember(persisted.Members, "editor-b") == nil || !hasCanonicalOwnerMember(persisted) {
+		t.Fatalf("CAS retry lost members: revision=%d members=%+v", persisted.MembersRevision, persisted.Members)
 	}
 }
 

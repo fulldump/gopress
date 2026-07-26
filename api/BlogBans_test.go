@@ -119,7 +119,7 @@ func TestBannedArticleHidesBlogAndAllowsOwnerReview(t *testing.T) {
 
 	editor := &BlogMember{Id: deterministicBlogMemberId(blogId, "editor"), BlogId: blogId, UserId: "editor",
 		UserNick: "editor", Role: BlogRoleEditor, CreatedOn: time.Now().UTC()}
-	if err := db.Insert(blogMembersCollection, editor); err != nil {
+	if _, _, err := ensureEditorMembership(db, blog, editor.UserId, editor.UserNick, editor.CreatedOn); err != nil {
 		t.Fatal(err)
 	}
 	if listed := requestAs("editor", http.MethodGet, "/v1/blogs").Do(); listed.StatusCode != http.StatusOK || strings.Contains(listed.BodyString(), blogId) {

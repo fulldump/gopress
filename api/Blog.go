@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"net/url"
 	"regexp"
@@ -10,9 +11,9 @@ import (
 )
 
 const (
-	blogsCollection           = "blogs"
-	blogMembersCollection     = "blog_members"
-	blogInvitationsCollection = "blog_invitations"
+	blogsCollection             = "blogs"
+	legacyBlogMembersCollection = "blog_members"
+	blogInvitationsCollection   = "blog_invitations"
 
 	maxBlogs             = 1000
 	maxBlogMembers       = 1000
@@ -61,6 +62,8 @@ type Blog struct {
 	UpdatedOn            time.Time      `json:"updatedOn"`
 	PublicUrl            string         `json:"publicUrl,omitempty"`
 	AvailableLanguages   []LanguageLink `json:"available_languages,omitempty"`
+	Members              []BlogMember   `json:"members"`
+	MembersRevision      uint64         `json:"members_revision"`
 }
 
 type BlogMember struct {
@@ -75,6 +78,23 @@ type BlogMember struct {
 type BlogWithRole struct {
 	*Blog
 	Role BlogRole `json:"role"`
+}
+
+func (blog *BlogWithRole) MarshalJSON() ([]byte, error) {
+	response := map[string]any{}
+	if blog.Blog != nil {
+		encoded, err := json.Marshal(blog.Blog)
+		if err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(encoded, &response); err != nil {
+			return nil, err
+		}
+	}
+	delete(response, "members")
+	delete(response, "members_revision")
+	response["role"] = blog.Role
+	return json.Marshal(response)
 }
 
 var (

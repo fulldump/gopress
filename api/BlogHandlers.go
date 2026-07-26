@@ -35,42 +35,55 @@ type PatchBlogRequest struct {
 	HeaderImage     *string         `json:"header_image,omitempty"`
 }
 
-func ListBlogs(ctx context.Context) ([]*BlogWithRole, error) {
+func ListBlogs(ctx context.Context, r *http.Request) (ListPage[*BlogWithRole], error) {
+	offset, err := listOffset(r)
+	if err != nil {
+		return ListPage[*BlogWithRole]{}, err
+	}
 	auth, err := requireBlogAuth(ctx)
 	if err != nil {
-		return nil, err
+		return ListPage[*BlogWithRole]{}, err
 	}
 	db := GetInceptionClient(ctx)
-	byId := map[string]*BlogWithRole{}
-	if err := db.FindAll(blogsCollection, inceptiondb.FindQuery{Limit: maxBlogs, Filter: JSON{"owner_id": auth.User.ID}}, func(blog *Blog) {
-		byId[blog.Id] = &BlogWithRole{Blog: blog, Role: BlogRoleOwner}
-	}); err != nil {
-		return nil, blogStorageError("list owned blogs", err)
-	}
-	memberships := []*BlogMember{}
-	if err := db.FindAll(blogMembersCollection, inceptiondb.FindQuery{Limit: maxBlogMembers, Filter: JSON{"user_id": auth.User.ID}}, func(member *BlogMember) {
-		memberships = append(memberships, member)
-	}); err != nil {
-		return nil, blogStorageError("list memberships", err)
-	}
-	for _, member := range memberships {
-		if member.Role != BlogRoleEditor {
-			continue
+	result := make([]*BlogWithRole, 0, listPageSize+1)
+	logicalIndex := 0
+	rawOffset := 0
+	for len(result) <= listPageSize {
+		batch := []*Blog{}
+		if err := db.FindAll(blogsCollection, inceptiondb.FindQuery{
+			Index: "blogs-id-v1", Skip: rawOffset, Limit: listPageSize + 1,
+		}, func(blog *Blog) { batch = append(batch, blog) }); err != nil {
+			return ListPage[*BlogWithRole]{}, blogStorageError("list blogs", err)
 		}
-		if _, owner := byId[member.BlogId]; owner {
-			continue
+		if len(batch) == 0 {
+			break
 		}
-		blog := &Blog{}
-		if err := db.FindOne(blogsCollection, inceptiondb.FindQuery{Filter: JSON{"id": member.BlogId}}, blog); err == nil && blog.OwnerId != auth.User.ID && !blog.Banned {
-			byId[blog.Id] = &BlogWithRole{Blog: blog, Role: BlogRoleEditor}
+		rawOffset += len(batch)
+		for _, blog := range batch {
+			role := BlogRole("")
+			if blog.OwnerId == auth.User.ID {
+				role = BlogRoleOwner
+			} else if member := findBlogMember(blog.Members, auth.User.ID); member != nil && member.Role == BlogRoleEditor && !blog.Banned {
+				role = BlogRoleEditor
+			}
+			if role == "" {
+				continue
+			}
+			if logicalIndex < offset {
+				logicalIndex++
+				continue
+			}
+			result = append(result, &BlogWithRole{Blog: blog, Role: role})
+			logicalIndex++
+			if len(result) > listPageSize {
+				break
+			}
+		}
+		if len(batch) < listPageSize+1 {
+			break
 		}
 	}
-	result := make([]*BlogWithRole, 0, len(byId))
-	for _, blog := range byId {
-		result = append(result, blog)
-	}
-	sort.Slice(result, func(i, j int) bool { return result[i].Id < result[j].Id })
-	return result, nil
+	return pageFromLookahead(result, offset), nil
 }
 
 func CreateBlog(ctx context.Context, w http.ResponseWriter, r *http.Request) (*BlogWithRole, error) {
@@ -204,19 +217,23 @@ func PatchBlog(ctx context.Context, w http.ResponseWriter, r *http.Request) (*Bl
 	return &BlogWithRole{Blog: patched, Role: BlogRoleOwner}, nil
 }
 
-func ListBlogMembers(ctx context.Context) ([]*BlogMember, error) {
-	blogId := box.GetUrlParameter(ctx, "blogId")
-	if _, err := RequireBlogOwner(ctx, blogId); err != nil {
-		return nil, err
+func ListBlogMembers(ctx context.Context, r *http.Request) (ListPage[*BlogMember], error) {
+	offset, err := listOffset(r)
+	if err != nil {
+		return ListPage[*BlogMember]{}, err
 	}
-	members := []*BlogMember{}
-	if err := GetInceptionClient(ctx).FindAll(blogMembersCollection, inceptiondb.FindQuery{Limit: maxBlogMembers, Filter: JSON{"blog_id": blogId}}, func(member *BlogMember) {
-		members = append(members, member)
-	}); err != nil {
-		return nil, blogStorageError("list members", err)
+	blogId := box.GetUrlParameter(ctx, "blogId")
+	blog, err := RequireBlogOwner(ctx, blogId)
+	if err != nil {
+		return ListPage[*BlogMember]{}, err
+	}
+	members := make([]*BlogMember, 0, len(blog.Members))
+	for i := range blog.Members {
+		member := blog.Members[i]
+		members = append(members, &member)
 	}
 	sort.Slice(members, func(i, j int) bool { return members[i].Id < members[j].Id })
-	return members, nil
+	return pageSlice(members, offset), nil
 }
 
 func RemoveBlogMember(ctx context.Context) (*BlogMember, error) {
@@ -229,18 +246,25 @@ func RemoveBlogMember(ctx context.Context) (*BlogMember, error) {
 	if userId == blog.OwnerId {
 		return nil, HttpError{Status: http.StatusForbidden, Title: "Blog Owner Cannot Be Removed", Description: "No se puede eliminar al propietario del blog"}
 	}
-	removed, err := GetInceptionClient(ctx).Remove(blogMembersCollection, inceptiondb.FindQuery{Limit: 1, Filter: JSON{
-		"id": deterministicBlogMemberId(blogId, userId), "blog_id": blogId, "user_id": userId, "role": BlogRoleEditor,
-	}})
+	var removed *BlogMember
+	_, err = mutateBlogMembers(GetInceptionClient(ctx), blogId, func(current *Blog) (bool, error) {
+		removed = nil
+		member := findBlogMember(current.Members, userId)
+		if member == nil || member.Id != deterministicBlogMemberId(blogId, userId) || member.Role != BlogRoleEditor {
+			return false, nil
+		}
+		copy := *member
+		removed = &copy
+		current.Members = removeBlogMemberByUser(current.Members, userId)
+		return true, nil
+	})
 	if err != nil {
 		return nil, blogStorageError("remove member", err)
 	}
-	defer removed.Close()
-	member := &BlogMember{}
-	if err := json.NewDecoder(removed).Decode(member); err != nil {
+	if removed == nil {
 		return nil, HttpError{Status: http.StatusNotFound, Title: "Blog Member Not Found", Description: "El miembro no existe"}
 	}
-	return member, nil
+	return removed, nil
 }
 
 func decodeBlogJSON(w http.ResponseWriter, r *http.Request, output any) error {

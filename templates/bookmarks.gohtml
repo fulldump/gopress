@@ -2,16 +2,14 @@
 <html lang="{{ .locale }}">
 <head>
     <meta charset="utf-8">
-    <title>Artículos guardados — GoPress</title>
+    <title>{{ t .locale "saved.title" }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Tu lista privada de artículos guardados en GoPress.">
+    <meta name="description" content="{{ t .locale "saved.description" }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+Pro:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles/basic.css?v=10">
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="stylesheet" href="/styles/basic.css?v=11">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="manifest" href="/site.webmanifest">{{ .headTrailCode }}
 </head>
 <body>
@@ -22,43 +20,19 @@
                 <a class="brand" href="/">GoPress<span>.org</span></a>
                 <div class="auth-actions">
                     <nav class="locale-switcher"><a href="?lang=es">ES</a><a href="?lang=en">EN</a><a href="?lang=zh">ZH</a></nav><div id="login"><a href="/auth/login">{{ t .locale "nav.sign_in" }}</a></div>
-                    <div id="logout" hidden>
-                        <img id="user_picture" class="nav-avatar" alt="" hidden>
-                        <span id="user_nick"></span>
-                        <a href="/blogs">Blogs</a>
-                        <a href="/bookmarks" aria-current="page">Guardados</a>
-                        <a href="/admin/">Administración</a>
-                        <a href="/auth/logout">Salir</a>
-                    </div>
+                    <div id="logout" hidden><img id="user_picture" class="nav-avatar" alt="" hidden><span id="user_nick"></span><a href="/blogs">{{ t .locale "nav.blogs" }}</a><a href="/bookmarks" aria-current="page">{{ t .locale "nav.saved" }}</a><a href="/admin/">{{ t .locale "nav.admin" }}</a><a href="/auth/logout">{{ t .locale "nav.sign_out" }}</a></div>
                 </div>
             </nav>
-            <div class="page-intro content-column">
-                <span class="eyebrow">{{ t .locale "bookmarks.eyebrow" }}</span><h1>{{ t .locale "bookmarks.heading" }}</h1><p>{{ t .locale "bookmarks.intro" }}</p>
-            </div>
+            <div class="page-intro content-column"><span class="eyebrow">{{ t .locale "saved.eyebrow" }}</span><h1>{{ t .locale "saved.heading" }}</h1><p>{{ t .locale "saved.intro" }}</p></div>
         </header>
-
-        <main class="site-main" id="main-content">
-            <section class="content-column" aria-labelledby="bookmarks-title">
-                <header class="section-header">
-                    <h2 id="bookmarks-title">{{ t .locale "bookmarks.list" }}</h2>
-                </header>
-                <div class="bookmarks-status" id="bookmarks-status" role="status" aria-live="polite">{{ t .locale "bookmarks.loading" }}</div>
-                <div class="article-feed" id="bookmarks-list"></div>
-            </section>
+        <main class="site-main saved-page" id="main-content">
+            <section class="content-column saved-section" data-saved-section data-kind="articles" aria-labelledby="saved-articles-title"><header class="section-header"><h2 id="saved-articles-title">{{ t .locale "saved.articles" }}</h2></header><div class="saved-status" data-saved-status role="status" aria-live="polite">{{ t .locale "common.loading" }}</div><div class="saved-list article-feed" data-saved-list></div><button class="load-more-button" data-saved-more type="button" hidden>{{ t .locale "pagination.load_more" }}</button></section>
+            <section class="content-column saved-section" data-saved-section data-kind="blogs" aria-labelledby="saved-blogs-title"><header class="section-header"><h2 id="saved-blogs-title">{{ t .locale "saved.blogs" }}</h2></header><div class="saved-status" data-saved-status role="status" aria-live="polite">{{ t .locale "common.loading" }}</div><div class="saved-list article-feed" data-saved-list></div><button class="load-more-button" data-saved-more type="button" hidden>{{ t .locale "pagination.load_more" }}</button></section>
+            <section class="content-column saved-section" data-saved-section data-kind="comments" aria-labelledby="saved-comments-title"><header class="section-header"><h2 id="saved-comments-title">{{ t .locale "saved.comments" }}</h2></header><div class="saved-status" data-saved-status role="status" aria-live="polite">{{ t .locale "common.loading" }}</div><div class="saved-list article-feed" data-saved-list></div><button class="load-more-button" data-saved-more type="button" hidden>{{ t .locale "pagination.load_more" }}</button></section>
+            <section class="content-column saved-section" data-saved-section data-kind="own-comments" aria-labelledby="own-comments-title"><header class="section-header"><h2 id="own-comments-title">{{ t .locale "saved.own_comments" }}</h2></header><div class="saved-status" data-saved-status role="status" aria-live="polite">{{ t .locale "common.loading" }}</div><div class="saved-list article-feed" data-saved-list></div><button class="load-more-button" data-saved-more type="button" hidden>{{ t .locale "pagination.load_more" }}</button></section>
         </main>
-
-        <footer class="site-footer">
-            <div class="footer-content container">
-                <p>{{ t .locale "footer.text" }}</p>
-                <nav class="footer-links" aria-label="Enlaces del proyecto">
-                    <a href="https://github.com/fulldump/gopress">GitHub</a>
-                    <a href="https://www.twitch.tv/fulldump">Twitch</a>
-                    <a href="https://www.youtube.com/@fulldump">YouTube</a>
-                </nav>
-            </div>
-        </footer>
+        <footer class="site-footer"><div class="footer-content container"><p>{{ t .locale "footer.text" }}</p></div></footer>
     </div>
-    <script id="gopress-i18n" type="application/json">{{ json .messages }}</script><script src="/public.js?v=7" defer></script>
-    <script src="/bookmarks.js?v=3" defer></script>
+    <script id="gopress-i18n" type="application/json">{{ json .messages }}</script><script src="/public.js?v=9" defer></script><script src="/bookmarks.js?v=4" defer></script>
 </body>
 </html>

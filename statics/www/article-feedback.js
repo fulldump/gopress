@@ -7,6 +7,7 @@
 
   var endpoint = section.dataset.endpoint;
   var title = section.dataset.title;
+  var targetUrl = new URL(section.dataset.url || window.location.href.split('#')[0], window.location.href).href;
   var likeButton = document.getElementById('article-like');
   var bookmarkButton = document.getElementById('article-bookmark');
   var likeCount = document.getElementById('article-like-count');
@@ -26,7 +27,7 @@
   function setPressed(button, active, inactiveLabel, activeLabel) {
     button.dataset.active = active ? 'true' : 'false';
     button.setAttribute('aria-pressed', active ? 'true' : 'false');
-    button.querySelector('span:not(.feedback-count)').textContent = active ? activeLabel : inactiveLabel;
+    button.querySelector('.feedback-label').textContent = active ? activeLabel : inactiveLabel;
   }
 
   function loginReturnTarget() {
@@ -61,8 +62,8 @@
       }
       renderFeedback(payload);
       feedbackStatus.textContent = resource === 'like'
-        ? (payload.liked ? 'Aplauso añadido.' : 'Aplauso retirado.')
-        : (payload.bookmarked ? 'Artículo guardado.' : 'Artículo retirado de tus guardados.');
+        ? (payload.liked ? t('feedback.applause_added') : t('feedback.applause_removed'))
+        : (payload.bookmarked ? t('feedback.saved_added') : t('feedback.saved_removed'));
     } catch (error) {
       feedbackStatus.textContent = error.message;
     } finally {
@@ -72,29 +73,17 @@
 
   async function copyLink(network) {
     try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(window.location.href.split('#')[0]);
-      } else {
-        var input = document.createElement('textarea');
-        input.value = window.location.href.split('#')[0];
-        input.setAttribute('readonly', '');
-        input.style.position = 'fixed';
-        input.style.opacity = '0';
-        document.body.appendChild(input);
-        input.select();
-        if (!document.execCommand('copy')) throw new Error('Copy failed');
-        input.remove();
-      }
+      await window.gopressCopyShareUrl(targetUrl);
       shareStatus.textContent = network
-        ? 'Enlace copiado. Ya puedes pegarlo en ' + network + '.'
-        : 'Enlace copiado al portapapeles.';
+        ? t('feedback.link_copied_for').replace('{network}', network)
+        : t('feedback.link_copied');
     } catch (error) {
-      shareStatus.textContent = 'No se pudo copiar el enlace. Cópialo desde la barra del navegador.';
+      shareStatus.textContent = t('feedback.copy_failed');
     }
   }
 
   function shareUrl(network) {
-    var url = window.location.href.split('#')[0];
+    var url = targetUrl;
     var encodedUrl = encodeURIComponent(url);
     var encodedTitle = encodeURIComponent(title);
     var encodedMessage = encodeURIComponent(title + '\n' + url);

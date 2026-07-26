@@ -59,7 +59,7 @@ func TestHappyPath(t *testing.T) {
 
 			a.Alternative("list articles", func(a *biff.A) {
 				resp2 := apiRequestJohn("GET", "/v1/articles").Do()
-				body := resp2.BodyJson().([]any)
+				body := resp2.BodyJsonMap()["items"].([]any)
 				biff.AssertEqual(body[0].(map[string]any)["id"], "hello-world")
 			})
 			// a.Alternative("create article - already exist", func(a *biff.A) {
@@ -92,7 +92,7 @@ func TestHappyPath(t *testing.T) {
 					resp := apiRequestJohn("GET", "/v1/articles").Do()
 
 					biff.AssertEqual(resp.StatusCode, 200)
-					biff.AssertEqualJson(resp.BodyJson(), []any{})
+					biff.AssertEqualJson(resp.BodyJsonMap()["items"], []any{})
 				})
 				a.Alternative("retrieve article - after delete", func(a *biff.A) {
 					resp := apiRequestJohn("GET", "/v1/articles/hello-world").Do()
@@ -129,7 +129,7 @@ func TestHappyPath(t *testing.T) {
 
 		a.Alternative("list articles - empty list", func(a *biff.A) {
 			resp := apiRequestJohn("GET", "/v1/articles").Do()
-			biff.AssertEqual(len(resp.BodyJson().([]any)), 0)
+			biff.AssertEqual(len(resp.BodyJsonMap()["items"].([]any)), 0)
 		})
 
 		a.Alternative("retrieve article - not found", func(a *biff.A) {

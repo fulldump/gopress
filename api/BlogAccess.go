@@ -21,7 +21,7 @@ import (
 var blogSlugMu sync.Mutex
 
 func InitializeBlogCollections(db *inceptiondb.Client) error {
-	for _, collection := range []string{blogsCollection, blogMembersCollection, blogInvitationsCollection} {
+	for _, collection := range []string{blogsCollection, blogInvitationsCollection} {
 		if err := db.CreateCollection(collection); err != nil && !errors.Is(err, inceptiondb.ErrorAlreadyExist) {
 			return fmt.Errorf("create collection %s: %w", collection, err)
 		}
@@ -35,8 +35,10 @@ func EnsureBlogIndexes(db *inceptiondb.Client) error {
 		options    inceptiondb.IndexOptions
 	}{
 		{blogsCollection, inceptiondb.IndexOptions{Name: "blogs-slug-v1", Type: "btree", Fields: []string{"slug"}, Unique: true}},
-		{blogMembersCollection, inceptiondb.IndexOptions{Name: "blog-members-blog-user-v1", Type: "btree", Fields: []string{"blog_id", "user_id"}, Unique: true}},
+		{blogsCollection, inceptiondb.IndexOptions{Name: "blogs-id-v1", Type: "btree", Fields: []string{"id"}, Unique: true}},
+		{blogsCollection, inceptiondb.IndexOptions{Name: "blogs-name-v1", Type: "btree", Fields: []string{"name", "id"}, Unique: true}},
 		{blogInvitationsCollection, inceptiondb.IndexOptions{Name: "blog-invitations-token-hash-v1", Type: "map", Field: "token_hash"}},
+		{blogInvitationsCollection, inceptiondb.IndexOptions{Name: "blog-invitations-created-v2", Type: "btree", Fields: []string{"createdOn", "id"}, Unique: true}},
 	}
 	for _, index := range indexes {
 		if err := db.EnsureIndex(index.collection, &index.options); err != nil {
@@ -61,10 +63,8 @@ func RequireBlogAccess(ctx context.Context, blogId string) (*Blog, BlogRole, err
 	if blog.Banned {
 		return nil, "", blogNotFound()
 	}
-	member := &BlogMember{}
-	if err := GetInceptionClient(ctx).FindOne(blogMembersCollection, inceptiondb.FindQuery{Filter: JSON{
-		"id": deterministicBlogMemberId(blog.Id, auth.User.ID), "blog_id": blog.Id, "user_id": auth.User.ID,
-	}}, member); err != nil || member.Role != BlogRoleEditor {
+	member := findBlogMember(blog.Members, auth.User.ID)
+	if member == nil || member.Role != BlogRoleEditor {
 		return nil, "", blogForbidden()
 	}
 	return blog, BlogRoleEditor, nil
@@ -122,77 +122,163 @@ func EnsurePersonalBlog(ctx context.Context, auth *glueauth.GlueAuthentication) 
 }
 
 func insertBlogWithOwner(db *inceptiondb.Client, blog *Blog) error {
+	blog.Members = []BlogMember{canonicalOwnerMember(blog)}
+	blog.MembersRevision = 1
 	if err := db.Insert(blogsCollection, blog); err != nil {
 		if errors.Is(err, inceptiondb.ErrorAlreadyExist) {
 			return err
 		}
 		return blogStorageError("insert blog", err)
 	}
-	if err := ensureOwnerMembership(db, blog); err != nil {
-		removed, removeErr := db.Remove(blogsCollection, inceptiondb.FindQuery{Limit: 1, Filter: JSON{"id": blog.Id}})
-		if removed != nil {
-			io.Copy(io.Discard, removed)
-			removed.Close()
-		}
-		if removeErr != nil {
-			return blogStorageError("insert owner membership and compensate", errors.Join(err, removeErr))
-		}
-		return blogStorageError("insert owner membership", err)
-	}
 	return nil
 }
 
-func ensureEditorMembership(db *inceptiondb.Client, blog *Blog, userId, userNick string, createdOn time.Time) error {
+func ensureEditorMembership(db *inceptiondb.Client, blog *Blog, userId, userNick string, createdOn time.Time) (bool, bool, error) {
 	if userId == blog.OwnerId {
-		return ensureOwnerMembership(db, blog)
+		return false, false, ensureOwnerMembership(db, blog)
 	}
-	id := deterministicBlogMemberId(blog.Id, userId)
-	existing := &BlogMember{}
-	if err := db.FindOne(blogMembersCollection, inceptiondb.FindQuery{Filter: JSON{
-		"id": id, "blog_id": blog.Id, "user_id": userId,
-	}}, existing); err == nil {
-		if existing.Role == BlogRoleEditor {
-			return nil
+	created := false
+	alreadyEditor := false
+	updated, err := mutateBlogMembers(db, blog.Id, func(current *Blog) (bool, error) {
+		created = false
+		alreadyEditor = false
+		member := findBlogMember(current.Members, userId)
+		if member != nil && member.Role == BlogRoleEditor {
+			alreadyEditor = true
+			id := deterministicBlogMemberId(current.Id, userId)
+			if member.Id == id && member.BlogId == current.Id {
+				return false, nil
+			}
+			member.Id = id
+			member.BlogId = current.Id
+			return true, nil
 		}
-		patched := &BlogMember{}
-		matched, err := db.PatchOne(blogMembersCollection, inceptiondb.PatchQuery{Filter: JSON{
-			"id": id, "blog_id": blog.Id, "user_id": userId,
-		}, Patch: JSON{"role": BlogRoleEditor, "user_nick": userNick}}, patched)
-		if err != nil {
-			return err
-		}
-		if !matched {
-			return errors.New("editor membership disappeared during repair")
-		}
-		return nil
+		current.Members = removeBlogMemberByUser(current.Members, userId)
+		current.Members = append(current.Members, BlogMember{Id: deterministicBlogMemberId(current.Id, userId), BlogId: current.Id,
+			UserId: userId, UserNick: userNick, Role: BlogRoleEditor, CreatedOn: createdOn})
+		created = member == nil
+		return true, nil
+	})
+	if updated != nil {
+		*blog = *updated
 	}
-	member := &BlogMember{Id: id, BlogId: blog.Id, UserId: userId, UserNick: userNick, Role: BlogRoleEditor, CreatedOn: createdOn}
-	return db.Insert(blogMembersCollection, member)
+	return created, alreadyEditor, err
 }
 
 func ensureOwnerMembership(db *inceptiondb.Client, blog *Blog) error {
-	member := &BlogMember{Id: deterministicBlogMemberId(blog.Id, blog.OwnerId), BlogId: blog.Id,
-		UserId: blog.OwnerId, UserNick: blog.OwnerNick, Role: BlogRoleOwner, CreatedOn: blog.CreatedOn}
-	existing := &BlogMember{}
-	if err := db.FindOne(blogMembersCollection, inceptiondb.FindQuery{Filter: JSON{"id": member.Id}}, existing); err == nil {
-		if existing.BlogId == member.BlogId && existing.UserId == member.UserId && existing.Role == member.Role {
-			return nil
-		}
-		patched := &BlogMember{}
-		matched, err := db.PatchOne(blogMembersCollection, inceptiondb.PatchQuery{
-			Filter: JSON{"id": member.Id}, Patch: member}, patched)
+	updated, err := mutateBlogMembers(db, blog.Id, func(current *Blog) (bool, error) {
+		canonical, err := canonicalizeBlogMembers(current, current.Members, true)
 		if err != nil {
-			return err
+			return false, err
 		}
-		if !matched {
-			return errors.New("owner membership disappeared during repair")
+		if blogMembersEqual(current.Members, canonical) {
+			return false, nil
 		}
-		return nil
+		current.Members = canonical
+		return true, nil
+	})
+	if updated != nil {
+		*blog = *updated
 	}
-	if err := db.Insert(blogMembersCollection, member); err != nil && !errors.Is(err, inceptiondb.ErrorAlreadyExist) {
-		return err
+	return err
+}
+
+const maxBlogMemberCASAttempts = 32
+
+var errBlogMemberCASConflict = errors.New("blog membership changed too many times")
+
+func mutateBlogMembers(db *inceptiondb.Client, blogId string, mutation func(*Blog) (bool, error)) (*Blog, error) {
+	for attempt := 0; attempt < maxBlogMemberCASAttempts; attempt++ {
+		current := &Blog{}
+		if err := db.FindOne(blogsCollection, inceptiondb.FindQuery{Filter: JSON{"id": blogId}}, current); err != nil {
+			return nil, err
+		}
+		changed, err := mutation(current)
+		if err != nil {
+			return nil, err
+		}
+		if !changed {
+			return current, nil
+		}
+		if len(current.Members) > maxBlogMembers {
+			return nil, errors.New("blog has too many members")
+		}
+		sort.Slice(current.Members, func(i, j int) bool { return current.Members[i].Id < current.Members[j].Id })
+		filter := JSON{"id": current.Id, "members_revision": current.MembersRevision}
+		if current.MembersRevision == 0 {
+			filter = JSON{"id": current.Id, "$or": []JSON{{"members_revision": 0}, {"members_revision": nil}}}
+		}
+		patched := &Blog{}
+		matched, err := db.PatchOne(blogsCollection, inceptiondb.PatchQuery{Filter: filter, Patch: JSON{
+			"members": current.Members, "members_revision": current.MembersRevision + 1,
+		}}, patched)
+		if err != nil {
+			return nil, err
+		}
+		if matched {
+			return patched, nil
+		}
+	}
+	return nil, errBlogMemberCASConflict
+}
+
+func canonicalOwnerMember(blog *Blog) BlogMember {
+	return BlogMember{Id: deterministicBlogMemberId(blog.Id, blog.OwnerId), BlogId: blog.Id,
+		UserId: blog.OwnerId, UserNick: blog.OwnerNick, Role: BlogRoleOwner, CreatedOn: blog.CreatedOn}
+}
+
+func findBlogMember(members []BlogMember, userId string) *BlogMember {
+	for i := range members {
+		if members[i].UserId == userId {
+			return &members[i]
+		}
 	}
 	return nil
+}
+
+func removeBlogMemberByUser(members []BlogMember, userId string) []BlogMember {
+	result := make([]BlogMember, 0, len(members))
+	for _, member := range members {
+		if member.UserId != userId {
+			result = append(result, member)
+		}
+	}
+	return result
+}
+
+func canonicalizeBlogMembers(blog *Blog, members []BlogMember, rejectDuplicates bool) ([]BlogMember, error) {
+	result := []BlogMember{canonicalOwnerMember(blog)}
+	seen := map[string]bool{blog.OwnerId: true}
+	for _, member := range members {
+		if member.UserId == "" || member.UserId == blog.OwnerId || member.Role != BlogRoleEditor {
+			continue
+		}
+		if seen[member.UserId] {
+			if rejectDuplicates {
+				return nil, fmt.Errorf("duplicate membership for blog %q and user %q", blog.Id, member.UserId)
+			}
+			continue
+		}
+		seen[member.UserId] = true
+		member.Id = deterministicBlogMemberId(blog.Id, member.UserId)
+		member.BlogId = blog.Id
+		member.Role = BlogRoleEditor
+		result = append(result, member)
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Id < result[j].Id })
+	return result, nil
+}
+
+func blogMembersEqual(left, right []BlogMember) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func deterministicPersonalBlogId(userId string) string {

@@ -480,6 +480,37 @@ textarea:focus-visible {
   gap: clamp(3.5rem, 8vw, 5.5rem);
 }
 
+.pagination-control {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  margin-top: clamp(2.5rem, 7vw, 4.5rem);
+}
+
+.load-more-button {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.7rem 1.35rem;
+  color: var(--color-background);
+  background: var(--color-accent);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.load-more-button[aria-disabled="true"] {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.pagination-status {
+  min-height: 1.2em;
+  color: var(--color-muted);
+  font-size: 0.75rem;
+}
+
 .article-card {
   min-width: 0;
 }
@@ -584,6 +615,28 @@ textarea:focus-visible {
 .bookmarks-status {
   color: var(--color-muted);
   font-size: 0.85rem;
+}
+
+.saved-page {
+  display: grid;
+  gap: clamp(5rem, 11vw, 8rem);
+}
+
+.saved-section .section-header {
+  margin-bottom: 2rem;
+}
+
+.saved-status {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+
+.saved-section .load-more-button {
+  margin-top: 2.5rem;
+}
+
+.saved-card .card-excerpt {
+  white-space: pre-line;
 }
 
 .bookmark-card {
@@ -927,6 +980,15 @@ textarea:focus-visible {
   stroke-width: 1.8;
 }
 
+.applause-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.blog-feedback {
+  margin-bottom: clamp(2.5rem, 6vw, 4rem);
+}
+
 .feedback-count {
   min-width: 1.35rem;
   padding-inline: 0.35rem;
@@ -1213,6 +1275,17 @@ textarea:focus-visible {
 
 .comment {
   min-width: 0;
+  padding: 0.6rem;
+  margin: -0.6rem;
+  border-radius: 5px;
+  scroll-margin-top: 2rem;
+  transition: background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.comment.is-target {
+  background: var(--color-surface);
+  box-shadow: inset 3px 0 var(--color-accent);
+  outline: none;
 }
 
 .comment-header {
@@ -1296,6 +1369,56 @@ textarea:focus-visible {
 .comment-reply {
   margin-top: 0.6rem;
   padding-left: 0;
+}
+
+.comment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.65rem;
+}
+
+.comment-action {
+  min-height: 36px;
+  padding: 0.35rem 0.55rem;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.comment-action:hover,
+.comment-action:focus-visible,
+.comment-action[aria-pressed="true"] {
+  background: var(--color-surface);
+  color: var(--color-accent);
+}
+
+.comment-action:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.comments-more {
+  margin-top: 2.5rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .comment-actions {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 150ms ease;
+  }
+
+  .comment:hover > .comment-actions,
+  .comment:focus-within > .comment-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .comment-replies {

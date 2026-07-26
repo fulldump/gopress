@@ -67,9 +67,10 @@ func TestPublicBlogRoutesAndLegacyRedirects(t *testing.T) {
 		t.Fatalf("article search: status=%d body=%s", response.StatusCode, body)
 	} else {
 		payload := struct {
+			Items    []PublicArticleSearchResult `json:"items"`
 			Articles []PublicArticleSearchResult `json:"articles"`
 		}{}
-		if err := json.Unmarshal([]byte(body), &payload); err != nil || len(payload.Articles) != 1 || payload.Articles[0].Title != "C++ without surprises" || payload.Articles[0].PublicUrl != "/blog/writer/article/c++" {
+		if err := json.Unmarshal([]byte(body), &payload); err != nil || len(payload.Items) != 1 || payload.Items[0].Title != "C++ without surprises" || payload.Items[0].PublicUrl != "/blog/writer/article/c++" {
 			t.Fatalf("unexpected article search payload: err=%v body=%s", err, body)
 		}
 	}

@@ -27,6 +27,7 @@
       'editor.updateTranslations': 'Actualizar traducciones',
       'editor.translationsUnavailable': 'DeepSeek no está configurado; no se podrán generar traducciones al publicar.',
       'common.loading': 'Cargando...', 'common.owner': 'Propietario', 'common.editor': 'Editor',
+      'pagination.loadMore': 'Cargar más', 'pagination.loading': 'Cargando...', 'pagination.failed': 'No se pudo cargar. Inténtalo de nuevo.',
       'language.es': 'Español', 'language.en': 'English', 'language.fr': 'Français', 'language.de': 'Deutsch',
       'language.pt': 'Português', 'language.zh': '中文'
     },
@@ -56,6 +57,7 @@
       'editor.updateTranslations': 'Update translations',
       'editor.translationsUnavailable': 'DeepSeek is not configured; translations cannot be generated on publish.',
       'common.loading': 'Loading...', 'common.owner': 'Owner', 'common.editor': 'Editor',
+      'pagination.loadMore': 'Load more', 'pagination.loading': 'Loading...', 'pagination.failed': 'Could not load more. Try again.',
       'language.es': 'Español', 'language.en': 'English', 'language.fr': 'Français', 'language.de': 'Deutsch',
       'language.pt': 'Português', 'language.zh': '中文'
     },
@@ -85,6 +87,7 @@
       'editor.updateTranslations': '更新翻译',
       'editor.translationsUnavailable': 'DeepSeek 未配置，发布时无法生成翻译。',
       'common.loading': '正在加载...', 'common.owner': '所有者', 'common.editor': '编辑者',
+      'pagination.loadMore': '加载更多', 'pagination.loading': '正在加载...', 'pagination.failed': '加载失败，请重试。',
       'language.es': '西班牙语', 'language.en': '英语', 'language.fr': '法语', 'language.de': '德语',
       'language.pt': '葡萄牙语', 'language.zh': '中文'
     }

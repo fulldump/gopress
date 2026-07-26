@@ -164,6 +164,9 @@ a { color: var(--green); }
 .button.danger { color: var(--danger); border-color: transparent; }
 .button.quiet { min-height: 34px; padding: 6px 10px; background: transparent; border-color: transparent; }
 .button.small { min-height: 34px; padding: 6px 11px; font-size: 13px; }
+.admin-pagination { display: flex; justify-content: center; padding: 24px 0 4px; }
+.switcher-more { min-height: 32px; padding: 4px 7px; color: #dce9e2; background: transparent; border: 0; font-size: 12px; font-weight: 750; cursor: pointer; }
+.switcher-more:disabled { color: var(--muted); cursor: wait; }
 
 :where(a, button, input, textarea, select):focus-visible {
   outline: 3px solid rgba(30, 126, 91, 0.3);

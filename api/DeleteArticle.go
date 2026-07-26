@@ -49,12 +49,29 @@ func DeleteArticle(ctx context.Context, r *http.Request) (*Article, error) {
 		return nil, HttpError{Status: http.StatusConflict, Title: "Article Delete Conflict", Code: "revision_conflict", Description: "El artículo cambió antes de eliminarse"}
 	}
 
-	if err := removeArticleRows(ctx, articleInteractionsCollection, JSON{
-		"articleId": deleted.Id, "articleCreatedOn": deleted.CreatedOn,
-	}); err != nil {
+	comments := []*Comment{}
+	if err := GetInceptionClient(ctx).FindAll(commentsCollection, inceptiondb.FindQuery{
+		Limit: maxBlogMigrationRows, Filter: JSON{"articleId": deleted.Id, "articleCreatedOn": deleted.CreatedOn},
+	}, func(comment *Comment) { comments = append(comments, comment) }); err != nil {
+		return nil, HttpError{Status: http.StatusInternalServerError, Title: "Could Not Delete Article Comments", Description: "El artículo se eliminó, pero no se pudieron localizar sus comentarios"}
+	}
+	if err := removeArticleRows(ctx, articleInteractionsCollection, targetFilter(interactionTarget{
+		Kind: targetArticle, Id: deleted.Id, CreatedOn: deleted.CreatedOn,
+	})); err != nil {
 		return nil, HttpError{Status: http.StatusInternalServerError, Title: "Could Not Delete Article Feedback", Description: "El artículo se eliminó, pero no se pudo limpiar su feedback"}
 	}
-	if err := removeArticleRows(ctx, commentsCollection, JSON{"articleId": deleted.Id}); err != nil {
+	// Also remove any legacy row created after startup by an old maintenance tool.
+	if err := removeArticleRows(ctx, articleInteractionsCollection, JSON{"articleId": deleted.Id, "articleCreatedOn": deleted.CreatedOn}); err != nil {
+		return nil, HttpError{Status: http.StatusInternalServerError, Title: "Could Not Delete Article Feedback", Description: "El artículo se eliminó, pero no se pudo limpiar su feedback heredado"}
+	}
+	for _, comment := range comments {
+		if err := removeArticleRows(ctx, articleInteractionsCollection, targetFilter(interactionTarget{
+			Kind: targetComment, Id: comment.Id, CreatedOn: comment.CreatedOn,
+		})); err != nil {
+			return nil, HttpError{Status: http.StatusInternalServerError, Title: "Could Not Delete Comment Feedback", Description: "El artículo se eliminó, pero no se pudo limpiar el feedback de sus comentarios"}
+		}
+	}
+	if err := removeArticleRows(ctx, commentsCollection, JSON{"articleId": deleted.Id, "articleCreatedOn": deleted.CreatedOn}); err != nil {
 		return nil, HttpError{Status: http.StatusInternalServerError, Title: "Could Not Delete Article Comments", Description: "El artículo se eliminó, pero no se pudieron limpiar sus comentarios"}
 	}
 	return deleted, nil

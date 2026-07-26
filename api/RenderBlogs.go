@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"sort"
-	"strings"
 
 	"github.com/fulldump/box"
 
@@ -14,31 +12,53 @@ import (
 	"gopress/templates"
 )
 
-func RenderBlogs(ctx context.Context, w http.ResponseWriter) error {
+func RenderBlogs(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+	offset, err := listOffset(r)
+	if err != nil {
+		return err
+	}
 	db := GetInceptionClient(ctx)
-	blogsWithArticles := map[string]bool{}
-	if err := db.FindAll("articles", inceptiondb.FindQuery{Limit: maxPublicDiscoveryRows, Filter: JSON{
-		"published": true, "$ne": JSON{"banned": true},
-	}}, func(article *Article) {
-		blogsWithArticles[article.BlogId] = true
-	}); err != nil {
-		return blogStorageError("render blogs articles", err)
-	}
-	blogs := []*Blog{}
+	blogs := make([]*Blog, 0, listPageSize+1)
 	preferred := preferredContentLanguage(ctx)
-	if err := db.FindAll(blogsCollection, inceptiondb.FindQuery{Limit: maxBlogs, Filter: JSON{
-		"$ne": JSON{"banned": true},
-	}}, func(blog *Blog) {
-		if blogsWithArticles[blog.Id] {
-			blogs = append(blogs, preparePublicBlog(blog, preferred))
+	logicalIndex := 0
+	rawOffset := 0
+	for len(blogs) <= listPageSize && rawOffset < maxBlogs {
+		batch := []*Blog{}
+		batchLimit := min(listPageSize+1, maxBlogs-rawOffset)
+		if err := db.FindAll(blogsCollection, inceptiondb.FindQuery{
+			Index: "blogs-name-v1", Skip: rawOffset, Limit: batchLimit, Filter: JSON{"$ne": JSON{"banned": true}},
+		}, func(blog *Blog) { batch = append(batch, blog) }); err != nil {
+			return blogStorageError("render blogs", err)
 		}
-	}); err != nil {
-		return blogStorageError("render blogs", err)
+		if len(batch) == 0 {
+			break
+		}
+		rawOffset += len(batch)
+		for _, blog := range batch {
+			article := &Article{}
+			if err := db.FindOne("articles", inceptiondb.FindQuery{Filter: JSON{
+				"blog_id": blog.Id, "published": true, "$ne": JSON{"banned": true},
+			}}, article); err != nil {
+				continue
+			}
+			if logicalIndex < offset {
+				logicalIndex++
+				continue
+			}
+			blogs = append(blogs, preparePublicBlog(blog, preferred))
+			logicalIndex++
+			if len(blogs) > listPageSize {
+				break
+			}
+		}
+		if len(batch) < batchLimit {
+			break
+		}
 	}
-	sort.SliceStable(blogs, func(i, j int) bool {
-		return strings.ToLower(blogs[i].Name) < strings.ToLower(blogs[j].Name)
-	})
-	if err := templates.Execute(ctx, "blogs", w, JSON{"blogs": blogs}); err != nil {
+	page := pageFromLookahead(blogs, offset)
+	if err := templates.Execute(ctx, "blogs", w, JSON{
+		"blogs": page.Items, "nextURL": nextPageURL(r, page.NextOffset, page.HasMore),
+	}); err != nil {
 		return fmt.Errorf("error rendering blogs: %w", err)
 	}
 	return nil
@@ -48,40 +68,43 @@ func RedirectBlogsSlash(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/blogs", http.StatusPermanentRedirect)
 }
 
-func RenderBlog(ctx context.Context, w http.ResponseWriter) error {
+func RenderBlog(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	blog, err := getPublicBlogBySlug(ctx, box.GetUrlParameter(ctx, "blogSlug"))
 	if err != nil {
 		return err
 	}
-	return renderBlogFeed(ctx, w, blog, "")
+	return renderBlogFeed(ctx, w, r, blog, "")
 }
 
-func RenderBlogTag(ctx context.Context, w http.ResponseWriter) error {
+func RenderBlogTag(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	blog, err := getPublicBlogBySlug(ctx, box.GetUrlParameter(ctx, "blogSlug"))
 	if err != nil {
 		return err
 	}
 	w.Header().Set("X-Robots-Tag", "noindex")
-	return renderBlogFeed(ctx, w, blog, box.GetUrlParameter(ctx, "tag"))
+	return renderBlogFeed(ctx, w, r, blog, box.GetUrlParameter(ctx, "tag"))
 }
 
-func renderBlogFeed(ctx context.Context, w http.ResponseWriter, blog *Blog, tag string) error {
+func renderBlogFeed(ctx context.Context, w http.ResponseWriter, r *http.Request, blog *Blog, tag string) error {
+	offset, err := listOffset(r)
+	if err != nil {
+		return err
+	}
 	filter := JSON{"blog_id": blog.Id, "published": true, "$ne": JSON{"banned": true}}
 	if tag != "" {
 		filter["tags"] = tag
 	}
-	articles := []*Article{}
-	preferred := preferredContentLanguage(ctx)
-	if err := GetInceptionClient(ctx).FindAll("articles", inceptiondb.FindQuery{Limit: 1000, Filter: filter}, func(article *Article) {
-		articles = append(articles, preparePublicArticle(article, blog, preferred))
-	}); err != nil {
+	page, err := publicArticlePage(ctx, filter, offset)
+	if err != nil {
 		return blogStorageError("render blog articles", err)
 	}
-	if tag != "" && len(articles) == 0 {
+	if tag != "" && offset == 0 && len(page.Items) == 0 {
 		return HttpError{Status: http.StatusNotFound, Title: "Tag Not Found", Description: "La etiqueta no existe en este blog"}
 	}
-	sort.SliceStable(articles, func(i, j int) bool { return articles[i].PublishOn.After(articles[j].PublishOn) })
-	if err := templates.Execute(ctx, "blog", w, JSON{"blog": preparePublicBlog(blog, preferred), "articles": articles, "tag": tag}); err != nil {
+	if err := templates.Execute(ctx, "blog", w, JSON{
+		"blog": preparePublicBlog(blog, preferredContentLanguage(ctx)), "articles": page.Items, "tag": tag,
+		"nextURL": nextPageURL(r, page.NextOffset, page.HasMore),
+	}); err != nil {
 		return fmt.Errorf("error rendering blog: %w", err)
 	}
 	return nil

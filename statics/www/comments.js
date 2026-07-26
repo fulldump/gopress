@@ -10,8 +10,13 @@
   var list = document.getElementById('comments-list');
   var status = document.getElementById('comments-status');
   var count = document.getElementById('comments-count');
+  var more = document.getElementById('comments-more');
   var rootForm = document.getElementById('comment-form');
   var openReply = null;
+  var loadedComments = [];
+  var nextOffset = 0;
+  var hasMore = false;
+  var commentsLoading = false;
 
   function element(tag, className, text) {
     var node = document.createElement(tag);
@@ -191,6 +196,10 @@
 
   function renderComment(comment, canReply) {
     var item = element('article', 'comment');
+    var fragment = '';
+    try { fragment = new URL(comment.url, window.location.href).hash.slice(1); } catch (_) {}
+    item.id = fragment || ('comment-' + String(comment.id || '').replace(/^comment_/, ''));
+    item.tabIndex = -1;
     var header = element('header', 'comment-header');
     var avatar = element('span', 'comment-avatar', (comment.name || '?').trim().charAt(0).toUpperCase());
     var identity = element('div', 'comment-identity');
@@ -203,6 +212,7 @@
     item.appendChild(header);
     item.appendChild(renderMarkdown(comment.text));
 
+    var actions = element('div', 'comment-actions');
     if (canReply) {
       var replyButton = element('button', 'comment-reply', t('comments.reply'));
       replyButton.type = 'button';
@@ -213,8 +223,78 @@
         openReply = form;
         form.elements.text.focus();
       });
-      item.appendChild(replyButton);
+      actions.appendChild(replyButton);
     }
+
+    var feedback = comment.feedback || {};
+    var applaud = element('button', 'comment-action');
+    applaud.type = 'button';
+    applaud.innerHTML = '<span aria-hidden="true">👏</span> <span class="comment-like-count"></span>';
+    var save = element('button', 'comment-action', t('feedback.save'));
+    save.type = 'button';
+    var share = element('button', 'comment-action', t('feedback.share'));
+    share.type = 'button';
+    var actionStatus = element('span', 'sr-only');
+    actionStatus.setAttribute('role', 'status');
+    actionStatus.setAttribute('aria-live', 'polite');
+
+    function updateButtons(value) {
+      feedback = value || {};
+      applaud.setAttribute('aria-pressed', feedback.liked ? 'true' : 'false');
+      applaud.setAttribute('aria-label', feedback.liked ? t('feedback.remove_applause') : t('feedback.applaud'));
+      applaud.querySelector('.comment-like-count').textContent = String(feedback.likes || 0);
+      save.setAttribute('aria-pressed', feedback.bookmarked ? 'true' : 'false');
+      save.textContent = feedback.bookmarked ? t('feedback.remove_saved') : t('feedback.save');
+    }
+
+    async function mutate(button, resource) {
+      var me = window.gopressCurrentUser ? await window.gopressCurrentUser : null;
+      if (!me || !me.id) {
+        window.gopressRequireLogin(window.location.pathname + window.location.search + '#' + item.id);
+        return;
+      }
+      button.disabled = true;
+      actionStatus.textContent = '';
+      try {
+        var active = button.getAttribute('aria-pressed') === 'true';
+        var response = await fetch('/v1/comments/' + encodeURIComponent(comment.id) + '/' + resource, {
+          method: active ? 'DELETE' : 'PUT',
+          headers: window.gopressAuthHeaders({ Accept: 'application/json' })
+        });
+        if (response.status === 401) {
+          window.gopressRequireLogin(window.location.pathname + window.location.search + '#' + item.id);
+          return;
+        }
+        var payload = await response.json().catch(function () { return {}; });
+        if (!response.ok) throw new Error(payload.error && payload.error.description ? payload.error.description : t('feedback.update_failed'));
+        comment.feedback = payload;
+        updateButtons(payload);
+        actionStatus.textContent = resource === 'like'
+          ? (payload.liked ? t('feedback.applause_added') : t('feedback.applause_removed'))
+          : (payload.bookmarked ? t('feedback.saved_added') : t('feedback.saved_removed'));
+      } catch (error) {
+        actionStatus.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    applaud.addEventListener('click', function () { mutate(applaud, 'like'); });
+    save.addEventListener('click', function () { mutate(save, 'bookmark'); });
+    share.addEventListener('click', async function () {
+      try {
+        var result = await window.gopressShare(new URL(comment.url, window.location.href).href, t('comments.share_title'));
+        if (result === 'copied') actionStatus.textContent = t('feedback.link_copied');
+      } catch (_) {
+        actionStatus.textContent = t('feedback.copy_failed');
+      }
+    });
+    updateButtons(feedback);
+    actions.appendChild(applaud);
+    actions.appendChild(save);
+    actions.appendChild(share);
+    actions.appendChild(actionStatus);
+    item.appendChild(actions);
 
     if (comment.replies && comment.replies.length) {
       var replies = element('div', 'comment-replies');
@@ -234,29 +314,83 @@
 
   function renderComments(comments) {
     list.replaceChildren();
-    var total = commentCount(comments);
+    appendComments(comments);
+  }
+
+  function appendComments(comments) {
+    comments.forEach(function (comment) {
+      list.appendChild(renderComment(comment, true));
+    });
+    var total = commentCount(loadedComments);
     count.textContent = total ? '(' + total + ')' : '';
-    if (!comments.length) {
+    if (!loadedComments.length) {
       status.textContent = t('comments.empty');
       status.hidden = false;
       return;
     }
 
     status.hidden = true;
-    comments.forEach(function (comment) {
-      list.appendChild(renderComment(comment, true));
-    });
   }
 
-  async function loadComments() {
+  function focusHashTarget() {
+    if (!window.location.hash || !window.location.hash.startsWith('#comment-')) return false;
+    var target = document.getElementById(window.location.hash.slice(1));
+    if (!target) return false;
+    document.querySelectorAll('.comment.is-target').forEach(function (comment) { comment.classList.remove('is-target'); });
+    target.classList.add('is-target');
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return true;
+  }
+
+  async function loadComments(offset, append) {
+    if (commentsLoading) return;
+    commentsLoading = true;
     status.hidden = false;
-    status.textContent = t('comments.loading');
+    status.textContent = offset ? t('pagination.loading') : t('comments.loading');
+    if (more) more.disabled = true;
     try {
-      var response = await fetch(endpoint, { headers: { Accept: 'application/json' } });
+      await (window.gopressCurrentUser || Promise.resolve(null));
+      var response = await fetch(endpoint + '?offset=' + offset, { headers: window.gopressAuthHeaders({ Accept: 'application/json' }) });
       if (!response.ok) throw new Error(t('comments.load_failed'));
-      renderComments(await response.json());
+      var payload = await response.json();
+      var items = payload && Array.isArray(payload.items) ? payload.items : [];
+      loadedComments = append ? loadedComments.concat(items) : items;
+      nextOffset = Number(payload.nextOffset) || 0;
+      hasMore = Boolean(payload.hasMore);
+      if (append) appendComments(items);
+      else renderComments(loadedComments);
+      if (more) {
+        more.hidden = !hasMore;
+        more.disabled = false;
+      }
+      focusHashTarget();
     } catch (error) {
-      list.replaceChildren();
+      if (!append) list.replaceChildren();
+      status.textContent = error.message;
+      if (more) more.disabled = false;
+    } finally {
+      commentsLoading = false;
+    }
+  }
+
+  async function loadHashTarget() {
+    if (focusHashTarget()) return;
+    if (!window.location.hash.startsWith('#comment-')) {
+      await loadComments(0, false);
+      return;
+    }
+    var fragment = window.location.hash.slice('#comment-'.length);
+    try {
+      var response = await fetch('/v1/comments/location/' + encodeURIComponent(fragment), {
+        headers: window.gopressAuthHeaders({ Accept: 'application/json' })
+      });
+      if (!response.ok) throw new Error(t('comments.not_found'));
+      var location = await response.json();
+      await loadComments(Number(location.offset) || 0, false);
+      focusHashTarget();
+    } catch (error) {
+      status.hidden = false;
       status.textContent = error.message;
     }
   }
@@ -273,12 +407,13 @@
       submit.disabled = true;
 
       try {
+        await (window.gopressCurrentUser || Promise.resolve(null));
         var response = await fetch(endpoint, {
           method: 'POST',
-          headers: {
+          headers: window.gopressAuthHeaders({
             Accept: 'application/json',
             'Content-Type': 'application/json'
-          },
+          }),
           body: JSON.stringify({
             parentId: parentId || '',
             name: String(data.get('name') || '').trim(),
@@ -300,7 +435,10 @@
           form.remove();
           openReply = null;
         }
-        await loadComments();
+        var fragment = '';
+        try { fragment = new URL(payload.url, window.location.href).hash; } catch (_) {}
+        if (fragment) history.replaceState(null, '', window.location.pathname + window.location.search + fragment);
+        await loadHashTarget();
       } catch (error) {
         message.textContent = error.message;
       } finally {
@@ -310,5 +448,10 @@
   }
 
   bindForm(rootForm, '');
-  loadComments();
+  if (more) more.addEventListener('click', function () { loadComments(nextOffset, true); });
+  window.addEventListener('hashchange', function () {
+    if (!focusHashTarget()) loadHashTarget();
+  });
+  if (window.location.hash.startsWith('#comment-')) loadHashTarget();
+  else loadComments(0, false);
 })();

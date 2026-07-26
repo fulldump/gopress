@@ -45,6 +45,9 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 	if localizedArticles > 0 {
 		log.Printf("article localization migration complete: patched=%d", localizedArticles)
 	}
+	if err := EnsureArticlePaginationIndexes(db); err != nil {
+		log.Panicf("initialize article pagination indexes: %v", err)
+	}
 	banReport, err := ReconcileBannedBlogs(db, time.Time{})
 	if err != nil {
 		log.Panicf("initial blog ban reconciliation failed: %v", err)
@@ -59,6 +62,12 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 			fileReport.FilesScanned, fileReport.BlogsCreated, fileReport.FilesPatched, fileReport.FilesUnchanged, fileReport.FilesSkipped)
 	}
 	logMigrationWarnings("file", fileReport.Errors)
+	memberReport, err := MigrateEmbeddedBlogMembers(db)
+	if err != nil {
+		log.Panicf("blog member migration failed safely: %v (report: %+v)", err, memberReport)
+	}
+	log.Printf("blog member migration complete: legacy_collection=%t legacy_rows=%d editors=%d blogs_patched=%d",
+		memberReport.LegacyCollectionFound, memberReport.LegacyRowsScanned, memberReport.EditorsMigrated, memberReport.BlogsPatched)
 	commentVersions, err := MigrateCommentArticleVersions(db)
 	if err != nil {
 		log.Panicf("comment article-version migration failed: %v", err)
@@ -66,29 +75,62 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 	if commentVersions > 0 {
 		log.Printf("comment migration complete: patched=%d", commentVersions)
 	}
-	if err := db.EnsureIndex(articleInteractionsCollection, &inceptiondb.IndexOptions{
-		Name:   "interaction-user-article-version-type",
-		Type:   "btree",
-		Fields: []string{"userId", "articleId", "articleCreatedOn", "type"},
-		Unique: true,
-	}); err != nil {
-		log.Panicln("initialize article interactions index:", err.Error())
+	commentDefaults, err := MigrateCommentDefaults(db)
+	if err != nil {
+		log.Panicf("comment defaults migration failed: %v", err)
+	}
+	if commentDefaults > 0 {
+		log.Printf("comment defaults migration complete: patched=%d", commentDefaults)
+	}
+	interactionVersions, err := MigrateArticleInteractions(db)
+	if err != nil {
+		log.Panicf("article interaction migration failed: %v", err)
+	}
+	if interactionVersions > 0 {
+		log.Printf("article interaction migration complete: patched=%d", interactionVersions)
 	}
 	if err := db.EnsureIndex(articleInteractionsCollection, &inceptiondb.IndexOptions{
-		Name:   "interactions-by-article-version",
+		Name:   "interaction-user-target-version-type",
 		Type:   "btree",
-		Fields: []string{"articleId", "articleCreatedOn", "id"},
+		Fields: []string{"userId", "targetKind", "targetId", "targetCreatedOn", "type"},
+		Sparse: true,
 		Unique: true,
 	}); err != nil {
-		log.Panicln("initialize article interactions article index:", err.Error())
+		log.Panicln("initialize interactions unique index:", err.Error())
 	}
 	if err := db.EnsureIndex(articleInteractionsCollection, &inceptiondb.IndexOptions{
-		Name:   "interactions-by-user-type",
+		Name:   "interactions-by-target-version",
 		Type:   "btree",
-		Fields: []string{"userId", "type", "id"},
+		Fields: []string{"targetKind", "targetId", "targetCreatedOn", "id"},
+		Sparse: true,
 		Unique: true,
 	}); err != nil {
-		log.Panicln("initialize article interactions user index:", err.Error())
+		log.Panicln("initialize interactions target index:", err.Error())
+	}
+	if err := db.EnsureIndex(articleInteractionsCollection, &inceptiondb.IndexOptions{
+		Name:   "interactions-by-user-type-kind",
+		Type:   "btree",
+		Fields: []string{"userId", "type", "targetKind", "id"},
+		Sparse: true,
+		Unique: true,
+	}); err != nil {
+		log.Panicln("initialize interactions user index:", err.Error())
+	}
+	if err := db.EnsureIndex(articleInteractionsCollection, &inceptiondb.IndexOptions{
+		Name: "interactions-by-target-kind", Type: "btree", Fields: []string{"targetKind", "targetId", "id"}, Sparse: true, Unique: true,
+	}); err != nil {
+		log.Panicln("initialize interactions kind index:", err.Error())
+	}
+	if err := db.EnsureIndex(commentsCollection, &inceptiondb.IndexOptions{
+		Name: "comments-by-article-version-parent-created", Type: "btree",
+		Fields: []string{"articleId", "articleCreatedOn", "parentId", "createdOn", "id"}, Unique: true,
+	}); err != nil {
+		log.Panicln("initialize comments thread index:", err.Error())
+	}
+	if err := db.EnsureIndex(commentsCollection, &inceptiondb.IndexOptions{
+		Name: "comments-by-user-created", Type: "btree", Fields: []string{"userId", "createdOn", "id"}, Unique: true,
+	}); err != nil {
+		log.Panicln("initialize comments user index:", err.Error())
 	}
 
 	b := box.NewBox()
@@ -131,7 +173,10 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 	v1.Handle("GET", "/search/articles", SearchPublicArticles)
 	v1.Handle("GET", "/articles/{articleId}/comments", ListComments)
 	v1.Handle("POST", "/articles/{articleId}/comments", CreateComment)
+	v1.Handle("GET", "/comments/location/{fragment}", GetCommentLocation)
 	v1.Handle("GET", "/articles/{articleId}/feedback", GetArticleFeedback).WithInterceptors(glueauth.Auth)
+	v1.Handle("GET", "/blogs/{blogId}/feedback", GetBlogFeedback).WithInterceptors(glueauth.Auth)
+	v1.Handle("GET", "/comments/{commentId}/feedback", GetCommentFeedback).WithInterceptors(glueauth.Auth)
 
 	privateEndpoint := func(method, path string, handler any) *box.A {
 		return v1.Handle(method, path, handler).WithInterceptors(glueauth.Require)
@@ -174,7 +219,16 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 	privateEndpoint("DELETE", "/articles/{articleId}/like", UnlikeArticle)
 	privateEndpoint("PUT", "/articles/{articleId}/bookmark", BookmarkArticle)
 	privateEndpoint("DELETE", "/articles/{articleId}/bookmark", RemoveArticleBookmark)
+	privateEndpoint("PUT", "/blogs/{blogId}/like", LikeBlog)
+	privateEndpoint("DELETE", "/blogs/{blogId}/like", UnlikeBlog)
+	privateEndpoint("PUT", "/blogs/{blogId}/bookmark", BookmarkBlog)
+	privateEndpoint("DELETE", "/blogs/{blogId}/bookmark", RemoveBlogBookmark)
+	privateEndpoint("PUT", "/comments/{commentId}/like", LikeComment)
+	privateEndpoint("DELETE", "/comments/{commentId}/like", UnlikeComment)
+	privateEndpoint("PUT", "/comments/{commentId}/bookmark", BookmarkComment)
+	privateEndpoint("DELETE", "/comments/{commentId}/bookmark", RemoveCommentBookmark)
 	privateEndpoint("GET", "/bookmarks", ListBookmarks)
+	privateEndpoint("GET", "/saved/{kind}", ListSaved)
 	privateEndpoint("POST", "/files", UploadFile).WithAttribute("filestorager", fs)
 	privateEndpoint("GET", "/files", ListFiles)
 	privateEndpoint("GET", "/files/{fileId}", RetrieveFile)

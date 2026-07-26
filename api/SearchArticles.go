@@ -3,19 +3,16 @@ package api
 import (
 	"context"
 	"net/http"
-	"sort"
 	"strings"
 	"time"
 
 	"gopress/inceptiondb"
 )
 
-const (
-	maxArticleSearchResults = 20
-	maxPublicDiscoveryRows  = 10000
-)
+const maxPublicSearchCandidates = 10000
 
 type PublicArticleSearchResult struct {
+	Id                 string         `json:"id"`
 	Title              string         `json:"title"`
 	Url                string         `json:"url"`
 	PublicUrl          string         `json:"publicUrl"`
@@ -28,45 +25,73 @@ type PublicArticleSearchResult struct {
 }
 
 func SearchPublicArticles(ctx context.Context, r *http.Request) any {
+	offset, err := listOffset(r)
+	if err != nil {
+		return err
+	}
 	query := normalizePublicSearch(r.URL.Query().Get("q"))
 	if len([]rune(query)) < 2 {
-		return JSON{"articles": []PublicArticleSearchResult{}}
+		items := []PublicArticleSearchResult{}
+		return JSON{"items": items, "hasMore": false, "nextOffset": 0, "articles": items}
 	}
 	db := GetInceptionClient(ctx)
 	blogs := map[string]*Blog{}
-	if err := db.FindAll(blogsCollection, inceptiondb.FindQuery{Limit: maxBlogs, Filter: JSON{
-		"$ne": JSON{"banned": true},
-	}}, func(blog *Blog) {
-		blogs[blog.Id] = blog
-	}); err != nil {
-		return blogStorageError("search article blogs", err)
-	}
-
-	results := []PublicArticleSearchResult{}
+	missingBlogs := map[string]bool{}
+	results := make([]PublicArticleSearchResult, 0, listPageSize+1)
 	preferred := preferredContentLanguage(ctx)
-	err := db.FindAll("articles", inceptiondb.FindQuery{Limit: maxPublicDiscoveryRows, Filter: JSON{
-		"published": true, "$ne": JSON{"banned": true},
-	}}, func(article *Article) {
-		blog := blogs[article.BlogId]
-		if blog == nil || !articleMatchesSearch(article, blog, query) {
-			return
+	logicalIndex := 0
+	rawOffset := 0
+	for len(results) <= listPageSize && rawOffset < maxPublicSearchCandidates {
+		batch := []*Article{}
+		batchLimit := min(listPageSize+1, maxPublicSearchCandidates-rawOffset)
+		err = db.FindAll("articles", inceptiondb.FindQuery{
+			Index: "articles-public-publish-v2", Skip: rawOffset, Limit: batchLimit, Reverse: true,
+			Filter: JSON{"published": true, "$ne": JSON{"banned": true}},
+		}, func(article *Article) { batch = append(batch, article) })
+		if err != nil {
+			return blogStorageError("search articles", err)
 		}
-		localized := preparePublicArticle(article, blog, preferred)
-		results = append(results, PublicArticleSearchResult{
-			Title: localized.Title, Url: article.Url, PublicUrl: localized.PublicUrl,
-			BlogName: blog.Name, BlogSlug: blog.Slug, AuthorNick: article.AuthorNick,
-			Tags: article.Tags, PublishOn: article.PublishOn, AvailableLanguages: localized.AvailableLanguages,
-		})
-		if len(results) > maxArticleSearchResults {
-			sort.SliceStable(results, func(i, j int) bool { return results[i].PublishOn.After(results[j].PublishOn) })
-			results = results[:maxArticleSearchResults]
+		if len(batch) == 0 {
+			break
 		}
-	})
-	if err != nil {
-		return blogStorageError("search articles", err)
+		rawOffset += len(batch)
+		for _, article := range batch {
+			blog := blogs[article.BlogId]
+			if blog == nil && !missingBlogs[article.BlogId] {
+				candidate := &Blog{}
+				if findErr := db.FindOne(blogsCollection, inceptiondb.FindQuery{Filter: JSON{
+					"id": article.BlogId, "$ne": JSON{"banned": true},
+				}}, candidate); findErr != nil {
+					missingBlogs[article.BlogId] = true
+				} else {
+					blog = candidate
+					blogs[article.BlogId] = candidate
+				}
+			}
+			if blog == nil || !articleMatchesSearch(article, blog, query) {
+				continue
+			}
+			if logicalIndex < offset {
+				logicalIndex++
+				continue
+			}
+			localized := preparePublicArticle(article, blog, preferred)
+			results = append(results, PublicArticleSearchResult{
+				Id: article.Id, Title: localized.Title, Url: article.Url, PublicUrl: localized.PublicUrl,
+				BlogName: blog.Name, BlogSlug: blog.Slug, AuthorNick: article.AuthorNick,
+				Tags: article.Tags, PublishOn: article.PublishOn, AvailableLanguages: localized.AvailableLanguages,
+			})
+			logicalIndex++
+			if len(results) > listPageSize {
+				break
+			}
+		}
+		if len(batch) < batchLimit {
+			break
+		}
 	}
-	sort.SliceStable(results, func(i, j int) bool { return results[i].PublishOn.After(results[j].PublishOn) })
-	return JSON{"articles": results}
+	page := pageFromLookahead(results, offset)
+	return JSON{"items": page.Items, "hasMore": page.HasMore, "nextOffset": page.NextOffset, "articles": page.Items}
 }
 
 func articleMatchesSearch(article *Article, blog *Blog, query string) bool {

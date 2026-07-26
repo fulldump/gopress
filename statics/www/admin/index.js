@@ -159,6 +159,16 @@ function collection(data, key) {
     return [];
 }
 
+function appendUnique(current, additions) {
+    const seen = new Set(current.map((item) => String(idOf(item))));
+    return current.concat(additions.filter((item) => {
+        const id = String(idOf(item));
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+    }));
+}
+
 function entity(data, key) {
     if (!data) return data;
     if (data[key]) return data[key];
@@ -259,6 +269,9 @@ const store = reactive({
     blogsLoaded: false,
     blogsLoading: false,
     blogsPromise: null,
+    blogsHasMore: false,
+    blogsNextOffset: 0,
+    blogsPageError: '',
 });
 
 async function loadBlogs(force = false) {
@@ -270,6 +283,9 @@ async function loadBlogs(force = false) {
     store.blogsPromise = request('/v1/blogs')
         .then((data) => {
             store.blogs = collection(data, 'blogs');
+            store.blogsHasMore = Boolean(data && data.hasMore);
+            store.blogsNextOffset = Number(data && data.nextOffset) || store.blogs.length;
+            store.blogsPageError = '';
             store.blogsLoaded = true;
             return store.blogs;
         })
@@ -278,6 +294,24 @@ async function loadBlogs(force = false) {
             store.blogsPromise = null;
         });
     return store.blogsPromise;
+}
+
+async function loadMoreBlogs() {
+    if (store.blogsLoading || !store.blogsHasMore) return store.blogs;
+    store.blogsLoading = true;
+    store.blogsPageError = '';
+    try {
+        const data = await request(`/v1/blogs?offset=${store.blogsNextOffset}`);
+        store.blogs = appendUnique(store.blogs, collection(data, 'blogs'));
+        store.blogsHasMore = Boolean(data && data.hasMore);
+        store.blogsNextOffset = Number(data && data.nextOffset) || store.blogs.length;
+        return store.blogs;
+    } catch (error) {
+        store.blogsPageError = t('pagination.failed');
+        throw error;
+    } finally {
+        store.blogsLoading = false;
+    }
 }
 
 const AppShell = {
@@ -291,6 +325,7 @@ const AppShell = {
               <option value="">{{ $t('nav.allBlogs') }}</option>
               <option v-for="blog in store.blogs" :key="idOf(blog)" :value="idOf(blog)">{{ blog.name }}</option>
             </select>
+            <button v-if="store.blogsHasMore" class="switcher-more" type="button" @click="moreBlogs" :disabled="store.blogsLoading">{{ store.blogsLoading ? $t('pagination.loading') : $t('pagination.loadMore') }}</button>
           </div>
           <div class="account" v-if="store.user">
             <label class="sr-only" for="admin-locale">{{ $t('locale.label') }}</label><select id="admin-locale" class="admin-locale" :value="locale" @change="changeLocale"><option value="es">ES</option><option value="en">EN</option><option value="zh">ZH</option></select><span class="account-name">{{ store.user.nick || store.user.name || store.user.email }}</span>
@@ -321,12 +356,14 @@ const AppShell = {
     },
     methods: {
         idOf,
+        moreBlogs() { loadMoreBlogs().catch(() => {}); },
         async changeLocale(event) { setLocale(event.target.value); await request('/v1/preferences', { method: 'PUT', body: { locale: i18nState.locale } }).catch(() => {}); },
         viewKey(route) {
             const blogId = route.params.blogId || '';
             const articleId = route.params.articleId || '';
             const inviteToken = route.params.token || '';
-            return `${String(route.name)}:${blogId}:${articleId}:${inviteToken}`;
+            const filter = route.params.filter || '';
+            return `${String(route.name)}:${blogId}:${articleId}:${inviteToken}:${filter}`;
         },
         switchBlog(event) {
             const blogId = event.target.value;
@@ -355,6 +392,7 @@ const BlogsPage = {
             <span v-if="blog.banned" class="role-badge banned-badge">Baneado</span><span class="role-badge">{{ roleLabel(blog) }}</span><span class="row-arrow" aria-hidden="true">→</span>
           </router-link>
         </div>
+        <div v-if="store.blogsHasMore || store.blogsPageError" class="admin-pagination"><button class="button" @click="moreBlogs" :disabled="store.blogsLoading">{{ store.blogsLoading ? $t('pagination.loading') : (store.blogsPageError || $t('pagination.loadMore')) }}</button></div>
       </main>
     `,
     data() {
@@ -364,12 +402,14 @@ const BlogsPage = {
         contentLanguages() { return ['es', 'en', 'fr', 'de', 'pt', 'zh']; },
         blogs() { return store.blogs; },
         loading() { return store.blogsLoading && !store.blogsLoaded; },
+        store() { return store; },
     },
     async mounted() {
         try { await loadBlogs(); } catch (error) { this.error = errorMessage(error); }
     },
     methods: {
         idOf,
+        moreBlogs() { loadMoreBlogs().catch(() => {}); },
         roleLabel(blog) { return roleOf(blog) === 'owner' ? t('common.owner') : t('common.editor'); },
         async createBlog() {
             this.creating = true;
@@ -397,11 +437,12 @@ const PostsPage = {
         </div>
         <p v-if="isBanned" class="notice error" role="alert">Este blog está baneado. Sus entradas no son públicas y no se puede crear ni publicar contenido nuevo. Puedes solicitar una revisión desde Ajustes.</p>
         <div class="tabs" aria-label="Estado de las entradas">
-          <router-link :to="{ name: 'posts', params: { blogId, filter: 'published' } }">{{ $t('posts.published') }} <span class="count">{{ published.length }}</span></router-link><router-link :to="{ name: 'posts', params: { blogId, filter: 'drafts' } }">{{ $t('posts.drafts') }} <span class="count">{{ drafts.length }}</span></router-link>
+          <router-link :to="{ name: 'posts', params: { blogId, filter: 'published' } }">{{ $t('posts.published') }}</router-link><router-link :to="{ name: 'posts', params: { blogId, filter: 'drafts' } }">{{ $t('posts.drafts') }}</router-link>
         </div>
         <p v-if="error" class="notice error" role="alert">{{ error }}</p>
         <div v-if="loading" class="state"><span class="spinner"></span> Cargando entradas...</div>
-        <div v-else-if="!visibleArticles.length" class="state empty-state"><strong>{{ emptyTitle }}</strong><span>{{ emptyText }}</span></div>
+        <template v-else>
+        <div v-if="!visibleArticles.length" class="state empty-state"><strong>{{ emptyTitle }}</strong><span>{{ emptyText }}</span></div>
         <div v-else class="article-list">
           <article v-for="article in visibleArticles" :key="idOf(article)" class="article-row">
             <router-link class="article-main" :to="{ name: 'edit', params: { blogId, articleId: idOf(article) } }">
@@ -412,10 +453,12 @@ const PostsPage = {
             </div>
           </article>
         </div>
+        <div v-if="hasMore || pageError" class="admin-pagination"><button class="button" @click="loadMore" :disabled="loadingMore">{{ loadingMore ? $t('pagination.loading') : (pageError || $t('pagination.loadMore')) }}</button></div>
+        </template>
       </main>
     `,
     data() {
-        return { articles: [], loading: true, creating: false, error: '', busy: {} };
+        return { articles: [], loading: true, loadingMore: false, creating: false, error: '', pageError: '', busy: {}, hasMore: false, nextOffset: 0 };
     },
     computed: {
         blogId() { return this.$route.params.blogId; },
@@ -427,6 +470,7 @@ const PostsPage = {
         published() { return this.articles.filter(articleIsPublished); },
         drafts() { return this.articles.filter((article) => !articleIsPublished(article)); },
         visibleArticles() { return this.$route.params.filter === 'drafts' ? this.drafts : this.published; },
+        publicationQuery() { return this.$route.params.filter === 'drafts' ? 'false' : 'true'; },
         emptyTitle() { return this.$route.params.filter === 'drafts' ? 'No hay borradores' : 'Todavía no has publicado'; },
         emptyText() { return this.$route.params.filter === 'drafts' ? 'Las nuevas entradas aparecerán aquí.' : 'Publica un borrador para verlo en esta sección.'; },
     },
@@ -443,16 +487,30 @@ const PostsPage = {
             this.loading = true;
             this.error = '';
             try {
-                const data = await request(`/v1/blogs/${encodeURIComponent(this.blogId)}/articles`);
-                this.articles = collection(data, 'articles').sort((a, b) => {
-                    const aDate = a.updatedOn || a.updated_on || a.updatedAt || a.createdOn || a.created_on || '';
-                    const bDate = b.updatedOn || b.updated_on || b.updatedAt || b.createdOn || b.created_on || '';
-                    return String(bDate).localeCompare(String(aDate));
-                });
+                const data = await request(`/v1/blogs/${encodeURIComponent(this.blogId)}/articles?published=${this.publicationQuery}`);
+                this.articles = collection(data, 'articles');
+                this.hasMore = Boolean(data && data.hasMore);
+                this.nextOffset = Number(data && data.nextOffset) || this.articles.length;
+                this.pageError = '';
             } catch (error) {
                 this.error = errorMessage(error);
             } finally {
                 this.loading = false;
+            }
+        },
+        async loadMore() {
+            if (this.loadingMore || !this.hasMore) return;
+            this.loadingMore = true;
+            this.pageError = '';
+            try {
+                const data = await request(`/v1/blogs/${encodeURIComponent(this.blogId)}/articles?published=${this.publicationQuery}&offset=${this.nextOffset}`);
+                this.articles = appendUnique(this.articles, collection(data, 'articles'));
+                this.hasMore = Boolean(data && data.hasMore);
+                this.nextOffset = Number(data && data.nextOffset) || this.articles.length;
+            } catch (_) {
+                this.pageError = t('pagination.failed');
+            } finally {
+                this.loadingMore = false;
             }
         },
         async createArticle() {
@@ -512,7 +570,7 @@ const PostsPage = {
             const result = await this.withShortLock(article, (root, token) => request(root, {
                 method: 'DELETE', headers: { 'X-Edit-Lock-Token': token }, body: { revision },
             }));
-            if (result.ok) this.articles = this.articles.filter((item) => idOf(item) !== idOf(article));
+            if (result.ok) await this.loadArticles();
         },
     },
 };
@@ -570,6 +628,7 @@ const SettingsPage = {
                   </div>
                   <div v-if="!members.length" class="state">{{ $t('members.empty') }}</div>
                 </div>
+                <div v-if="membersHasMore || membersPageError" class="admin-pagination"><button class="button" @click="loadMoreMembers" :disabled="membersLoadingMore">{{ membersLoadingMore ? $t('pagination.loading') : (membersPageError || $t('pagination.loadMore')) }}</button></div>
               </section>
 
               <section v-if="isOwner" id="invitations" class="settings-section">
@@ -582,6 +641,7 @@ const SettingsPage = {
                   </div>
                   <div v-if="!invitations.length" class="state">{{ $t('invitations.empty') }}</div>
                 </div>
+                <div v-if="invitesHasMore || invitesPageError" class="admin-pagination"><button class="button" @click="loadMoreInvitations" :disabled="invitesLoadingMore">{{ invitesLoadingMore ? $t('pagination.loading') : (invitesPageError || $t('pagination.loadMore')) }}</button></div>
               </section>
             </div>
           </div>
@@ -592,6 +652,8 @@ const SettingsPage = {
         return {
             blog: null, form: {}, members: [], invitations: [], loading: true, loadError: '', error: '',
             membersLoading: false, invitesLoading: false, saving: false, saved: false, memberBusy: '',
+            membersLoadingMore: false, membersHasMore: false, membersNextOffset: 0, membersPageError: '',
+            invitesLoadingMore: false, invitesHasMore: false, invitesNextOffset: 0, invitesPageError: '',
             inviteBusy: '', inviteCreating: false, newInviteLink: '', newInviteId: '', copied: false,
             headerUploading: false, headerUploadError: '',
             reviewMessage: '', reviewSubmitting: false, reviewError: '',
@@ -702,21 +764,57 @@ const SettingsPage = {
             try {
                 const data = await request(`/v1/blogs/${encodeURIComponent(this.blogId)}/members`);
                 this.members = collection(data, 'members');
+                this.membersHasMore = Boolean(data && data.hasMore);
+                this.membersNextOffset = Number(data && data.nextOffset) || this.members.length;
+                this.membersPageError = '';
             } catch (error) {
                 this.error = errorMessage(error);
             } finally {
                 this.membersLoading = false;
             }
         },
+        async loadMoreMembers() {
+            if (this.membersLoadingMore || !this.membersHasMore) return;
+            this.membersLoadingMore = true;
+            this.membersPageError = '';
+            try {
+                const data = await request(`/v1/blogs/${encodeURIComponent(this.blogId)}/members?offset=${this.membersNextOffset}`);
+                this.members = appendUnique(this.members, collection(data, 'members'));
+                this.membersHasMore = Boolean(data && data.hasMore);
+                this.membersNextOffset = Number(data && data.nextOffset) || this.members.length;
+            } catch (_) {
+                this.membersPageError = t('pagination.failed');
+            } finally {
+                this.membersLoadingMore = false;
+            }
+        },
         async loadInvitations() {
             this.invitesLoading = true;
             try {
                 const data = await request(`/v1/blogs/${encodeURIComponent(this.blogId)}/invitations`);
-                this.invitations = collection(data, 'invitations').filter((invite) => !invite.status || invite.status === 'pending');
+                this.invitations = collection(data, 'invitations');
+                this.invitesHasMore = Boolean(data && data.hasMore);
+                this.invitesNextOffset = Number(data && data.nextOffset) || this.invitations.length;
+                this.invitesPageError = '';
             } catch (error) {
                 this.error = errorMessage(error);
             } finally {
                 this.invitesLoading = false;
+            }
+        },
+        async loadMoreInvitations() {
+            if (this.invitesLoadingMore || !this.invitesHasMore) return;
+            this.invitesLoadingMore = true;
+            this.invitesPageError = '';
+            try {
+                const data = await request(`/v1/blogs/${encodeURIComponent(this.blogId)}/invitations?offset=${this.invitesNextOffset}`);
+                this.invitations = appendUnique(this.invitations, collection(data, 'invitations'));
+                this.invitesHasMore = Boolean(data && data.hasMore);
+                this.invitesNextOffset = Number(data && data.nextOffset) || this.invitations.length;
+            } catch (_) {
+                this.invitesPageError = t('pagination.failed');
+            } finally {
+                this.invitesLoadingMore = false;
             }
         },
         scrollTo(id) { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
@@ -738,7 +836,7 @@ const SettingsPage = {
             this.error = '';
             try {
                 await request(`/v1/blogs/${encodeURIComponent(this.blogId)}/members/${encodeURIComponent(userId)}`, { method: 'DELETE' });
-                this.members = this.members.filter((item) => this.memberUserId(item) !== userId);
+                await this.loadMembers();
             } catch (error) {
                 this.error = errorMessage(error);
             } finally {
@@ -784,7 +882,7 @@ const SettingsPage = {
             this.error = '';
             try {
                 await request(`/v1/blogs/${encodeURIComponent(this.blogId)}/invitations/${encodeURIComponent(invitationId)}`, { method: 'DELETE' });
-                this.invitations = this.invitations.filter((item) => this.inviteId(item) !== invitationId);
+                await this.loadInvitations();
                 if (invitationId === this.newInviteId) {
                     this.newInviteId = '';
                     this.newInviteLink = '';

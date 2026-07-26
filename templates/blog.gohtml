@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+Pro:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles/basic.css?v=10">
+    <link rel="stylesheet" href="/styles/basic.css?v=11">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="manifest" href="/site.webmanifest">{{ .headTrailCode }}
 </head>
@@ -34,12 +34,20 @@
             </div>
         </header>
         <main class="site-main" id="main-content">
+            <section class="article-feedback blog-feedback content-column" id="feedback" data-endpoint="/v1/blogs/{{ .blog.Id }}" data-title="{{ .blog.Name }}" data-url="{{ .blog.PublicUrl }}">
+                <div class="feedback-actions" aria-label="{{ t .locale "feedback.blog_actions" }}">
+                    <button class="feedback-button" id="article-like" type="button" aria-pressed="false" disabled><span class="applause-icon" aria-hidden="true">👏</span><span class="feedback-label">{{ t .locale "feedback.applaud" }}</span><span class="feedback-count" id="article-like-count">0</span></button>
+                    <button class="feedback-button" id="article-bookmark" type="button" aria-pressed="false" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 3.5h11v17L12 17l-5.5 3.5v-17Z"/></svg><span class="feedback-label">{{ t .locale "feedback.save" }}</span></button>
+                    <button class="feedback-button" id="article-share" type="button" aria-haspopup="dialog" aria-controls="share-dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5"/></svg><span>{{ t .locale "feedback.share" }}</span></button>
+                </div>
+                <p class="feedback-status" id="feedback-status" role="status" aria-live="polite"></p>
+            </section>
             <section class="content-column" aria-labelledby="articles-title">
                 <header class="section-header"><h2 id="articles-title">{{ if .tag }}#{{ .tag }}{{ else }}{{ t .locale "blog.latest" }}{{ end }}</h2></header>
                 {{ if .articles }}
-                <div class="article-feed">
+                <div class="article-feed pagination-list" data-pagination-list>
                     {{ range .articles }}
-                    <article class="article-card" itemscope itemtype="https://schema.org/Article">
+                    <article class="article-card pagination-item" data-pagination-item data-item-id="{{ .Id }}" itemscope itemtype="https://schema.org/Article">
                         <h3 itemprop="headline"><a href="{{ .PublicUrl }}" itemprop="url">{{ .Title }}</a></h3>
                         <div class="card-excerpt" itemprop="description">{{ .ContentSummary }}</div>
                         <div class="article-meta"><span itemprop="author">{{ t $.locale "article.by" }} {{ .AuthorNick }}</span><time datetime="{{ .PublishOn.Format "2006-01-02" }}">{{ .PublishOn.Format "02/01/2006" }}</time><span>{{ .Stats.Views }} {{ t $.locale "article.reads" }}</span></div>
@@ -48,13 +56,26 @@
                     </article>
                     {{ end }}
                 </div>
+                {{ if .nextURL }}<div class="pagination-control" data-pagination-control><a class="load-more-button" data-load-more href="{{ .nextURL }}">{{ t .locale "pagination.load_more" }}</a><span class="pagination-status" data-pagination-status role="status" aria-live="polite"></span></div>{{ end }}
                 {{ else }}
                 <div class="empty-state"><h2>{{ t .locale "home.empty" }}</h2><p>{{ t .locale "home.empty_help" }}</p></div>
                 {{ end }}
             </section>
         </main>
+        <dialog class="share-dialog" id="share-dialog" aria-labelledby="share-dialog-title">
+            <div class="share-dialog-header"><div><span class="eyebrow">GoPress</span><h2 id="share-dialog-title">{{ t .locale "feedback.share_blog" }}</h2></div><form method="dialog"><button class="share-dialog-close" type="submit" aria-label="{{ t .locale "common.close" }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></form></div>
+            <div class="share-options">
+                <button class="share-option" type="button" data-share="copy"><span class="share-option-icon">URL</span><span>{{ t .locale "feedback.copy" }}</span></button>
+                <button class="share-option" type="button" data-share="bluesky"><span class="share-option-icon">BS</span><span>Bluesky</span></button>
+                <button class="share-option" type="button" data-share="linkedin"><span class="share-option-icon">in</span><span>LinkedIn</span></button>
+                <button class="share-option" type="button" data-share="x"><span class="share-option-icon">X</span><span>X</span></button>
+                <button class="share-option" type="button" data-share="facebook"><span class="share-option-icon">f</span><span>Facebook</span></button>
+                <button class="share-option" type="button" data-share="whatsapp"><span class="share-option-icon">WA</span><span>WhatsApp</span></button>
+            </div>
+            <p class="share-dialog-status" id="share-dialog-status" role="status" aria-live="polite"></p>
+        </dialog>
         <footer class="site-footer"><div class="footer-content container"><p>{{ .blog.Name }} · GoPress.org</p><nav class="footer-links"><a href="/blogs">{{ t .locale "blog.all" }}</a></nav></div></footer>
     </div>
-    <script id="gopress-i18n" type="application/json">{{ json .messages }}</script><script src="/public.js?v=7" defer></script>
+    <script id="gopress-i18n" type="application/json">{{ json .messages }}</script><script src="/public.js?v=9" defer></script><script src="/article-feedback.js?v=4" defer></script>
 </body>
 </html>

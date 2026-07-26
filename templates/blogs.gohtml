@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+Pro:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles/basic.css?v=10">
+    <link rel="stylesheet" href="/styles/basic.css?v=11">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="manifest" href="/site.webmanifest">{{ .headTrailCode }}
 </head>
@@ -41,9 +41,9 @@
                     <label class="sr-only" for="blog-search">{{ t .locale "blogs.search" }}</label><input id="blog-search" type="search" placeholder="{{ t .locale "blogs.search_placeholder" }}" autocomplete="off">
                     <span id="blog-search-status" aria-live="polite"></span>
                 </div>
-                <div class="blog-directory">
+                <div class="blog-directory pagination-list" data-pagination-list>
                     {{ range .blogs }}
-                    <article class="blog-directory-card" style="--blog-accent: {{ .AccentColor }}">
+                    <article class="blog-directory-card pagination-item" data-pagination-item data-item-id="{{ .Id }}" style="--blog-accent: {{ .AccentColor }}">
                         <span class="blog-directory-mark" aria-hidden="true"></span>
                         <div>
                             <h2><a href="{{ .PublicUrl }}">{{ .Name }}</a></h2>
@@ -54,6 +54,7 @@
                     </article>
                     {{ end }}
                 </div>
+                {{ if .nextURL }}<div class="pagination-control" data-pagination-control><a class="load-more-button" data-load-more href="{{ .nextURL }}">{{ t .locale "pagination.load_more" }}</a><span class="pagination-status" data-pagination-status role="status" aria-live="polite"></span></div>{{ end }}
                 <div class="empty-state" id="blog-search-empty" hidden><h2>{{ t .locale "blogs.none_match" }}</h2><p>{{ t .locale "blogs.try_again" }}</p></div>
                 {{ else }}
                 <div class="empty-state"><h2>{{ t .locale "blogs.empty" }}</h2><p>{{ t .locale "blogs.empty_help" }}</p></div>
@@ -62,6 +63,6 @@
         </main>
         <footer class="site-footer"><div class="footer-content container"><p>{{ t .locale "footer.text" }}</p><nav class="footer-links" aria-label="{{ t .locale "footer.links" }}"><a href="https://github.com/fulldump/gopress">GitHub</a><a href="https://www.twitch.tv/fulldump">Twitch</a><a href="https://www.youtube.com/@fulldump">YouTube</a></nav></div></footer>
     </div>
-    <script id="gopress-i18n" type="application/json">{{ json .messages }}</script><script src="/public.js?v=7" defer></script>
+    <script id="gopress-i18n" type="application/json">{{ json .messages }}</script><script src="/public.js?v=8" defer></script>
 </body>
 </html>
