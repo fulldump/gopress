@@ -25,11 +25,12 @@ func RenderBlogs(ctx context.Context, w http.ResponseWriter) error {
 		return blogStorageError("render blogs articles", err)
 	}
 	blogs := []*Blog{}
+	preferred := preferredContentLanguage(ctx)
 	if err := db.FindAll(blogsCollection, inceptiondb.FindQuery{Limit: maxBlogs, Filter: JSON{
 		"$ne": JSON{"banned": true},
 	}}, func(blog *Blog) {
 		if blogsWithArticles[blog.Id] {
-			blogs = append(blogs, blog)
+			blogs = append(blogs, preparePublicBlog(blog, preferred))
 		}
 	}); err != nil {
 		return blogStorageError("render blogs", err)
@@ -70,9 +71,9 @@ func renderBlogFeed(ctx context.Context, w http.ResponseWriter, blog *Blog, tag 
 		filter["tags"] = tag
 	}
 	articles := []*Article{}
+	preferred := preferredContentLanguage(ctx)
 	if err := GetInceptionClient(ctx).FindAll("articles", inceptiondb.FindQuery{Limit: 1000, Filter: filter}, func(article *Article) {
-		ensureArticleSummary(article)
-		articles = append(articles, article)
+		articles = append(articles, preparePublicArticle(article, blog, preferred))
 	}); err != nil {
 		return blogStorageError("render blog articles", err)
 	}
@@ -80,7 +81,7 @@ func renderBlogFeed(ctx context.Context, w http.ResponseWriter, blog *Blog, tag 
 		return HttpError{Status: http.StatusNotFound, Title: "Tag Not Found", Description: "La etiqueta no existe en este blog"}
 	}
 	sort.SliceStable(articles, func(i, j int) bool { return articles[i].PublishOn.After(articles[j].PublishOn) })
-	if err := templates.Execute(ctx, "blog", w, JSON{"blog": blog, "articles": articles, "tag": tag}); err != nil {
+	if err := templates.Execute(ctx, "blog", w, JSON{"blog": preparePublicBlog(blog, preferred), "articles": articles, "tag": tag}); err != nil {
 		return fmt.Errorf("error rendering blog: %w", err)
 	}
 	return nil

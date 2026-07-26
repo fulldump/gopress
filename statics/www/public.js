@@ -5,6 +5,13 @@
   var logout = document.getElementById('logout');
   var currentUser = null;
   var localAuthHosts = ['localhost', '127.0.0.1', '::1'];
+  var messages = {};
+  var messagesNode = document.getElementById('gopress-i18n');
+  if (messagesNode) {
+    try { messages = JSON.parse(messagesNode.textContent); } catch (_) {}
+  }
+  function tr(key) { return messages[key] || key; }
+  window.gopressI18n = { locale: document.documentElement.lang || 'es', t: tr };
 
   window.gopressAuthHeaders = function (initial) {
     var headers = new Headers(initial || {});
@@ -62,7 +69,7 @@
       var picture = document.getElementById('user_picture');
       if (picture && me.picture) {
         picture.src = me.picture;
-        picture.alt = 'Foto de ' + me.nick;
+        picture.alt = me.nick;
         picture.hidden = false;
       }
       return me;
@@ -71,6 +78,26 @@
       showAnonymous();
       return null;
     });
+
+  document.querySelectorAll('.locale-switcher a').forEach(function (link) {
+    link.addEventListener('click', async function (event) {
+      var destination = link.href;
+      var language = new URL(destination, window.location.href).searchParams.get('lang') || link.hreflang || link.textContent.trim().toLowerCase();
+      event.preventDefault();
+      var user = window.gopressCurrentUser ? await window.gopressCurrentUser : null;
+      if (!user || !user.id || !['es', 'en', 'zh'].includes(language)) {
+        window.location.assign(destination);
+        return;
+      }
+      try {
+        await fetch('/v1/preferences', {
+          method: 'PUT', credentials: 'same-origin', headers: window.gopressAuthHeaders({ Accept: 'application/json', 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ locale: language })
+        });
+      } catch (_) {}
+      window.location.assign(destination);
+    });
+  });
 
   function normalizeSearch(value) {
     return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
@@ -91,7 +118,7 @@
         if (matches) visible += 1;
       });
       if (empty) empty.hidden = visible !== 0;
-      if (status) status.textContent = query ? visible + (visible === 1 ? ' resultado' : ' resultados') : '';
+      if (status) status.textContent = query ? visible + ' ' + tr(visible === 1 ? 'search.result' : 'search.results') : '';
     });
   }
 
@@ -101,20 +128,25 @@
     var trigger = document.createElement('button');
     trigger.type = 'button';
     trigger.className = 'global-search-button';
-    trigger.setAttribute('aria-label', 'Buscar artículos');
+    trigger.setAttribute('aria-label', tr('search.articles'));
     trigger.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg>';
     actions.insertBefore(trigger, actions.firstChild);
 
     var dialog = document.createElement('dialog');
     dialog.className = 'share-dialog search-dialog';
     dialog.setAttribute('aria-labelledby', 'article-search-title');
-    dialog.innerHTML = '<div class="share-dialog-header"><div><span class="eyebrow">Explorar GoPress</span><h2 id="article-search-title">Buscar artículos</h2></div><button class="share-dialog-close" type="button" aria-label="Cerrar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg></button></div><label class="sr-only" for="article-search-input">Título, autor, blog o tag</label><input class="article-search-input" id="article-search-input" type="search" placeholder="Título, autor, blog o tag" autocomplete="off"><p class="article-search-status" role="status" aria-live="polite">Escribe al menos dos caracteres.</p><div class="article-search-results"></div>';
+    dialog.innerHTML = '<div class="share-dialog-header"><div><span class="eyebrow">GoPress</span><h2 id="article-search-title"></h2></div><button class="share-dialog-close" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg></button></div><label class="sr-only" for="article-search-input"></label><input class="article-search-input" id="article-search-input" type="search" autocomplete="off"><p class="article-search-status" role="status" aria-live="polite"></p><div class="article-search-results"></div>';
     document.body.appendChild(dialog);
 
     var input = dialog.querySelector('.article-search-input');
     var close = dialog.querySelector('.share-dialog-close');
     var status = dialog.querySelector('.article-search-status');
     var results = dialog.querySelector('.article-search-results');
+    dialog.querySelector('#article-search-title').textContent = tr('search.articles');
+    dialog.querySelector('.share-dialog-close').setAttribute('aria-label', tr('common.close'));
+    dialog.querySelector('label').textContent = tr('search.query');
+    input.placeholder = tr('search.query');
+    status.textContent = tr('search.minimum');
     var timer = null;
     var activeRequest = null;
 
@@ -129,7 +161,7 @@
         link.className = 'article-search-result';
         link.href = article.publicUrl;
         var title = document.createElement('strong');
-        title.textContent = article.title || 'Sin título';
+        title.textContent = article.title || tr('common.untitled');
         var meta = document.createElement('span');
         meta.textContent = (article.blogName || article.blogSlug) + (article.authorNick ? ' · ' + article.authorNick : '');
         link.appendChild(title);
@@ -143,13 +175,13 @@
       if (query.length < 2) {
         if (activeRequest) activeRequest.abort();
         renderResults([]);
-        setStatus('Escribe al menos dos caracteres.');
+        setStatus(tr('search.minimum'));
         return;
       }
       if (activeRequest) activeRequest.abort();
       var requestController = new AbortController();
       activeRequest = requestController;
-      setStatus('Buscando...');
+      setStatus(tr('search.searching'));
       fetch('/v1/search/articles?q=' + encodeURIComponent(query), {
         headers: { Accept: 'application/json' }, signal: requestController.signal
       }).then(function (response) {
@@ -159,11 +191,11 @@
         if (activeRequest !== requestController) return;
         var items = payload && Array.isArray(payload.articles) ? payload.articles : [];
         renderResults(items);
-        setStatus(items.length ? items.length + (items.length === 1 ? ' artículo' : ' artículos') : 'No se encontraron artículos.');
+        setStatus(items.length ? items.length + ' ' + tr(items.length === 1 ? 'search.article' : 'search.articles_count') : tr('search.none'));
       }).catch(function (error) {
         if (activeRequest === requestController && error.name !== 'AbortError') {
           renderResults([]);
-          setStatus('No se pudo completar la búsqueda.');
+          setStatus(tr('search.failed'));
         }
       });
     }

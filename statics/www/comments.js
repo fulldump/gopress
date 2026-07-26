@@ -2,6 +2,8 @@
   'use strict';
 
   var section = document.getElementById('comments');
+  var i18n = window.gopressI18n || { locale: 'es', t: function (key) { return key; } };
+  var t = i18n.t;
   if (!section) return;
 
   var endpoint = section.dataset.endpoint;
@@ -161,7 +163,7 @@
   function formatDate(value) {
     var date = new Date(value);
     if (Number.isNaN(date.getTime())) return '';
-    return new Intl.DateTimeFormat('es', {
+    return new Intl.DateTimeFormat(i18n.locale, {
       dateStyle: 'medium',
       timeStyle: 'short'
     }).format(date);
@@ -170,11 +172,11 @@
   function makeForm(parentId) {
     var form = element('form', 'comment-form comment-reply-form');
     form.innerHTML = '<div class="comment-fields">' +
-      '<label>Nombre<input type="text" name="name" maxlength="100" autocomplete="name" required></label>' +
-      '<label>Email <small>Opcional, nunca se publica</small><input type="email" name="email" maxlength="254" autocomplete="email"></label>' +
+      '<label>' + t('comments.name') + '<input type="text" name="name" maxlength="100" autocomplete="name" required></label>' +
+      '<label>' + t('comments.email') + ' <small>' + t('comments.optional') + '</small><input type="email" name="email" maxlength="254" autocomplete="email"></label>' +
       '</div>' +
-      '<label>Respuesta<textarea name="text" rows="4" maxlength="10000" required></textarea></label>' +
-      '<div class="comment-form-footer"><button type="button" class="comment-cancel">Cancelar</button><button type="submit">Responder</button></div>' +
+      '<label>' + t('comments.reply_label') + '<textarea name="text" rows="4" maxlength="10000" required></textarea></label>' +
+      '<div class="comment-form-footer"><button type="button" class="comment-cancel">' + t('comments.cancel') + '</button><button type="submit">' + t('comments.reply') + '</button></div>' +
       '<p class="comment-form-message" role="alert"></p>';
 
     form.elements.name.value = rootForm.elements.name.value;
@@ -202,7 +204,7 @@
     item.appendChild(renderMarkdown(comment.text));
 
     if (canReply) {
-      var replyButton = element('button', 'comment-reply', 'Responder');
+      var replyButton = element('button', 'comment-reply', t('comments.reply'));
       replyButton.type = 'button';
       replyButton.addEventListener('click', function () {
         if (openReply) openReply.remove();
@@ -235,7 +237,7 @@
     var total = commentCount(comments);
     count.textContent = total ? '(' + total + ')' : '';
     if (!comments.length) {
-      status.textContent = 'Todavía no hay comentarios. Abre la conversación.';
+      status.textContent = t('comments.empty');
       status.hidden = false;
       return;
     }
@@ -248,10 +250,10 @@
 
   async function loadComments() {
     status.hidden = false;
-    status.textContent = 'Cargando comentarios...';
+    status.textContent = t('comments.loading');
     try {
       var response = await fetch(endpoint, { headers: { Accept: 'application/json' } });
-      if (!response.ok) throw new Error('No se pudieron cargar los comentarios.');
+      if (!response.ok) throw new Error(t('comments.load_failed'));
       renderComments(await response.json());
     } catch (error) {
       list.replaceChildren();
@@ -286,12 +288,12 @@
         });
         var payload = await response.json().catch(function () { return {}; });
         if (!response.ok) {
-          throw new Error(payload.error && payload.error.description ? payload.error.description : 'No se pudo publicar el comentario.');
+          throw new Error(payload.error && payload.error.description ? payload.error.description : t('comments.publish_failed'));
         }
 
         if (!parentId) {
           form.elements.text.value = '';
-          message.textContent = 'Comentario publicado.';
+          message.textContent = t('comments.published');
           message.setAttribute('role', 'status');
           message.classList.add('is-success');
         } else {

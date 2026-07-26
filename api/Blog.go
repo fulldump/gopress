@@ -26,6 +26,10 @@ type BlogLanguage string
 const (
 	BlogLanguageES BlogLanguage = "es"
 	BlogLanguageEN BlogLanguage = "en"
+	BlogLanguageFR BlogLanguage = "fr"
+	BlogLanguageDE BlogLanguage = "de"
+	BlogLanguagePT BlogLanguage = "pt"
+	BlogLanguageZH BlogLanguage = "zh"
 )
 
 type BlogRole string
@@ -36,24 +40,27 @@ const (
 )
 
 type Blog struct {
-	Id                   string       `json:"id"`
-	Slug                 string       `json:"slug"`
-	Name                 string       `json:"name"`
-	Description          string       `json:"description"`
-	Language             BlogLanguage `json:"language"`
-	AccentColor          string       `json:"accent_color"`
-	HeaderImage          string       `json:"header_image"`
-	Banned               bool         `json:"banned"`
-	BannedOn             *time.Time   `json:"banned_on,omitempty"`
-	BannedByArticleId    string       `json:"banned_by_article_id,omitempty"`
-	ReviewRequestedOn    *time.Time   `json:"review_requested_on,omitempty"`
-	ReviewRequestMessage string       `json:"review_request_message,omitempty"`
-	OwnerId              string       `json:"owner_id"`
-	OwnerNick            string       `json:"owner_nick"`
-	Personal             bool         `json:"personal"`
-	LegacyNicks          []string     `json:"legacy_nicks"`
-	CreatedOn            time.Time    `json:"createdOn"`
-	UpdatedOn            time.Time    `json:"updatedOn"`
+	Id                   string         `json:"id"`
+	Slug                 string         `json:"slug"`
+	Name                 string         `json:"name"`
+	Description          string         `json:"description"`
+	Language             BlogLanguage   `json:"language"`
+	TargetLanguages      []BlogLanguage `json:"target_languages"`
+	AccentColor          string         `json:"accent_color"`
+	HeaderImage          string         `json:"header_image"`
+	Banned               bool           `json:"banned"`
+	BannedOn             *time.Time     `json:"banned_on,omitempty"`
+	BannedByArticleId    string         `json:"banned_by_article_id,omitempty"`
+	ReviewRequestedOn    *time.Time     `json:"review_requested_on,omitempty"`
+	ReviewRequestMessage string         `json:"review_request_message,omitempty"`
+	OwnerId              string         `json:"owner_id"`
+	OwnerNick            string         `json:"owner_nick"`
+	Personal             bool           `json:"personal"`
+	LegacyNicks          []string       `json:"legacy_nicks"`
+	CreatedOn            time.Time      `json:"createdOn"`
+	UpdatedOn            time.Time      `json:"updatedOn"`
+	PublicUrl            string         `json:"publicUrl,omitempty"`
+	AvailableLanguages   []LanguageLink `json:"available_languages,omitempty"`
 }
 
 type BlogMember struct {
@@ -105,8 +112,8 @@ func validateBlogFields(name, description string, language BlogLanguage, accentC
 	if utf8.RuneCountInString(description) > 2000 {
 		return errors.New("description cannot exceed 2000 characters")
 	}
-	if language != BlogLanguageES && language != BlogLanguageEN {
-		return errors.New("language must be es or en")
+	if !IsSupportedContentLanguage(language) {
+		return errors.New("language is not supported")
 	}
 	if !accentColorPattern.MatchString(accentColor) {
 		return errors.New("accent_color must use #RRGGBB format")
@@ -121,4 +128,28 @@ func validateBlogFields(name, description string, language BlogLanguage, accentC
 		}
 	}
 	return nil
+}
+
+func IsSupportedContentLanguage(language BlogLanguage) bool {
+	switch language {
+	case BlogLanguageES, BlogLanguageEN, BlogLanguageFR, BlogLanguageDE, BlogLanguagePT, BlogLanguageZH:
+		return true
+	}
+	return false
+}
+
+func normalizeTargetLanguages(source BlogLanguage, values []BlogLanguage) ([]BlogLanguage, error) {
+	result := make([]BlogLanguage, 0, len(values))
+	seen := map[BlogLanguage]bool{}
+	for _, language := range values {
+		if !IsSupportedContentLanguage(language) {
+			return nil, errors.New("target language is not supported")
+		}
+		if language == source || seen[language] {
+			continue
+		}
+		seen[language] = true
+		result = append(result, language)
+	}
+	return result, nil
 }

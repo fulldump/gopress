@@ -36,6 +36,18 @@ func RenderArticle(w http.ResponseWriter, ctx context.Context, r *http.Request) 
 }
 
 func RenderBlogArticle(w http.ResponseWriter, ctx context.Context) error {
+	return renderBlogArticle(w, ctx, "")
+}
+
+func RenderTranslatedBlogArticle(w http.ResponseWriter, ctx context.Context) error {
+	language := BlogLanguage(box.GetUrlParameter(ctx, "language"))
+	if !IsSupportedContentLanguage(language) {
+		return articleNotFound()
+	}
+	return renderBlogArticle(w, ctx, language)
+}
+
+func renderBlogArticle(w http.ResponseWriter, ctx context.Context, language BlogLanguage) error {
 	blog, err := getPublicBlogBySlug(ctx, box.GetUrlParameter(ctx, "blogSlug"))
 	if err != nil {
 		return err
@@ -51,6 +63,15 @@ func RenderBlogArticle(w http.ResponseWriter, ctx context.Context) error {
 	if err := db.FindOne("articles", inceptiondb.FindQuery{Filter: filter}, article); err != nil {
 		return articleNotFound()
 	}
+	if article.SourceLanguage == "" {
+		article.SourceLanguage = blog.Language
+	}
+	if language == "" {
+		language = article.SourceLanguage
+	} else if !blogOffersLanguage(blog, language) || articleTranslation(article, language) == nil {
+		return articleNotFound()
+	}
+	article = preparePublicArticle(article, blog, language)
 
 	const maxWords = 15
 	words := strings.SplitN(article.Title, " ", maxWords)
@@ -60,7 +81,7 @@ func RenderBlogArticle(w http.ResponseWriter, ctx context.Context) error {
 		trail = "..."
 	}
 	title := "@" + article.AuthorNick + ": " + strings.Join(words, " ") + trail
-	selfURL := "https://gopress.org" + articlePublicPath(blog.Slug, article.Url)
+	selfURL := "https://gopress.org" + article.PublicUrl
 	descriptionRunes := []rune(removeSpaces(html2text(string(article.ContentHTML))))
 	if len(descriptionRunes) > 150 {
 		descriptionRunes = append(descriptionRunes[:150], []rune("...")...)
@@ -68,7 +89,8 @@ func RenderBlogArticle(w http.ResponseWriter, ctx context.Context) error {
 
 	if err := templates.Execute(ctx, "article", w, JSON{
 		"article": article, "blog": blog, "og_title": title, "og_url": selfURL,
-		"og_image": article.AuthorPicture, "og_description": string(descriptionRunes),
+		"og_image": article.AuthorPicture, "og_description": string(descriptionRunes), "canonical": selfURL,
+		"alternates": absoluteLanguageLinks(article.AvailableLanguages), "content_language": language,
 	}); err != nil {
 		return fmt.Errorf("error rendering template: %w", err)
 	}
@@ -81,6 +103,15 @@ func RenderBlogArticle(w http.ResponseWriter, ctx context.Context) error {
 		response.Close()
 	}
 	return nil
+}
+
+func absoluteLanguageLinks(links []LanguageLink) []LanguageLink {
+	result := make([]LanguageLink, len(links))
+	for index, link := range links {
+		result[index] = link
+		result[index].Url = "https://gopress.org" + link.Url
+	}
+	return result
 }
 
 func articlePublicPath(blogSlug, articleURL string) string {

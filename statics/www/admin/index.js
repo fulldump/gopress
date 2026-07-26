@@ -52,6 +52,7 @@ if (localFrontend) {
 }
 
 const { createApp, reactive, nextTick } = Vue;
+const { state: i18nState, t, setLocale, editorMessages } = AdminI18n;
 
 class HttpError extends Error {
     constructor(response, data) {
@@ -204,7 +205,7 @@ function articleDate(article) {
     if (!raw) return 'Sin fecha';
     const date = new Date(raw);
     if (Number.isNaN(date.getTime())) return 'Sin fecha';
-    return new Intl.DateTimeFormat('es', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+    return new Intl.DateTimeFormat(i18nState.locale, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 }
 
 function errorMessage(error, fallback = 'Ha ocurrido un error.') {
@@ -285,21 +286,20 @@ const AppShell = {
         <header class="topbar">
           <router-link class="brand" :to="{ name: 'blogs' }">GoPress</router-link>
           <div class="blog-switcher">
-            <label class="sr-only" for="blog-selector">Blog activo</label>
+            <label class="sr-only" for="blog-selector">{{ $t('nav.allBlogs') }}</label>
             <select id="blog-selector" :value="currentBlogId" @change="switchBlog">
-              <option value="">Todos los blogs</option>
+              <option value="">{{ $t('nav.allBlogs') }}</option>
               <option v-for="blog in store.blogs" :key="idOf(blog)" :value="idOf(blog)">{{ blog.name }}</option>
             </select>
           </div>
           <div class="account" v-if="store.user">
-            <span class="account-name">{{ store.user.nick || store.user.name || store.user.email }}</span>
+            <label class="sr-only" for="admin-locale">{{ $t('locale.label') }}</label><select id="admin-locale" class="admin-locale" :value="locale" @change="changeLocale"><option value="es">ES</option><option value="en">EN</option><option value="zh">ZH</option></select><span class="account-name">{{ store.user.nick || store.user.name || store.user.email }}</span>
             <img v-if="store.user.picture" class="avatar" :src="store.user.picture" alt="">
-            <a class="logout" href="/auth/logout">Salir</a>
+            <a class="logout" href="/auth/logout">{{ $t('nav.signOut') }}</a>
           </div>
         </header>
         <nav v-if="currentBlogId" class="blog-nav" aria-label="Administración del blog">
-          <router-link :to="{ name: 'posts', params: { blogId: currentBlogId, filter: 'published' } }">Entradas</router-link>
-          <router-link :to="{ name: 'settings', params: { blogId: currentBlogId } }">Ajustes</router-link>
+          <router-link :to="{ name: 'posts', params: { blogId: currentBlogId, filter: 'published' } }">{{ $t('nav.posts') }}</router-link><router-link :to="{ name: 'settings', params: { blogId: currentBlogId } }">{{ $t('nav.settings') }}</router-link>
         </nav>
         <div v-if="activeBlog && activeBlog.banned" class="ban-banner" role="alert">
           <strong>Este blog está baneado.</strong><span>No aparece públicamente y no puede crear ni publicar entradas.</span>
@@ -312,6 +312,7 @@ const AppShell = {
     `,
     computed: {
         store() { return store; },
+        locale() { return i18nState.locale; },
         currentBlogId() { return this.$route.params.blogId || ''; },
         activeBlog() { return store.blogs.find((blog) => String(idOf(blog)) === String(this.currentBlogId)) || null; },
     },
@@ -320,6 +321,7 @@ const AppShell = {
     },
     methods: {
         idOf,
+        async changeLocale(event) { setLocale(event.target.value); await request('/v1/preferences', { method: 'PUT', body: { locale: i18nState.locale } }).catch(() => {}); },
         viewKey(route) {
             const blogId = route.params.blogId || '';
             const articleId = route.params.articleId || '';
@@ -338,17 +340,15 @@ const BlogsPage = {
     template: `
       <main class="page">
         <div class="page-heading">
-          <div><p class="eyebrow">Espacios</p><h1>Tus blogs</h1><p>Elige un blog para escribir con tu equipo o crea uno nuevo.</p></div>
+          <div><p class="eyebrow">{{ $t('blogs.eyebrow') }}</p><h1>{{ $t('blogs.title') }}</h1><p>{{ $t('blogs.intro') }}</p></div>
         </div>
         <form class="panel create-blog" @submit.prevent="createBlog">
-          <div class="field"><label for="blog-name">Nombre</label><input id="blog-name" v-model.trim="form.name" required maxlength="120" placeholder="Revista del equipo"></div>
+          <div class="field"><label for="blog-name">{{ $t('blogs.name') }}</label><input id="blog-name" v-model.trim="form.name" required maxlength="120"></div>
           <div class="field"><label for="blog-slug">Dirección</label><div class="input-prefix"><span>/blog/</span><input id="blog-slug" v-model.trim="form.slug" required maxlength="63" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="revista-equipo"></div></div>
-          <div class="field compact-field"><label for="blog-language">Idioma</label><select id="blog-language" v-model="form.language"><option value="es">Español</option><option value="en">English</option></select></div>
-          <button class="button primary" :disabled="creating || !form.name || !form.slug"><span v-if="creating" class="spinner"></span>{{ creating ? 'Creando' : 'Crear blog' }}</button>
+          <div class="field compact-field"><label for="blog-language">{{ $t('blogs.language') }}</label><select id="blog-language" v-model="form.language"><option v-for="language in contentLanguages" :value="language">{{ $t('language.' + language) }}</option></select></div><button class="button primary" :disabled="creating || !form.name || !form.slug"><span v-if="creating" class="spinner"></span>{{ creating ? $t('blogs.creating') : $t('blogs.create') }}</button>
         </form>
         <p v-if="error" class="notice error" role="alert">{{ error }}</p>
-        <div v-if="loading" class="state"><span class="spinner"></span> Cargando blogs...</div>
-        <div v-else-if="!blogs.length" class="state empty-state"><strong>Tu directorio está vacío</strong><span>Crea el primer blog para empezar a publicar.</span></div>
+        <div v-if="loading" class="state"><span class="spinner"></span> {{ $t('blogs.loading') }}</div><div v-else-if="!blogs.length" class="state empty-state"><strong>{{ $t('blogs.empty') }}</strong><span>{{ $t('blogs.emptyHelp') }}</span></div>
         <div v-else class="blog-list">
           <router-link v-for="blog in blogs" :key="idOf(blog)" class="blog-row" :class="{ 'banned-blog-row': blog.banned }" :to="{ name: 'posts', params: { blogId: idOf(blog), filter: 'published' } }">
             <div><div class="row-title">{{ blog.name }}</div><div class="row-meta">/blog/{{ blog.slug }}</div></div>
@@ -361,6 +361,7 @@ const BlogsPage = {
         return { form: { name: '', slug: '', language: 'es' }, creating: false, error: '' };
     },
     computed: {
+        contentLanguages() { return ['es', 'en', 'fr', 'de', 'pt', 'zh']; },
         blogs() { return store.blogs; },
         loading() { return store.blogsLoading && !store.blogsLoaded; },
     },
@@ -369,7 +370,7 @@ const BlogsPage = {
     },
     methods: {
         idOf,
-        roleLabel(blog) { return roleOf(blog) === 'owner' ? 'Propietario' : 'Editor'; },
+        roleLabel(blog) { return roleOf(blog) === 'owner' ? t('common.owner') : t('common.editor'); },
         async createBlog() {
             this.creating = true;
             this.error = '';
@@ -392,13 +393,11 @@ const PostsPage = {
     template: `
       <main class="page">
         <div class="page-heading">
-          <div><p class="eyebrow">{{ blogName }}</p><h1>Entradas</h1><p>Escribe, revisa y publica el trabajo editorial de este blog.</p></div>
-          <button class="button primary" @click="createArticle" :disabled="creating || isBanned"><span v-if="creating" class="spinner"></span>{{ creating ? 'Creando' : 'Nueva entrada' }}</button>
+          <div><p class="eyebrow">{{ blogName }}</p><h1>{{ $t('posts.title') }}</h1><p>{{ $t('posts.intro') }}</p></div><button class="button primary" @click="createArticle" :disabled="creating || isBanned"><span v-if="creating" class="spinner"></span>{{ creating ? $t('blogs.creating') : $t('posts.new') }}</button>
         </div>
         <p v-if="isBanned" class="notice error" role="alert">Este blog está baneado. Sus entradas no son públicas y no se puede crear ni publicar contenido nuevo. Puedes solicitar una revisión desde Ajustes.</p>
         <div class="tabs" aria-label="Estado de las entradas">
-          <router-link :to="{ name: 'posts', params: { blogId, filter: 'published' } }">Publicadas <span class="count">{{ published.length }}</span></router-link>
-          <router-link :to="{ name: 'posts', params: { blogId, filter: 'drafts' } }">Borradores <span class="count">{{ drafts.length }}</span></router-link>
+          <router-link :to="{ name: 'posts', params: { blogId, filter: 'published' } }">{{ $t('posts.published') }} <span class="count">{{ published.length }}</span></router-link><router-link :to="{ name: 'posts', params: { blogId, filter: 'drafts' } }">{{ $t('posts.drafts') }} <span class="count">{{ drafts.length }}</span></router-link>
         </div>
         <p v-if="error" class="notice error" role="alert">{{ error }}</p>
         <div v-if="loading" class="state"><span class="spinner"></span> Cargando entradas...</div>
@@ -406,12 +405,10 @@ const PostsPage = {
         <div v-else class="article-list">
           <article v-for="article in visibleArticles" :key="idOf(article)" class="article-row">
             <router-link class="article-main" :to="{ name: 'edit', params: { blogId, articleId: idOf(article) } }">
-              <div class="row-title">{{ article.title || 'Sin título' }}</div><div class="row-meta">{{ articleDate(article) }}</div>
+              <div class="row-title">{{ article.title || 'Sin título' }}</div><div class="row-meta">{{ articleDate(article) }} <span v-if="article.languages && article.languages.length">· {{ article.languages.join(', ') }}</span></div>
             </router-link>
             <div class="row-actions">
-              <button v-if="!articleIsPublished(article)" class="button small" @click="runAction(article, 'publish')" :disabled="isBusy(article) || isBanned">Publicar</button>
-              <button v-else class="button small" @click="runAction(article, 'unpublish')" :disabled="isBusy(article)">Despublicar</button>
-              <button class="button quiet small danger" @click="deleteArticle(article)" :disabled="isBusy(article)">Borrar</button>
+              <button v-if="!articleIsPublished(article)" class="button small" @click="runAction(article, 'publish')" :disabled="isBusy(article) || isBanned">{{ $t('posts.publish') }}</button><button v-else class="button small" @click="runAction(article, 'unpublish')" :disabled="isBusy(article)">{{ $t('posts.unpublish') }}</button><button class="button quiet small danger" @click="deleteArticle(article)" :disabled="isBusy(article)">{{ $t('posts.delete') }}</button>
             </div>
           </article>
         </div>
@@ -523,7 +520,7 @@ const PostsPage = {
 const SettingsPage = {
     template: `
       <main class="page">
-        <div class="page-heading"><div><p class="eyebrow">Personalización y acceso</p><h1>Ajustes</h1><p>Configura la identidad y el equipo de este blog.</p></div></div>
+        <div class="page-heading"><div><p class="eyebrow">GoPress</p><h1>{{ $t('settings.title') }}</h1><p>{{ $t('settings.intro') }}</p></div></div>
         <div v-if="loading" class="state"><span class="spinner"></span> Cargando ajustes...</div>
         <p v-else-if="loadError" class="notice error" role="alert">{{ loadError }}</p>
         <template v-else>
@@ -540,21 +537,19 @@ const SettingsPage = {
             </form>
           </section>
           <div class="settings-layout" :class="{ 'read-only-settings': !isOwner }">
-            <nav class="settings-index" aria-label="Secciones de ajustes"><a href="#general" @click.prevent="scrollTo('general')">General</a><a v-if="isOwner" href="#members" @click.prevent="scrollTo('members')">Miembros</a><a v-if="isOwner" href="#invitations" @click.prevent="scrollTo('invitations')">Invitaciones</a></nav>
+            <nav class="settings-index"><a href="#general" @click.prevent="scrollTo('general')">{{ $t('settings.general') }}</a><a v-if="isOwner" href="#members" @click.prevent="scrollTo('members')">{{ $t('settings.members') }}</a><a v-if="isOwner" href="#invitations" @click.prevent="scrollTo('invitations')">{{ $t('settings.invitations') }}</a></nav>
             <div class="settings-content">
               <section id="general" class="settings-section">
-                <h2>Identidad del blog</h2><p>Así se presenta el blog a sus lectores.</p>
+                 <h2>{{ $t('settings.identity') }}</h2><p>{{ $t('settings.identityHelp') }}</p>
                 <form class="settings-form" @submit.prevent="saveBlog">
-                  <div class="field"><span class="field-label">Dirección permanente</span><div class="readonly-value">/blog/{{ blog.slug }}</div><small>La dirección no puede cambiar después de crear el blog.</small></div>
-                  <div class="field"><label v-if="isOwner" for="setting-name">Nombre</label><span v-else class="field-label">Nombre</span><input v-if="isOwner" id="setting-name" v-model.trim="form.name" required maxlength="120"><div v-else class="readonly-value">{{ form.name || 'Sin nombre' }}</div></div>
-                  <div class="field"><label v-if="isOwner" for="setting-description">Descripción</label><span v-else class="field-label">Descripción</span><textarea v-if="isOwner" id="setting-description" v-model="form.description" maxlength="2000"></textarea><div v-else class="readonly-value multiline">{{ form.description || 'Sin descripción' }}</div></div>
+                  <div class="field"><span class="field-label">{{ $t('settings.permanentAddress') }}</span><div class="readonly-value">/blog/{{ blog.slug }}</div><small>{{ $t('settings.addressLocked') }}</small></div><div class="field"><label v-if="isOwner" for="setting-name">{{ $t('settings.name') }}</label><span v-else class="field-label">{{ $t('settings.name') }}</span><input v-if="isOwner" id="setting-name" v-model.trim="form.name" required maxlength="120"><div v-else class="readonly-value">{{ form.name }}</div></div><div class="field"><label v-if="isOwner" for="setting-description">{{ $t('settings.description') }}</label><span v-else class="field-label">{{ $t('settings.description') }}</span><textarea v-if="isOwner" id="setting-description" v-model="form.description" maxlength="2000"></textarea><div v-else class="readonly-value multiline">{{ form.description }}</div></div>
                   <div class="settings-grid">
-                    <div class="field"><label v-if="isOwner" for="setting-language">Idioma</label><span v-else class="field-label">Idioma</span><select v-if="isOwner" id="setting-language" v-model="form.language"><option value="es">Español</option><option value="en">English</option></select><div v-else class="readonly-value">{{ form.language === 'en' ? 'English' : 'Español' }}</div></div>
+                    <div class="field"><label v-if="isOwner" for="setting-language">{{ $t('blogs.language') }}</label><span v-else class="field-label">{{ $t('blogs.language') }}</span><select v-if="isOwner" id="setting-language" v-model="form.language"><option v-for="language in contentLanguages" :value="language">{{ $t('language.' + language) }}</option></select><div v-else class="readonly-value">{{ $t('language.' + form.language) }}</div></div>
                     <div class="field"><label v-if="isOwner" for="setting-accent">Color de acento</label><span v-else class="field-label">Color de acento</span><div v-if="isOwner" class="color-field"><input id="setting-accent" type="color" v-model="form.accent_color"><input v-model.trim="form.accent_color" pattern="#[0-9a-fA-F]{6}" aria-label="Color de acento hexadecimal"></div><div v-else class="readonly-value color-value"><span class="color-swatch" :style="{ backgroundColor: form.accent_color }"></span>{{ form.accent_color }}</div></div>
                   </div>
+                  <fieldset class="field language-targets"><legend>{{ $t('settings.targets') }}</legend><div class="language-options"><label v-for="language in contentLanguages" v-show="language !== form.language"><input type="checkbox" :value="language" v-model="form.target_languages" :disabled="!isOwner"> {{ $t('language.' + language) }}</label></div><small>{{ $t('settings.targetsHelp') }}</small></fieldset>
                   <div class="field">
-                    <span class="field-label">Imagen de cabecera</span>
-                    <div v-if="form.header_image" class="header-image-preview"><img :src="form.header_image" alt="Previsualización de la cabecera"><button v-if="isOwner" type="button" class="button small danger" @click="removeHeaderImage" :disabled="headerUploading">Quitar imagen</button></div>
+                    <span class="field-label">{{ $t('settings.header') }}</span><div v-if="form.header_image" class="header-image-preview"><img :src="form.header_image" alt=""><button v-if="isOwner" type="button" class="button small danger" @click="removeHeaderImage" :disabled="headerUploading">{{ $t('settings.removeImage') }}</button></div>
                     <template v-if="isOwner">
                       <label class="button file-picker" for="setting-header">{{ headerUploading ? 'Subiendo imagen...' : (form.header_image ? 'Cambiar imagen' : 'Seleccionar imagen') }}<input id="setting-header" type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/avif" @change="uploadHeaderImage" :disabled="headerUploading"></label>
                       <small>JPEG, PNG, GIF, WebP o AVIF. Máximo 25 MB. La imagen se almacena en este blog.</small>
@@ -562,34 +557,30 @@ const SettingsPage = {
                     </template>
                     <div v-else-if="!form.header_image" class="readonly-value">Sin imagen</div>
                   </div>
-                  <div v-if="isOwner" class="form-actions"><button class="button primary" :disabled="saving || headerUploading">{{ saving ? 'Guardando...' : 'Guardar cambios' }}</button><span v-if="saved" class="help" role="status">Cambios guardados.</span></div>
+                  <div v-if="isOwner" class="form-actions"><button class="button primary" :disabled="saving || headerUploading">{{ saving ? $t('settings.saving') : $t('settings.save') }}</button><span v-if="saved" class="help" role="status">{{ $t('settings.saved') }}</span></div>
                 </form>
               </section>
 
               <section v-if="isOwner" id="members" class="settings-section">
-                <h2>Miembros</h2><p>Los editores pueden crear, editar y publicar entradas.</p>
-                <div v-if="membersLoading" class="state"><span class="spinner"></span> Cargando miembros...</div>
+                <h2>{{ $t('settings.members') }}</h2><p>{{ $t('members.help') }}</p><div v-if="membersLoading" class="state"><span class="spinner"></span> {{ $t('members.loading') }}</div>
                 <div v-else class="member-list">
                   <div v-for="member in members" :key="memberKey(member)" class="member-row">
                     <div><div class="member-name">{{ memberName(member) }}</div><div v-if="member.email || member.user_email" class="row-meta">{{ member.email || member.user_email }}</div></div>
-                    <span class="member-role role-badge">{{ member.role === 'owner' ? 'Propietario' : 'Editor' }}</span>
-                    <button v-if="member.role !== 'owner'" class="button quiet small danger" @click="removeMember(member)" :disabled="memberBusy === memberUserId(member)">Quitar</button>
+                    <span class="member-role role-badge">{{ $t(member.role === 'owner' ? 'common.owner' : 'common.editor') }}</span><button v-if="member.role !== 'owner'" class="button quiet small danger" @click="removeMember(member)" :disabled="memberBusy === memberUserId(member)">{{ $t('members.remove') }}</button>
                   </div>
-                  <div v-if="!members.length" class="state">No hay miembros.</div>
+                  <div v-if="!members.length" class="state">{{ $t('members.empty') }}</div>
                 </div>
               </section>
 
               <section v-if="isOwner" id="invitations" class="settings-section">
-                <h2>Invitaciones</h2><p>Cada enlace permite que una sola persona se una como editora.</p>
-                <div class="invite-create"><button class="button primary" @click="createInvitation" :disabled="inviteCreating">{{ inviteCreating ? 'Creando...' : 'Crear invitación' }}</button></div>
+                <h2>{{ $t('settings.invitations') }}</h2><p>{{ $t('invitations.help') }}</p><div class="invite-create"><button class="button primary" @click="createInvitation" :disabled="inviteCreating">{{ inviteCreating ? $t('blogs.creating') : $t('invitations.create') }}</button></div>
                 <div v-if="newInviteLink" class="invite-link"><input :value="newInviteLink" readonly aria-label="Enlace de invitación"><button class="button small" @click="copyInvite(newInviteLink)">{{ copied ? 'Copiado' : 'Copiar' }}</button></div>
-                <div v-if="invitesLoading" class="state"><span class="spinner"></span> Cargando invitaciones...</div>
+                <div v-if="invitesLoading" class="state"><span class="spinner"></span> {{ $t('invitations.loading') }}</div>
                 <div v-else class="member-list">
                   <div v-for="invite in invitations" :key="inviteId(invite)" class="member-row">
-                    <div><div class="member-name">Invitación pendiente</div><div class="row-meta">{{ inviteDate(invite) }}</div></div><span class="member-role role-badge">Un uso</span>
-                    <button class="button quiet small danger" @click="revokeInvitation(invite)" :disabled="inviteBusy === inviteId(invite)">Revocar</button>
+                    <div><div class="member-name">{{ $t('invitations.pending') }}</div><div class="row-meta">{{ inviteDate(invite) }}</div></div><span class="member-role role-badge">1</span><button class="button quiet small danger" @click="revokeInvitation(invite)" :disabled="inviteBusy === inviteId(invite)">{{ $t('invitations.revoke') }}</button>
                   </div>
-                  <div v-if="!invitations.length" class="state">No hay invitaciones pendientes.</div>
+                  <div v-if="!invitations.length" class="state">{{ $t('invitations.empty') }}</div>
                 </div>
               </section>
             </div>
@@ -609,6 +600,7 @@ const SettingsPage = {
     computed: {
         blogId() { return this.$route.params.blogId; },
         isOwner() { return roleOf(this.blog) === 'owner'; },
+        contentLanguages() { return ['es', 'en', 'fr', 'de', 'pt', 'zh']; },
     },
     async mounted() { await this.load(); },
     methods: {
@@ -626,6 +618,7 @@ const SettingsPage = {
                     name: this.blog.name || '',
                     description: this.blog.description || '',
                     language: this.blog.language || 'es',
+                    target_languages: this.blog.target_languages || [],
                     accent_color: this.blog.accent_color || this.blog.accentColor || '#176b4d',
                     header_image: this.blog.header_image || this.blog.headerImage || '',
                 };
@@ -856,14 +849,12 @@ const EditorPage = {
         <template v-else-if="article">
           <div class="editor-toolbar">
             <div class="editor-toolbar-left">
-              <router-link class="button quiet small" :to="{ name: 'posts', params: { blogId, filter: articleIsPublished(article) ? 'published' : 'drafts' } }">← <span class="button-label">Entradas</span></router-link>
-              <a v-if="articleIsPublished(article) && publicUrl" class="button quiet small public-link" :href="publicUrl" target="_blank" rel="noopener">Ver artículo ↗</a>
+              <router-link class="button quiet small" :to="{ name: 'posts', params: { blogId, filter: articleIsPublished(article) ? 'published' : 'drafts' } }">← <span class="button-label">{{ $t('editor.back') }}</span></router-link><a v-if="articleIsPublished(article) && publicUrl" class="button quiet small public-link" :href="publicUrl" target="_blank" rel="noopener">{{ $t('editor.view') }}</a>
             </div>
             <div class="editor-toolbar-actions">
               <span class="save-state" :class="saveState" aria-live="polite">{{ saveLabel }}</span>
               <button v-if="saveState === 'error'" class="button small" @click="retrySave" :disabled="lockState !== 'editable'">Reintentar</button>
-              <button v-if="!articleIsPublished(article)" class="button primary small" @click="publish" :disabled="actionBusy || lockState !== 'editable' || isBanned">{{ actionBusy ? 'Publicando...' : 'Publicar' }}</button>
-              <button v-else class="button small" @click="unpublish" :disabled="actionBusy || lockState !== 'editable'">{{ actionBusy ? 'Procesando...' : 'Despublicar' }}</button>
+              <button v-if="!articleIsPublished(article)" class="button primary small" @click="publish" :disabled="actionBusy || lockState !== 'editable' || isBanned">{{ actionBusy ? 'Publicando...' : 'Publicar' }}</button><button v-else class="button small" @click="unpublish" :disabled="actionBusy || lockState !== 'editable'">{{ actionBusy ? 'Procesando...' : 'Despublicar' }}</button>
             </div>
           </div>
           <div class="editor-wrap">
@@ -873,9 +864,9 @@ const EditorPage = {
               <button v-if="lockState === 'conflict'" class="button quiet small" @click="reloadFromServer">Descartar y recargar</button>
             </div>
             <p v-if="error" class="notice error" role="alert">{{ error }}</p>
-            <div class="editor-heading"><input class="title-input" v-model="article.title" @input="handleTitleInput" :disabled="lockState !== 'editable' || actionBusy" maxlength="240" placeholder="Título del artículo" aria-label="Título del artículo"></div>
+            <div class="editor-heading"><input class="title-input" v-model="article.title" @input="handleTitleInput" :disabled="lockState !== 'editable' || actionBusy" maxlength="240" :placeholder="$t('editor.title')" :aria-label="$t('editor.title')"></div>
             <div class="editor-url field">
-              <div class="editor-url-label"><label for="article-url">URL pública</label><span v-if="article.automatic_url && !articleIsPublished(article)" class="url-mode">Automática</span></div>
+              <div class="editor-url-label"><label for="article-url">{{ $t('editor.publicUrl') }}</label><span v-if="article.automatic_url && !articleIsPublished(article)" class="url-mode">Automática</span></div>
               <div class="input-prefix"><span>{{ publicUrlPrefix }}</span><input id="article-url" v-model.trim="article.url" @input="handleUrlInput" :disabled="lockState !== 'editable' || actionBusy" maxlength="80" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" spellcheck="false" autocomplete="off" aria-describedby="article-url-help"></div>
               <div id="article-url-help" class="editor-url-help">
                 <small v-if="articleIsPublished(article)">La entrada está publicada. Cambiar esta URL romperá los enlaces anteriores.</small>
@@ -886,7 +877,7 @@ const EditorPage = {
               </div>
             </div>
             <div class="editor-tags field">
-              <div class="editor-url-label"><label for="article-tags">Tags</label><span v-if="article.tags_mode === 'automatic' && automaticTagsAvailable" class="url-mode">IA al publicar</span><span v-else-if="article.tags_mode === 'automatic' && automaticTagsAvailable === false" class="url-mode unavailable">IA no configurada</span></div>
+              <div class="editor-url-label"><label for="article-tags">{{ $t('editor.tags') }}</label><span v-if="article.tags_mode === 'automatic' && automaticTagsAvailable" class="url-mode">IA</span><span v-else-if="article.tags_mode === 'automatic' && automaticTagsAvailable === false" class="url-mode unavailable">IA no configurada</span></div>
               <input id="article-tags" v-model="tagsText" @input="handleTagsInput" :disabled="lockState !== 'editable' || actionBusy" maxlength="800" placeholder="tecnología, tutorial, español" autocomplete="off" aria-describedby="article-tags-help">
               <div id="article-tags-help" class="editor-url-help">
                 <small v-if="article.tags_mode === 'automatic' && automaticTagsAvailable">La IA actualizará los tags al publicar. Si los editas, se conservarán manualmente.</small>
@@ -895,8 +886,10 @@ const EditorPage = {
                 <button v-if="article.tags_mode !== 'automatic' && automaticTagsAvailable" type="button" class="url-mode-button" @click="useAutomaticTags" :disabled="lockState !== 'editable' || actionBusy">Volver a generar con IA</button>
               </div>
             </div>
+            <div class="editor-source-language field"><label for="article-source-language">{{ $t('editor.sourceLanguage') }}</label><select id="article-source-language" v-model="article.source_language" @change="markDirty" :disabled="lockState !== 'editable' || actionBusy"><option v-for="language in contentLanguages" :value="language">{{ $t('language.' + language) }}</option></select></div>
+            <div v-if="translationStates.length" class="editor-translations field"><span class="field-label">{{ $t('editor.translations') }}</span><div class="translation-states"><span v-for="translation in translationStates" class="role-badge" :class="{ ready: translation.ready }">{{ translation.language }} · {{ $t(translation.ready ? 'editor.translationReady' : 'editor.translationMissing') }}</span></div><small v-if="automaticTranslationsAvailable === false" class="field-error">{{ $t('editor.translationsUnavailable') }}</small><button v-if="articleIsPublished(article) && hasPendingTranslations" class="button primary small translation-update" @click="publish" :disabled="actionBusy || lockState !== 'editable' || isBanned">{{ $t('editor.updateTranslations') }}</button></div>
             <div class="editor-surface" :class="{ 'is-readonly': lockState !== 'editable' }">
-              <div v-if="lockState !== 'editable'" class="readonly-overlay" aria-hidden="true">Solo lectura</div>
+              <div v-if="lockState !== 'editable'" class="readonly-overlay" aria-hidden="true">{{ $t('editor.readOnly') }}</div>
               <div id="editorjs"></div>
             </div>
           </div>
@@ -911,7 +904,7 @@ const EditorPage = {
             heartbeatAfterSeconds: 25, heartbeatTimer: null, leaseExpiryTimer: null, renewPromise: null, renewAgain: false,
             serverOffset: 0, acquiringPromise: null, saveTimer: null, savePromise: null,
             changeGeneration: 0, savedGeneration: 0, saveState: 'saved', destroyed: false,
-            navigationPending: false, tagsText: '', automaticTagsAvailable: null,
+            navigationPending: false, tagsText: '', automaticTagsAvailable: null, automaticTranslationsAvailable: null,
         };
     },
     computed: {
@@ -952,6 +945,15 @@ const EditorPage = {
         publicUrlPrefix() {
             return this.blogSlug ? `/blog/${encodeURIComponent(this.blogSlug)}/article/` : '';
         },
+        contentLanguages() { return ['es', 'en', 'fr', 'de', 'pt', 'zh']; },
+        translationStates() {
+            if (!this.article) return [];
+            const blog = store.blogs.find((item) => String(idOf(item)) === String(this.blogId)) || {};
+            if (!blog.target_languages || !blog.target_languages.length) return [];
+            const translations = this.article.translations || [];
+            return [blog.language, ...blog.target_languages].filter((language, index, values) => language && language !== this.article.source_language && values.indexOf(language) === index).map((language) => ({ language, ready: translations.some((translation) => translation.language === language && translation.source_content_revision === this.article.content_revision) }));
+        },
+        hasPendingTranslations() { return this.translationStates.some((translation) => !translation.ready); },
     },
     async mounted() {
         window.addEventListener('keydown', this.handleKeydown);
@@ -985,8 +987,10 @@ const EditorPage = {
             try {
                 const capabilities = await request('/v1/capabilities');
                 this.automaticTagsAvailable = capabilities && capabilities.automaticTags === true;
+                this.automaticTranslationsAvailable = capabilities && capabilities.automaticTranslations === true;
             } catch (_) {
                 this.automaticTagsAvailable = false;
+                this.automaticTranslationsAvailable = false;
             }
         },
         async loadArticle() {
@@ -1000,6 +1004,10 @@ const EditorPage = {
                 this.article = entity(result, 'article');
                 if (!Array.isArray(this.article.tags)) this.article.tags = [];
                 if (!this.article.tags_mode) this.article.tags_mode = 'automatic';
+                if (!this.article.source_language) {
+                    const blog = store.blogs.find((item) => String(idOf(item)) === String(this.blogId));
+                    this.article.source_language = blog && blog.language || 'es';
+                }
                 this.tagsText = this.article.tags.join(', ');
                 this.changeGeneration = 0;
                 this.savedGeneration = 0;
@@ -1041,6 +1049,7 @@ const EditorPage = {
                 autofocus: false,
                 readOnly: true,
                 data: this.editorData(),
+                i18n: { messages: editorMessages() },
                 tools: {
                     header: { class: Header, inlineToolbar: ['marker', 'link'], config: { placeholder: 'Encabezado' }, shortcut: 'CMD+SHIFT+H' },
                     list: { class: EditorjsList, inlineToolbar: true, shortcut: 'CMD+SHIFT+L' },
@@ -1258,6 +1267,7 @@ const EditorPage = {
             const automaticUrl = Boolean(this.article.automatic_url);
             const tags = this.article.tags.slice();
             const tagsMode = this.article.tags_mode;
+            const sourceLanguage = this.article.source_language;
             const root = this.articleRoot;
             let succeeded = false;
             this.saveState = 'saving';
@@ -1267,7 +1277,7 @@ const EditorPage = {
                     const result = await request(root, {
                         method: 'PATCH',
                         headers: { 'X-Edit-Lock-Token': token },
-                        body: { revision, title, url, automatic_url: automaticUrl, tags, tags_mode: tagsMode, content: { type: 'editorjs', data: content } },
+                        body: { revision, title, url, automatic_url: automaticUrl, tags, tags_mode: tagsMode, source_language: sourceLanguage, content: { type: 'editorjs', data: content } },
                     });
                     const updated = entity(result, 'article') || {};
                     if (updated.revision !== undefined) this.article.revision = updated.revision;
@@ -1278,6 +1288,8 @@ const EditorPage = {
                         this.tagsText = this.article.tags.join(', ');
                     }
                     if (updated.tags_mode !== undefined && generation === this.changeGeneration) this.article.tags_mode = updated.tags_mode;
+                    if (updated.source_language !== undefined && generation === this.changeGeneration) this.article.source_language = updated.source_language;
+                    if (updated.content_revision !== undefined) this.article.content_revision = updated.content_revision;
                     if (updated.published !== undefined) this.article.published = updated.published;
                     this.savedGeneration = Math.max(this.savedGeneration, generation);
                     succeeded = true;
@@ -1461,6 +1473,7 @@ function resumeLoginReturn() {
 
 let userPromise = null;
 let loginReturnChecked = false;
+let preferencesLoaded = false;
 router.beforeEach(async () => {
     if (!store.user) {
         try {
@@ -1480,6 +1493,13 @@ router.beforeEach(async () => {
             return false;
         }
     }
+    if (!preferencesLoaded) {
+        preferencesLoaded = true;
+        try {
+            const preferences = await request('/v1/preferences');
+            if (preferences && preferences.locale) setLocale(preferences.locale);
+        } catch (_) {}
+    }
     if (!loginReturnChecked) {
         loginReturnChecked = true;
         if (resumeLoginReturn()) return false;
@@ -1487,4 +1507,6 @@ router.beforeEach(async () => {
     return true;
 });
 
-createApp(AppShell).use(router).mount('#app');
+const app = createApp(AppShell);
+app.config.globalProperties.$t = t;
+app.use(router).mount('#app');

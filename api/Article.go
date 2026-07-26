@@ -25,12 +25,30 @@ type Article struct {
 
 	Banned bool `json:"banned"`
 
-	Revision      uint64           `json:"revision"`
-	UpdatedOn     time.Time        `json:"updatedOn"`
-	UpdatedById   string           `json:"updated_by_id,omitempty"`
-	UpdatedByNick string           `json:"updated_by_nick,omitempty"`
-	EditLock      *ArticleEditLock `json:"_edit_lock,omitempty"`
-	PublicUrl     string           `json:"publicUrl,omitempty"`
+	Revision           uint64               `json:"revision"`
+	UpdatedOn          time.Time            `json:"updatedOn"`
+	UpdatedById        string               `json:"updated_by_id,omitempty"`
+	UpdatedByNick      string               `json:"updated_by_nick,omitempty"`
+	EditLock           *ArticleEditLock     `json:"_edit_lock,omitempty"`
+	PublicUrl          string               `json:"publicUrl,omitempty"`
+	SourceLanguage     BlogLanguage         `json:"source_language,omitempty"`
+	ContentRevision    uint64               `json:"content_revision,omitempty"`
+	Translations       []ArticleTranslation `json:"translations,omitempty"`
+	AvailableLanguages []LanguageLink       `json:"available_languages,omitempty"`
+}
+
+type ArticleTranslation struct {
+	Language              BlogLanguage  `json:"language"`
+	Title                 string        `json:"title"`
+	ContentHTML           template.HTML `json:"content_html"`
+	SourceContentRevision uint64        `json:"source_content_revision"`
+	GeneratedOn           time.Time     `json:"generatedOn"`
+}
+
+type LanguageLink struct {
+	Language BlogLanguage `json:"language"`
+	Url      string       `json:"url"`
+	Current  bool         `json:"current,omitempty"`
 }
 
 type ArticleEditLock struct {
@@ -92,6 +110,7 @@ type ArticleShort struct {
 	BlogSlug  string                 `json:"blog_slug"`
 	Revision  uint64                 `json:"revision"`
 	EditLock  *PublicArticleEditLock `json:"editLock,omitempty"`
+	Languages []BlogLanguage         `json:"languages,omitempty"`
 }
 
 func Slug(s string) string {

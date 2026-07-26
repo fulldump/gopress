@@ -181,6 +181,28 @@ textarea:focus-visible {
   font-size: 0.82rem;
 }
 
+.locale-switcher,
+.language-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.locale-switcher a,
+.language-links a {
+  min-height: 28px;
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--color-surface-strong);
+  border-radius: 999px;
+  color: var(--color-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.language-links { margin-top: 0.8rem; }
+.language-links a[aria-current="page"] { border-color: var(--color-accent); color: var(--color-accent); }
+
 #logout {
   flex-wrap: wrap;
   justify-content: flex-end;

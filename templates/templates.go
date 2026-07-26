@@ -3,11 +3,14 @@ package templates
 import (
 	"context"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/http"
 
 	"github.com/fulldump/box"
+
+	"gopress/i18n"
 )
 
 //go:embed home.gohtml
@@ -57,7 +60,13 @@ func NewEmbeddedTemplates() (*EmbeddedTemplates, error) {
 	list := map[string]*template.Template{}
 
 	for name, text := range texts {
-		t, err := template.New("").Parse(text)
+		t, err := template.New("").Funcs(template.FuncMap{
+			"t": func(locale i18n.Locale, key string) string { return i18n.Translate(locale, key) },
+			"json": func(value any) template.JS {
+				encoded, _ := json.Marshal(value)
+				return template.JS(encoded)
+			},
+		}).Parse(text)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing template %s: %w", name, err)
 		}
@@ -90,12 +99,17 @@ var GlobalData = JSON{
 }
 
 func Execute(ctx context.Context, name string, w http.ResponseWriter, data JSON) error {
-
+	merged := JSON{}
 	for k, v := range GlobalData {
-		data[k] = v
+		merged[k] = v
 	}
-
-	return GetByName(ctx, name).Execute(w, data)
+	for k, v := range data {
+		merged[k] = v
+	}
+	locale := i18n.GetLocale(ctx)
+	merged["locale"] = locale
+	merged["messages"] = i18n.ClientMessages(locale)
+	return GetByName(ctx, name).Execute(w, merged)
 }
 
 func Inject(t Templates) box.I {

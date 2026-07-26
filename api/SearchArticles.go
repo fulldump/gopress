@@ -16,14 +16,15 @@ const (
 )
 
 type PublicArticleSearchResult struct {
-	Title      string    `json:"title"`
-	Url        string    `json:"url"`
-	PublicUrl  string    `json:"publicUrl"`
-	BlogName   string    `json:"blogName"`
-	BlogSlug   string    `json:"blogSlug"`
-	AuthorNick string    `json:"authorNick"`
-	Tags       []string  `json:"tags"`
-	PublishOn  time.Time `json:"publishOn"`
+	Title              string         `json:"title"`
+	Url                string         `json:"url"`
+	PublicUrl          string         `json:"publicUrl"`
+	BlogName           string         `json:"blogName"`
+	BlogSlug           string         `json:"blogSlug"`
+	AuthorNick         string         `json:"authorNick"`
+	Tags               []string       `json:"tags"`
+	PublishOn          time.Time      `json:"publishOn"`
+	AvailableLanguages []LanguageLink `json:"availableLanguages"`
 }
 
 func SearchPublicArticles(ctx context.Context, r *http.Request) any {
@@ -42,6 +43,7 @@ func SearchPublicArticles(ctx context.Context, r *http.Request) any {
 	}
 
 	results := []PublicArticleSearchResult{}
+	preferred := preferredContentLanguage(ctx)
 	err := db.FindAll("articles", inceptiondb.FindQuery{Limit: maxPublicDiscoveryRows, Filter: JSON{
 		"published": true, "$ne": JSON{"banned": true},
 	}}, func(article *Article) {
@@ -49,10 +51,11 @@ func SearchPublicArticles(ctx context.Context, r *http.Request) any {
 		if blog == nil || !articleMatchesSearch(article, blog, query) {
 			return
 		}
+		localized := preparePublicArticle(article, blog, preferred)
 		results = append(results, PublicArticleSearchResult{
-			Title: article.Title, Url: article.Url, PublicUrl: articlePublicPath(blog.Slug, article.Url),
+			Title: localized.Title, Url: article.Url, PublicUrl: localized.PublicUrl,
 			BlogName: blog.Name, BlogSlug: blog.Slug, AuthorNick: article.AuthorNick,
-			Tags: article.Tags, PublishOn: article.PublishOn,
+			Tags: article.Tags, PublishOn: article.PublishOn, AvailableLanguages: localized.AvailableLanguages,
 		})
 		if len(results) > maxArticleSearchResults {
 			sort.SliceStable(results, func(i, j int) bool { return results[i].PublishOn.After(results[j].PublishOn) })
@@ -68,6 +71,11 @@ func SearchPublicArticles(ctx context.Context, r *http.Request) any {
 
 func articleMatchesSearch(article *Article, blog *Blog, query string) bool {
 	values := []string{article.Title, article.AuthorNick, blog.Name, blog.Slug, strings.Join(article.Tags, " ")}
+	for _, translation := range article.Translations {
+		if translation.SourceContentRevision == article.ContentRevision && blogOffersLanguage(blog, translation.Language) {
+			values = append(values, translation.Title)
+		}
+	}
 	for _, value := range values {
 		if strings.Contains(normalizePublicSearch(value), query) {
 			return true

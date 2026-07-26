@@ -84,6 +84,7 @@ a { color: var(--green); }
 }
 
 .account-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-locale { min-height: 32px; padding: 3px 6px; color: #fff; background: #21372d; border: 1px solid #466054; border-radius: 5px; }
 .avatar { width: 30px; height: 30px; flex: 0 0 auto; object-fit: cover; border-radius: 50%; background: #d9e5de; }
 .logout { min-height: 34px; display: inline-flex; align-items: center; padding: 5px 7px; color: #dce9e2; text-decoration: none; }
 .logout:hover { color: #fff; text-decoration: underline; }
@@ -265,6 +266,13 @@ a { color: var(--green); }
 .settings-section h2 { margin: 0 0 7px; font-family: Georgia, "Times New Roman", serif; font-size: 26px; }
 .settings-section > p { margin: 0 0 23px; color: var(--muted); line-height: 1.5; }
 .settings-form { display: grid; gap: 19px; }
+.language-targets { padding: 0; border: 0; }
+.language-targets legend { margin-bottom: 8px; font-size: 13px; font-weight: 750; }
+.language-options { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.language-options label { display: inline-flex; align-items: center; gap: 5px; font-size: 14px; }
+.language-options input { width: auto; min-height: auto; }
+.translation-states { display: flex; flex-wrap: wrap; gap: 7px; }
+.translation-states .ready { color: var(--green); background: var(--green-soft); }
 .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .form-actions { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
 .read-only-settings .settings-content { max-width: 760px; }
@@ -303,8 +311,11 @@ a { color: var(--green); }
 .title-input { padding: 0 0 15px; font-family: Georgia, "Times New Roman", serif; font-size: clamp(34px, 6vw, 50px); font-weight: 700; line-height: 1.08; letter-spacing: -0.035em; border: 0; border-bottom: 1px solid transparent; border-radius: 0; }
 .title-input:focus { border-bottom-color: var(--accent); outline: 3px solid color-mix(in srgb, var(--accent) 35%, transparent); outline-offset: 5px; }
 .title-input:disabled { color: var(--ink); background: transparent; opacity: 1; }
-.editor-url { width: min(650px, 100%); margin: 0 auto 34px; }
-.editor-tags { width: min(650px, 100%); margin: -15px auto 38px; }
+.editor-url, .editor-tags, .editor-source-language, .editor-translations { width: min(650px, 100%); margin-right: auto; margin-left: auto; }
+.editor-url { margin-bottom: 34px; }
+.editor-tags { margin-top: -15px; margin-bottom: 38px; }
+.editor-source-language, .editor-translations { margin-bottom: 28px; }
+.translation-update { justify-self: start; margin-top: 3px; }
 .editor-url-label { display: flex; align-items: center; gap: 8px; }
 .url-mode { padding: 2px 7px; color: var(--green); background: var(--green-soft); border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
 .url-mode.unavailable { color: var(--warning); background: var(--warning-soft); }

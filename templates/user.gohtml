@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="{{ .locale }}">
 <head>
     <meta charset="utf-8">
     <title>{{ .userNick }} — GoPress</title>
@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+Pro:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles/basic.css?v=9">
+    <link rel="stylesheet" href="/styles/basic.css?v=10">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
@@ -84,6 +84,6 @@
             </div>
         </footer>
     </div>
-    <script src="/public.js?v=5" defer></script>
+    <script id="gopress-i18n" type="application/json">{{ json .messages }}</script><script src="/public.js?v=7" defer></script>
 </body>
 </html>

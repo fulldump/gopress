@@ -1,27 +1,27 @@
 <!DOCTYPE html>
-<html lang="{{ .blog.Language }}">
+<html lang="{{ .locale }}">
 <head>
     <meta charset="utf-8">
     <title>{{ .blog.Name }} — GoPress</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="{{ .blog.Description }}">
-    <link rel="canonical" href="https://gopress.org/blog/{{ .blog.Slug }}">
+    <link rel="canonical" href="https://gopress.org{{ .blog.PublicUrl }}">{{ range .blog.AvailableLanguages }}<link rel="alternate" hreflang="{{ .Language }}" href="https://gopress.org{{ .Url }}">{{ end }}<link rel="alternate" hreflang="x-default" href="https://gopress.org/blog/{{ .blog.Slug }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+Pro:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles/basic.css?v=9">
+    <link rel="stylesheet" href="/styles/basic.css?v=10">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="manifest" href="/site.webmanifest">{{ .headTrailCode }}
 </head>
 <body style="--color-accent: {{ .blog.AccentColor }}; --color-accent-hover: {{ .blog.AccentColor }}; --blog-accent: {{ .blog.AccentColor }}">
-    <a class="skip-link" href="#main-content">{{ if eq .blog.Language "en" }}Skip to content{{ else }}Ir al contenido{{ end }}</a>
+    <a class="skip-link" href="#main-content">{{ t .locale "nav.skip" }}</a>
     <div class="site-wrapper">
         <header class="site-header blog-public-header">
-            <nav class="top-bar container" aria-label="{{ if eq .blog.Language "en" }}Main navigation{{ else }}Navegación principal{{ end }}">
+            <nav class="top-bar container" aria-label="{{ t .locale "nav.main" }}">
                 <a class="brand" href="/">GoPress<span>.org</span></a>
                 <div class="auth-actions">
-                    <div id="login"><a href="/auth/login">{{ if eq .blog.Language "en" }}Sign in{{ else }}Iniciar sesión{{ end }}</a></div>
-                    <div id="logout" hidden><img id="user_picture" class="nav-avatar" alt="" hidden><span id="user_nick"></span><a href="/bookmarks">{{ if eq .blog.Language "en" }}Saved{{ else }}Guardados{{ end }}</a><a href="/admin/">{{ if eq .blog.Language "en" }}Admin{{ else }}Administración{{ end }}</a><a href="/auth/logout">{{ if eq .blog.Language "en" }}Sign out{{ else }}Salir{{ end }}</a></div>
+                    <nav class="content-language-switcher language-links" aria-label="{{ t .locale "article.languages" }}">{{ range .blog.AvailableLanguages }}<a href="{{ .Url }}">{{ .Language }}</a>{{ end }}</nav><div id="login"><a href="/auth/login">{{ t .locale "nav.sign_in" }}</a></div>
+                    <div id="logout" hidden><img id="user_picture" class="nav-avatar" alt="" hidden><span id="user_nick"></span><a href="/bookmarks">{{ t .locale "nav.saved" }}</a><a href="/admin/">{{ t .locale "nav.admin" }}</a><a href="/auth/logout">{{ t .locale "nav.sign_out" }}</a></div>
                 </div>
             </nav>
             <div class="blog-hero content-column {{ if .blog.HeaderImage }}has-image{{ end }}">
@@ -35,25 +35,26 @@
         </header>
         <main class="site-main" id="main-content">
             <section class="content-column" aria-labelledby="articles-title">
-                <header class="section-header"><h2 id="articles-title">{{ if .tag }}#{{ .tag }}{{ else if eq .blog.Language "en" }}Latest posts{{ else }}Últimas publicaciones{{ end }}</h2></header>
+                <header class="section-header"><h2 id="articles-title">{{ if .tag }}#{{ .tag }}{{ else }}{{ t .locale "blog.latest" }}{{ end }}</h2></header>
                 {{ if .articles }}
                 <div class="article-feed">
                     {{ range .articles }}
                     <article class="article-card" itemscope itemtype="https://schema.org/Article">
-                        <h3 itemprop="headline"><a href="/blog/{{ $.blog.Slug }}/article/{{ .Url }}" itemprop="url">{{ .Title }}</a></h3>
+                        <h3 itemprop="headline"><a href="{{ .PublicUrl }}" itemprop="url">{{ .Title }}</a></h3>
                         <div class="card-excerpt" itemprop="description">{{ .ContentSummary }}</div>
-                        <div class="article-meta"><span itemprop="author">{{ if eq $.blog.Language "en" }}By{{ else }}Por{{ end }} {{ .AuthorNick }}</span><time datetime="{{ .PublishOn.Format "2006-01-02" }}">{{ .PublishOn.Format "02/01/2006" }}</time><span>{{ .Stats.Views }} {{ if eq $.blog.Language "en" }}reads{{ else }}lecturas{{ end }}</span></div>
+                        <div class="article-meta"><span itemprop="author">{{ t $.locale "article.by" }} {{ .AuthorNick }}</span><time datetime="{{ .PublishOn.Format "2006-01-02" }}">{{ .PublishOn.Format "02/01/2006" }}</time><span>{{ .Stats.Views }} {{ t $.locale "article.reads" }}</span></div>
                         {{ if .Tags }}<div class="card-tags">{{ range .Tags }}<a class="tag" href="/blog/{{ $.blog.Slug }}/tag/{{ . }}">#{{ . }}</a>{{ end }}</div>{{ end }}
+                        <nav class="language-links">{{ range .AvailableLanguages }}<a href="{{ .Url }}">{{ .Language }}</a>{{ end }}</nav>
                     </article>
                     {{ end }}
                 </div>
                 {{ else }}
-                <div class="empty-state"><h2>{{ if eq .blog.Language "en" }}No posts yet.{{ else }}Aún no hay publicaciones.{{ end }}</h2><p>{{ if eq .blog.Language "en" }}The first story will appear here.{{ else }}La primera historia aparecerá aquí cuando esté lista.{{ end }}</p></div>
+                <div class="empty-state"><h2>{{ t .locale "home.empty" }}</h2><p>{{ t .locale "home.empty_help" }}</p></div>
                 {{ end }}
             </section>
         </main>
-        <footer class="site-footer"><div class="footer-content container"><p>{{ .blog.Name }} · GoPress.org</p><nav class="footer-links"><a href="/blogs">{{ if eq .blog.Language "en" }}All blogs{{ else }}Todos los blogs{{ end }}</a></nav></div></footer>
+        <footer class="site-footer"><div class="footer-content container"><p>{{ .blog.Name }} · GoPress.org</p><nav class="footer-links"><a href="/blogs">{{ t .locale "blog.all" }}</a></nav></div></footer>
     </div>
-    <script src="/public.js?v=5" defer></script>
+    <script id="gopress-i18n" type="application/json">{{ json .messages }}</script><script src="/public.js?v=7" defer></script>
 </body>
 </html>

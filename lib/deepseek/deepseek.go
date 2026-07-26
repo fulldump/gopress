@@ -54,7 +54,7 @@ func NewClient(cfg Config) (*Client, error) {
 
 	httpClient := cfg.HTTPClient
 	if httpClient == nil {
-		httpClient = &http.Client{Timeout: 30 * time.Second}
+		httpClient = &http.Client{Timeout: 120 * time.Second}
 	}
 
 	return &Client{
@@ -117,6 +117,37 @@ func (c *Client) GenerateTags(ctx context.Context, content string) ([]string, er
 	}
 
 	return tags, nil
+}
+
+func (c *Client) TranslateArticle(ctx context.Context, sourceLanguage, targetLanguage, title, contentHTML string) (string, string, error) {
+	prompt := fmt.Sprintf(`Translate the following article from %s to %s. Preserve all HTML tags, attributes, URLs and code exactly; translate only human-readable prose. Return only valid JSON with this exact shape: {"title":"...","content_html":"..."}.
+
+Title: %s
+
+HTML:
+%s`, sourceLanguage, targetLanguage, title, contentHTML)
+	answer, err := c.sendPrompt(ctx, prompt)
+	if err != nil {
+		return "", "", err
+	}
+	answer = strings.TrimSpace(answer)
+	if strings.HasPrefix(answer, "```") {
+		answer = strings.TrimPrefix(answer, "```json")
+		answer = strings.TrimPrefix(answer, "```")
+		answer = strings.TrimSuffix(strings.TrimSpace(answer), "```")
+	}
+	response := struct {
+		Title       string `json:"title"`
+		ContentHTML string `json:"content_html"`
+	}{}
+	if err := json.Unmarshal([]byte(answer), &response); err != nil {
+		return "", "", fmt.Errorf("deepseek: decode translation: %w", err)
+	}
+	response.Title = strings.TrimSpace(response.Title)
+	if response.Title == "" || strings.TrimSpace(response.ContentHTML) == "" {
+		return "", "", errors.New("deepseek: empty translation")
+	}
+	return response.Title, response.ContentHTML, nil
 }
 
 func (c *Client) sendPrompt(ctx context.Context, prompt string) (string, error) {

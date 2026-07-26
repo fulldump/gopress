@@ -3,6 +3,7 @@
 
   var list = document.getElementById('bookmarks-list');
   var status = document.getElementById('bookmarks-status');
+  var i18n = window.gopressI18n || { locale: 'es', t: function (key) { return key; } };
   if (!list || !status) return;
 
   function element(tag, className, text) {
@@ -15,7 +16,7 @@
   function formatDate(value) {
     var date = new Date(value);
     if (Number.isNaN(date.getTime())) return '';
-    return new Intl.DateTimeFormat('es', { dateStyle: 'medium' }).format(date);
+    return new Intl.DateTimeFormat(i18n.locale, { dateStyle: 'medium' }).format(date);
   }
 
   function articlePath(article) {
@@ -26,7 +27,7 @@
     var card = element('article', 'article-card bookmark-card');
     var heading = element('h3');
     var link = element('a', '', article.title);
-    link.href = articlePath(article);
+    link.href = article.publicUrl || articlePath(article);
     heading.appendChild(link);
     card.appendChild(heading);
 
@@ -42,7 +43,18 @@
     meta.appendChild(element('span', '', formatDate(article.publishOn)));
     card.appendChild(meta);
 
-    var remove = element('button', 'bookmark-remove', 'Quitar de guardados');
+    if (article.availableLanguages && article.availableLanguages.length) {
+      var languages = element('nav', 'language-links');
+      article.availableLanguages.forEach(function (language) {
+        var languageLink = element('a', '', language.language);
+        languageLink.href = language.url;
+        languageLink.hreflang = language.language;
+        languages.appendChild(languageLink);
+      });
+      card.appendChild(languages);
+    }
+
+    var remove = element('button', 'bookmark-remove', i18n.t('bookmarks.remove'));
     remove.type = 'button';
     remove.addEventListener('click', async function () {
       remove.disabled = true;
@@ -97,7 +109,7 @@
         window.gopressRequireLogin('/bookmarks');
         return;
       }
-      if (!response.ok) throw new Error('No se pudieron cargar los artículos guardados.');
+      if (!response.ok) throw new Error(i18n.t('bookmarks.load_failed'));
       var bookmarks = await response.json();
       list.replaceChildren();
       if (!bookmarks.length) {

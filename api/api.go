@@ -19,7 +19,7 @@ import (
 type JSON = map[string]any
 
 func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.Filestorager, moderator ContentModerator) *box.B {
-	for _, collection := range []string{"articles", commentsCollection, articleInteractionsCollection, "files"} {
+	for _, collection := range []string{"articles", commentsCollection, articleInteractionsCollection, "files", userPreferencesCollection} {
 		if err := db.CreateCollection(collection); err != nil && err != inceptiondb.ErrorAlreadyExist {
 			log.Panicf("initialize %s collection: %v", collection, err)
 		}
@@ -38,6 +38,13 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 		report.ArticlesScanned, report.AuthorsFound, report.BlogsCreated, report.BlogsRepaired,
 		report.MembershipsCreated, report.ArticlesPatched, report.ArticlesUnchanged, report.ArticlesSkipped)
 	logMigrationWarnings("article", report.Errors)
+	localizedArticles, err := MigrateArticleLocalization(db)
+	if err != nil {
+		log.Panicf("article localization migration failed: %v", err)
+	}
+	if localizedArticles > 0 {
+		log.Printf("article localization migration complete: patched=%d", localizedArticles)
+	}
 	banReport, err := ReconcileBannedBlogs(db, time.Time{})
 	if err != nil {
 		log.Panicf("initial blog ban reconciliation failed: %v", err)
@@ -94,8 +101,10 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 	}
 	b.WithInterceptors(templates.Inject(et))
 
-	b.WithInterceptors(PrettyError)
 	b.WithInterceptors(InjectInceptionClient(db))
+	b.WithInterceptors(glueauth.Auth)
+	b.WithInterceptors(ResolveLocale)
+	b.WithInterceptors(PrettyError)
 	b.WithInterceptors(InjectContentModerator(moderator))
 
 	// Public endpoints
@@ -104,6 +113,7 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 	b.Handle("GET", "/blogs/", RedirectBlogsSlash)
 	b.Handle("GET", "/blog/{blogSlug}", RenderBlog)
 	b.Handle("GET", "/blog/{blogSlug}/article/{articleUrl}", RenderBlogArticle)
+	b.Handle("GET", "/blog/{blogSlug}/article/{articleUrl}/{language}", RenderTranslatedBlogArticle)
 	b.Handle("GET", "/blog/{blogSlug}/tag/{tag}", RenderBlogTag)
 	b.Handle("GET", "/user/{userNick}", RenderUser)
 	b.Handle("GET", "/user/{userNick}/article/{articleUrl}", RenderArticle)
@@ -127,6 +137,8 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 		return v1.Handle(method, path, handler).WithInterceptors(glueauth.Require)
 	}
 	privateEndpoint("GET", "/capabilities", GetCapabilities)
+	privateEndpoint("GET", "/preferences", GetUserPreferences)
+	privateEndpoint("PUT", "/preferences", PutUserPreferences)
 	privateEndpoint("GET", "/articles", ListArticles)
 	privateEndpoint("POST", "/articles", CreateArticle)
 	privateEndpoint("GET", "/articles/{articleId}", GetArticle)

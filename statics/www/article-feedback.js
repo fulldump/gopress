@@ -2,6 +2,7 @@
   'use strict';
 
   var section = document.getElementById('feedback');
+  var t = (window.gopressI18n && window.gopressI18n.t) || function (key) { return key; };
   if (!section) return;
 
   var endpoint = section.dataset.endpoint;
@@ -16,8 +17,8 @@
 
   function renderFeedback(feedback) {
     likeCount.textContent = String(feedback.likes || 0);
-    setPressed(likeButton, Boolean(feedback.liked), 'Aplaudir', 'Quitar aplauso');
-    setPressed(bookmarkButton, Boolean(feedback.bookmarked), 'Guardar', 'Quitar de guardados');
+    setPressed(likeButton, Boolean(feedback.liked), t('feedback.applaud'), t('feedback.remove_applause'));
+    setPressed(bookmarkButton, Boolean(feedback.bookmarked), t('feedback.save'), t('feedback.remove_saved'));
     likeButton.disabled = false;
     bookmarkButton.disabled = false;
   }
@@ -56,7 +57,7 @@
       }
       var payload = await response.json().catch(function () { return {}; });
       if (!response.ok) {
-        throw new Error(payload.error && payload.error.description ? payload.error.description : 'No se pudo actualizar el artículo.');
+        throw new Error(payload.error && payload.error.description ? payload.error.description : t('feedback.update_failed'));
       }
       renderFeedback(payload);
       feedbackStatus.textContent = resource === 'like'
@@ -161,7 +162,7 @@
     });
   })
     .then(function (response) {
-      if (!response.ok) throw new Error('No se pudo cargar la valoración.');
+      if (!response.ok) throw new Error(t('feedback.load_failed'));
       return response.json();
     })
     .then(renderFeedback)

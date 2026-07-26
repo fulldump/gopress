@@ -40,16 +40,18 @@ type ArticleFeedback struct {
 }
 
 type BookmarkedArticle struct {
-	Id             string    `json:"id"`
-	Title          string    `json:"title"`
-	Url            string    `json:"url"`
-	BlogSlug       string    `json:"blogSlug"`
-	AuthorNick     string    `json:"authorNick"`
-	AuthorPicture  string    `json:"authorPicture"`
-	ContentSummary string    `json:"contentSummary"`
-	Tags           []string  `json:"tags"`
-	PublishOn      time.Time `json:"publishOn"`
-	BookmarkedOn   time.Time `json:"bookmarkedOn"`
+	Id                 string         `json:"id"`
+	Title              string         `json:"title"`
+	Url                string         `json:"url"`
+	BlogSlug           string         `json:"blogSlug"`
+	AuthorNick         string         `json:"authorNick"`
+	AuthorPicture      string         `json:"authorPicture"`
+	ContentSummary     string         `json:"contentSummary"`
+	Tags               []string       `json:"tags"`
+	PublishOn          time.Time      `json:"publishOn"`
+	BookmarkedOn       time.Time      `json:"bookmarkedOn"`
+	PublicUrl          string         `json:"publicUrl"`
+	AvailableLanguages []LanguageLink `json:"availableLanguages"`
 }
 
 func GetArticleFeedback(ctx context.Context, w http.ResponseWriter) (*ArticleFeedback, error) {
@@ -126,20 +128,24 @@ func ListBookmarks(ctx context.Context, w http.ResponseWriter) ([]*BookmarkedArt
 		if err != nil {
 			return nil, feedbackPersistenceError("No se pudieron cargar los artículos guardados", err)
 		}
-		if !isPublicBlog(ctx, article.BlogId) {
+		blog := &Blog{}
+		if GetInceptionClient(ctx).FindOne(blogsCollection, inceptiondb.FindQuery{Filter: JSON{"id": article.BlogId, "$ne": JSON{"banned": true}}}, blog) != nil {
 			continue
 		}
+		localized := preparePublicArticle(article, blog, preferredContentLanguage(ctx))
 		result = append(result, &BookmarkedArticle{
-			Id:             article.Id,
-			Title:          article.Title,
-			Url:            article.Url,
-			BlogSlug:       article.BlogSlug,
-			AuthorNick:     article.AuthorNick,
-			AuthorPicture:  article.AuthorPicture,
-			ContentSummary: bookmarkSummary(article),
-			Tags:           article.Tags,
-			PublishOn:      article.PublishOn,
-			BookmarkedOn:   bookmark.CreatedOn,
+			Id:                 article.Id,
+			Title:              localized.Title,
+			Url:                article.Url,
+			BlogSlug:           article.BlogSlug,
+			AuthorNick:         article.AuthorNick,
+			AuthorPicture:      article.AuthorPicture,
+			ContentSummary:     bookmarkSummary(localized),
+			Tags:               article.Tags,
+			PublishOn:          article.PublishOn,
+			BookmarkedOn:       bookmark.CreatedOn,
+			PublicUrl:          localized.PublicUrl,
+			AvailableLanguages: localized.AvailableLanguages,
 		})
 	}
 

@@ -2,11 +2,11 @@ package api
 
 import (
 	"context"
-	"html/template"
 	"log"
 	"net/http"
 	"sort"
 
+	"gopress/i18n"
 	"gopress/inceptiondb"
 	"gopress/templates"
 )
@@ -24,15 +24,17 @@ func RenderHome(ctx context.Context, w http.ResponseWriter) {
 	}
 
 	list := []*Article{}
-	publicBlogs := publicBlogIds(ctx)
+	publicBlogs := map[string]*Blog{}
+	_ = GetInceptionClient(ctx).FindAll(blogsCollection, inceptiondb.FindQuery{Limit: maxBlogs, Filter: JSON{"$ne": JSON{"banned": true}}}, func(blog *Blog) {
+		publicBlogs[blog.Id] = blog
+	})
+	preferred := contentLanguageFromLocale(string(i18n.GetLocale(ctx)))
 	GetInceptionClient(ctx).FindAll("articles", query, func(article *Article) {
-		if !publicBlogs[article.BlogId] {
+		blog := publicBlogs[article.BlogId]
+		if blog == nil {
 			return
 		}
-		if article.ContentSummary == "" {
-			article.ContentSummary = template.HTML(HtmlSummary(string(article.ContentHTML), 50))
-		}
-		list = append(list, article)
+		list = append(list, preparePublicArticle(article, blog, preferred))
 	}) // todo: handle error properly
 
 	sort.Slice(list, func(i, j int) bool {

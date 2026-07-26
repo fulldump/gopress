@@ -1,49 +1,44 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="{{ .locale }}">
 <head>
     <meta charset="utf-8">
-    <title>Blogs — GoPress</title>
+    <title>{{ t .locale "blogs.title" }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Descubre los blogs publicados en GoPress.">
-    <link rel="canonical" href="https://gopress.org/blogs">
+    <meta name="description" content="{{ t .locale "blogs.description" }}">
+    <link rel="canonical" href="https://gopress.org/blogs{{ if ne .locale "es" }}?lang={{ .locale }}{{ end }}"><link rel="alternate" hreflang="es" href="https://gopress.org/blogs"><link rel="alternate" hreflang="en" href="https://gopress.org/blogs?lang=en"><link rel="alternate" hreflang="zh" href="https://gopress.org/blogs?lang=zh"><link rel="alternate" hreflang="x-default" href="https://gopress.org/blogs">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+Pro:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles/basic.css?v=9">
+    <link rel="stylesheet" href="/styles/basic.css?v=10">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="manifest" href="/site.webmanifest">{{ .headTrailCode }}
 </head>
 <body>
-    <a class="skip-link" href="#main-content">Ir al contenido</a>
+    <a class="skip-link" href="#main-content">{{ t .locale "nav.skip" }}</a>
     <div class="site-wrapper">
         <header class="site-header">
-            <nav class="top-bar container" aria-label="Navegación principal">
+            <nav class="top-bar container" aria-label="{{ t .locale "nav.main" }}">
                 <a class="brand" href="/">GoPress<span>.org</span></a>
                 <div class="auth-actions">
-                    <div id="login"><a href="/auth/login">Iniciar sesión</a></div>
+                    <nav class="locale-switcher" aria-label="{{ t .locale "nav.languages" }}"><a href="?lang=es">ES</a><a href="?lang=en">EN</a><a href="?lang=zh">ZH</a></nav><div id="login"><a href="/auth/login">{{ t .locale "nav.sign_in" }}</a></div>
                     <div id="logout" hidden>
                         <img id="user_picture" class="nav-avatar" alt="" hidden>
                         <span id="user_nick"></span>
-                        <a href="/bookmarks">Guardados</a>
-                        <a href="/admin/">Administración</a>
-                        <a href="/auth/logout">Salir</a>
+                        <a href="/bookmarks">{{ t .locale "nav.saved" }}</a><a href="/admin/">{{ t .locale "nav.admin" }}</a><a href="/auth/logout">{{ t .locale "nav.sign_out" }}</a>
                     </div>
                 </div>
             </nav>
             <div class="page-intro content-column">
-                <span class="eyebrow">Voces de la comunidad</span>
-                <h1>Blogs con identidad propia.</h1>
-                <p>Equipos y autores que escriben, editan y publican juntos.</p>
+                <span class="eyebrow">{{ t .locale "blogs.eyebrow" }}</span><h1>{{ t .locale "blogs.heading" }}</h1><p>{{ t .locale "blogs.intro" }}</p>
             </div>
         </header>
         <main class="site-main" id="main-content">
             <section class="content-column" aria-labelledby="blogs-title">
-                <header class="section-header"><h2 id="blogs-title">Todos los blogs</h2></header>
+                <header class="section-header"><h2 id="blogs-title">{{ t .locale "blogs.all" }}</h2></header>
                 {{ if .blogs }}
                 <div class="directory-search" role="search">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg>
-                    <label class="sr-only" for="blog-search">Buscar blogs</label>
-                    <input id="blog-search" type="search" placeholder="Buscar por nombre, descripción o dirección" autocomplete="off">
+                    <label class="sr-only" for="blog-search">{{ t .locale "blogs.search" }}</label><input id="blog-search" type="search" placeholder="{{ t .locale "blogs.search_placeholder" }}" autocomplete="off">
                     <span id="blog-search-status" aria-live="polite"></span>
                 </div>
                 <div class="blog-directory">
@@ -51,21 +46,22 @@
                     <article class="blog-directory-card" style="--blog-accent: {{ .AccentColor }}">
                         <span class="blog-directory-mark" aria-hidden="true"></span>
                         <div>
-                            <h2><a href="/blog/{{ .Slug }}">{{ .Name }}</a></h2>
+                            <h2><a href="{{ .PublicUrl }}">{{ .Name }}</a></h2>
                             {{ if .Description }}<p>{{ .Description }}</p>{{ end }}
-                            <span class="blog-directory-meta">/blog/{{ .Slug }} · {{ if eq .Language "en" }}English{{ else }}Español{{ end }}</span>
+                            <span class="blog-directory-meta">/blog/{{ .Slug }} · {{ .Language }}</span>
+                            <nav class="language-links" aria-label="{{ t $.locale "article.languages" }}">{{ range .AvailableLanguages }}<a href="{{ .Url }}" hreflang="{{ .Language }}">{{ .Language }}</a>{{ end }}</nav>
                         </div>
                     </article>
                     {{ end }}
                 </div>
-                <div class="empty-state" id="blog-search-empty" hidden><h2>No hay coincidencias.</h2><p>Prueba con otro nombre o término.</p></div>
+                <div class="empty-state" id="blog-search-empty" hidden><h2>{{ t .locale "blogs.none_match" }}</h2><p>{{ t .locale "blogs.try_again" }}</p></div>
                 {{ else }}
-                <div class="empty-state"><h2>Aún no hay blogs.</h2><p>El primer espacio de publicación aparecerá aquí.</p></div>
+                <div class="empty-state"><h2>{{ t .locale "blogs.empty" }}</h2><p>{{ t .locale "blogs.empty_help" }}</p></div>
                 {{ end }}
             </section>
         </main>
-        <footer class="site-footer"><div class="footer-content container"><p>GoPress es software libre construido por la comunidad.</p><nav class="footer-links" aria-label="Enlaces del proyecto"><a href="https://github.com/fulldump/gopress">GitHub</a><a href="https://www.twitch.tv/fulldump">Twitch</a><a href="https://www.youtube.com/@fulldump">YouTube</a></nav></div></footer>
+        <footer class="site-footer"><div class="footer-content container"><p>{{ t .locale "footer.text" }}</p><nav class="footer-links" aria-label="{{ t .locale "footer.links" }}"><a href="https://github.com/fulldump/gopress">GitHub</a><a href="https://www.twitch.tv/fulldump">Twitch</a><a href="https://www.youtube.com/@fulldump">YouTube</a></nav></div></footer>
     </div>
-    <script src="/public.js?v=5" defer></script>
+    <script id="gopress-i18n" type="application/json">{{ json .messages }}</script><script src="/public.js?v=7" defer></script>
 </body>
 </html>

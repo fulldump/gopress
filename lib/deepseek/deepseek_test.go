@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParseAnswer(t *testing.T) {
@@ -109,5 +110,38 @@ func TestClientGenerateTags(t *testing.T) {
 		if want[i] != got[i] {
 			t.Fatalf("unexpected tag at %d: want %q, got %q", i, want[i], got[i])
 		}
+	}
+}
+
+func TestClientTranslateArticle(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		request := chatRequest{}
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(request.Messages[0].Content, "from es to en") {
+			t.Fatalf("translation languages missing from prompt: %s", request.Messages[0].Content)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"{\"title\":\"Hello\",\"content_html\":\"<p>World</p>\"}"}}]}`))
+	}))
+	t.Cleanup(server.Close)
+	client, err := NewClient(Config{APIKey: "secret", BaseURL: server.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	title, content, err := client.TranslateArticle(context.Background(), "es", "en", "Hola", "<p>Mundo</p>")
+	if err != nil || title != "Hello" || content != "<p>World</p>" {
+		t.Fatalf("translate article: title=%q content=%q err=%v", title, content, err)
+	}
+}
+
+func TestClientUsesTranslationSafeDefaultTimeout(t *testing.T) {
+	client, err := NewClient(Config{APIKey: "secret"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if client.httpClient.Timeout != 120*time.Second {
+		t.Fatalf("unexpected default timeout: %s", client.httpClient.Timeout)
 	}
 }

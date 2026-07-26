@@ -46,7 +46,16 @@ func Sitemap(ctx context.Context, w http.ResponseWriter) {
 			return
 		}
 		set.URLs = append(set.URLs, sitemapURL{Location: origin + articlePublicPath(blog.Slug, article.Url),
-			LastMod: sitemapDate(article.PublishOn), Frequency: "weekly", Priority: "0.6"})
+			LastMod: sitemapDate(article.UpdatedOn), Frequency: "weekly", Priority: "0.6"})
+		for _, language := range blogTranslationLanguages(blog) {
+			if language == article.SourceLanguage {
+				continue
+			}
+			if translation := articleTranslation(article, language); translation != nil {
+				set.URLs = append(set.URLs, sitemapURL{Location: origin + articleTranslationPath(blog.Slug, article.Url, language),
+					LastMod: sitemapDate(translation.GeneratedOn), Frequency: "weekly", Priority: "0.5"})
+			}
+		}
 	})
 	sort.SliceStable(set.URLs, func(i, j int) bool { return set.URLs[i].Location < set.URLs[j].Location })
 	w.Header().Set("Content-Type", "application/xml; charset=UTF-8")

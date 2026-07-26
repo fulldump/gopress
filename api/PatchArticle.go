@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -26,13 +27,14 @@ func PatchArticle(r *http.Request, ctx context.Context) any {
 		return err
 	}
 	input := struct {
-		Title        *string   `json:"title,omitempty"`
-		Url          *string   `json:"url,omitempty"`
-		AutomaticUrl *bool     `json:"automatic_url,omitempty"`
-		Tags         *[]string `json:"tags,omitempty"`
-		TagsMode     *string   `json:"tags_mode,omitempty"`
-		Content      *Content  `json:"content,omitempty"`
-		Revision     *uint64   `json:"revision"`
+		Title          *string       `json:"title,omitempty"`
+		Url            *string       `json:"url,omitempty"`
+		AutomaticUrl   *bool         `json:"automatic_url,omitempty"`
+		Tags           *[]string     `json:"tags,omitempty"`
+		TagsMode       *string       `json:"tags_mode,omitempty"`
+		SourceLanguage *BlogLanguage `json:"source_language,omitempty"`
+		Content        *Content      `json:"content,omitempty"`
+		Revision       *uint64       `json:"revision"`
 	}{}
 	if err = decodeBlogJSON(box.GetResponse(ctx), r, &input); err != nil {
 		log.Println("patch article: json decode:", err)
@@ -41,11 +43,22 @@ func PatchArticle(r *http.Request, ctx context.Context) any {
 	if input.Revision == nil {
 		return invalidArticle("revision es obligatoria")
 	}
-	if input.Title == nil && input.Url == nil && input.AutomaticUrl == nil && input.Tags == nil && input.TagsMode == nil && input.Content == nil {
+	if input.Title == nil && input.Url == nil && input.AutomaticUrl == nil && input.Tags == nil && input.TagsMode == nil && input.SourceLanguage == nil && input.Content == nil {
 		return invalidArticle("title, url, tags o content son obligatorios")
 	}
 	if *input.Revision != article.Revision {
 		return articleRevisionConflict(article.Revision)
+	}
+	contentChanged := input.Title != nil && *input.Title != article.Title
+	if input.SourceLanguage != nil && *input.SourceLanguage != article.SourceLanguage {
+		if !IsSupportedContentLanguage(*input.SourceLanguage) {
+			return invalidArticle("source_language no está soportado")
+		}
+		article.SourceLanguage = *input.SourceLanguage
+		contentChanged = true
+	}
+	if input.Content != nil && !articleContentEqual(*input.Content, article.Content) {
+		contentChanged = true
 	}
 	if input.Title != nil {
 		article.Title = *input.Title
@@ -88,6 +101,13 @@ func PatchArticle(r *http.Request, ctx context.Context) any {
 		return invalidArticle("El contenido del artículo no es válido")
 	}
 	article.ContentHTML = template.HTML(HtmlSanitizer(contentHTML))
+	if article.ContentRevision == 0 {
+		article.ContentRevision = 1
+	}
+	if contentChanged {
+		article.ContentRevision++
+		article.ContentSummary = ""
+	}
 	filter, err := articleMutationFilter(ctx, article, *input.Revision)
 	if err != nil {
 		return err
@@ -113,7 +133,9 @@ func PatchArticle(r *http.Request, ctx context.Context) any {
 	matched, err := db.PatchOne("articles", inceptiondb.PatchQuery{Filter: filter, Patch: JSON{
 		"title": article.Title, "url": article.Url, "automatic_url": article.AutomaticUrl,
 		"tags": article.Tags, "tags_mode": article.TagsMode, "content": article.Content, "content_html": article.ContentHTML,
-		"revision": *input.Revision + 1, "updatedOn": now,
+		"content_revision": article.ContentRevision, "content_summary": article.ContentSummary,
+		"source_language": article.SourceLanguage,
+		"revision":        *input.Revision + 1, "updatedOn": now,
 		"updated_by_id": auth.User.ID, "updated_by_nick": auth.User.Nick,
 	}}, patched)
 	articleWriteMu.Unlock()
@@ -126,6 +148,24 @@ func PatchArticle(r *http.Request, ctx context.Context) any {
 	}
 	setArticlePublicURL(patched)
 	return patched
+}
+
+func articleContentEqual(a, b Content) bool {
+	if a.Type != b.Type {
+		return false
+	}
+	var valueA map[string]any
+	var valueB map[string]any
+	if json.Unmarshal(a.Data, &valueA) != nil || json.Unmarshal(b.Data, &valueB) != nil {
+		return bytes.Equal(a.Data, b.Data)
+	}
+	delete(valueA, "time")
+	delete(valueA, "version")
+	delete(valueB, "time")
+	delete(valueB, "version")
+	normalizedA, _ := json.Marshal(valueA)
+	normalizedB, _ := json.Marshal(valueB)
+	return bytes.Equal(normalizedA, normalizedB)
 }
 
 type EditorJs struct {

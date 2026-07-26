@@ -78,6 +78,13 @@ func PublishArticle(ctx context.Context, r *http.Request) (*Article, error) {
 			log.Printf("publish article: ban blog: %v", err)
 			return nil, HttpError{Status: http.StatusInternalServerError, Title: "Article Publish Failed", Description: "No se pudo bloquear el blog tras detectar contenido prohibido"}
 		}
+	} else {
+		article.Translations, err = generateArticleTranslations(ctx, article, blog)
+		if err != nil {
+			log.Println("publish article: generate translations:", err)
+			return nil, HttpError{Status: http.StatusBadGateway, Title: "Article Translation Failed", Code: "translation_generation_failed",
+				Description: "No se pudieron generar las traducciones del artículo. Inténtalo de nuevo"}
+		}
 	}
 	now := time.Now().UTC()
 	publishOn := article.PublishOn
@@ -88,6 +95,7 @@ func PublishArticle(ctx context.Context, r *http.Request) (*Article, error) {
 	patched := &Article{}
 	matched, err := GetInceptionClient(ctx).PatchOne("articles", inceptiondb.PatchQuery{Filter: filter, Patch: JSON{
 		"published": true, "publishOn": publishOn, "banned": article.Banned, "tags": article.Tags, "tags_mode": article.TagsMode,
+		"source_language": article.SourceLanguage, "content_revision": article.ContentRevision, "translations": article.Translations,
 		"revision": revision + 1, "updatedOn": now,
 		"updated_by_id": auth.User.ID, "updated_by_nick": auth.User.Nick,
 	}}, patched)

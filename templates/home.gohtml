@@ -1,63 +1,63 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="{{ .locale }}">
 <head>
     <meta charset="utf-8">
-    <title>GoPress.org — Ideas y conocimiento de la comunidad</title>
+    <title>{{ t .locale "home.title" }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Ideas, guías y experiencias escritas por la comunidad de GoPress.">
+    <meta name="description" content="{{ t .locale "home.description" }}">
+    <link rel="canonical" href="https://gopress.org/{{ if ne .locale "es" }}?lang={{ .locale }}{{ end }}"><link rel="alternate" hreflang="es" href="https://gopress.org/"><link rel="alternate" hreflang="en" href="https://gopress.org/?lang=en"><link rel="alternate" hreflang="zh" href="https://gopress.org/?lang=zh"><link rel="alternate" hreflang="x-default" href="https://gopress.org/">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+Pro:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles/basic.css?v=9">
+    <link rel="stylesheet" href="/styles/basic.css?v=10">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="manifest" href="/site.webmanifest">{{ .headTrailCode }}
 </head>
 <body>
-    <a class="skip-link" href="#main-content">Ir al contenido</a>
+    <a class="skip-link" href="#main-content">{{ t .locale "nav.skip" }}</a>
     <div class="site-wrapper">
         <header class="site-header">
-            <nav class="top-bar container" aria-label="Navegación principal">
+            <nav class="top-bar container" aria-label="{{ t .locale "nav.main" }}">
                 <a class="brand" href="/">GoPress<span>.org</span></a>
                 <div class="auth-actions">
-                    <div id="login"><a href="/auth/login">Iniciar sesión</a></div>
+                    <nav class="locale-switcher" aria-label="{{ t .locale "nav.languages" }}"><a href="?lang=es" lang="es">ES</a><a href="?lang=en" lang="en">EN</a><a href="?lang=zh" lang="zh">ZH</a></nav>
+                    <div id="login"><a href="/auth/login">{{ t .locale "nav.sign_in" }}</a></div>
                     <div id="logout" hidden>
                         <img id="user_picture" class="nav-avatar" alt="" hidden>
                         <span id="user_nick"></span>
-                        <a href="/blogs">Blogs</a>
-                        <a href="/bookmarks">Guardados</a>
-                        <a href="/admin/">Administración</a>
-                        <a href="/auth/logout">Salir</a>
+                        <a href="/blogs">{{ t .locale "nav.blogs" }}</a>
+                        <a href="/bookmarks">{{ t .locale "nav.saved" }}</a>
+                        <a href="/admin/">{{ t .locale "nav.admin" }}</a>
+                        <a href="/auth/logout">{{ t .locale "nav.sign_out" }}</a>
                     </div>
                 </div>
             </nav>
             <div class="hero content-column">
-                <span class="eyebrow">Publicaciones independientes</span>
-                <h1>Ideas escritas para ser útiles.</h1>
-                <p>Experiencias, referencias y aprendizajes compartidos sin ruido.</p>
+                <span class="eyebrow">{{ t .locale "home.eyebrow" }}</span><h1>{{ t .locale "home.heading" }}</h1><p>{{ t .locale "home.intro" }}</p>
             </div>
         </header>
 
         <main class="site-main" id="main-content">
             <section class="content-column" aria-labelledby="latest-title">
                 <header class="section-header">
-                    <h2 id="latest-title">Últimas publicaciones</h2>
+                    <h2 id="latest-title">{{ t .locale "home.latest" }}</h2>
                 </header>
                 {{ if .articles }}
                 <div class="article-feed">
                     {{ range $i, $article := .articles }}
                     <article class="article-card" itemscope itemtype="https://schema.org/Article">
                         <h3 itemprop="headline">
-                            <a href="/blog/{{ .BlogSlug }}/article/{{ .Url }}" itemprop="url">{{ .Title }}</a>
+                            <a href="{{ .PublicUrl }}" itemprop="url">{{ .Title }}</a>
                         </h3>
                         <div class="card-excerpt" itemprop="description">{{ .ContentSummary }}</div>
                         <div class="article-meta">
                             <span itemprop="author" itemscope itemtype="https://schema.org/Person">
-                                Por <span itemprop="name">{{ .AuthorNick }}</span>
+                                {{ t $.locale "article.by" }} <span itemprop="name">{{ .AuthorNick }}</span>
                             </span>
                             <time datetime="{{ .PublishOn.Format "2006-01-02" }}" itemprop="datePublished">{{ .PublishOn.Format "02/01/2006" }}</time>
-                            <span>{{ .Stats.Views }} lecturas</span>
+                            <span>{{ .Stats.Views }} {{ t $.locale "article.reads" }}</span>
                         </div>
                         {{ if .Tags }}
                         <div class="card-tags" aria-label="Etiquetas del artículo">
@@ -66,13 +66,13 @@
                             {{ end }}
                         </div>
                         {{ end }}
+                        {{ if .AvailableLanguages }}<nav class="language-links" aria-label="{{ t $.locale "article.languages" }}">{{ range .AvailableLanguages }}<a href="{{ .Url }}" hreflang="{{ .Language }}" lang="{{ .Language }}">{{ .Language }}</a>{{ end }}</nav>{{ end }}
                     </article>
                     {{ end }}
                 </div>
                 {{ else }}
                 <div class="empty-state">
-                    <h2>Aún no hay publicaciones.</h2>
-                    <p>La primera historia aparecerá aquí cuando esté lista.</p>
+                    <h2>{{ t .locale "home.empty" }}</h2><p>{{ t .locale "home.empty_help" }}</p>
                 </div>
                 {{ end }}
             </section>
@@ -80,8 +80,7 @@
 
         <footer class="site-footer">
             <div class="footer-content container">
-                <p>GoPress es software libre construido por la comunidad.</p>
-                <nav class="footer-links" aria-label="Enlaces del proyecto">
+                <p>{{ t .locale "footer.text" }}</p><nav class="footer-links" aria-label="{{ t .locale "footer.links" }}">
                     <a href="https://github.com/fulldump/gopress">GitHub</a>
                     <a href="https://www.twitch.tv/fulldump">Twitch</a>
                     <a href="https://www.youtube.com/@fulldump">YouTube</a>
@@ -89,6 +88,6 @@
             </div>
         </footer>
     </div>
-    <script src="/public.js?v=5" defer></script>
+    <script id="gopress-i18n" type="application/json">{{ json .messages }}</script><script src="/public.js?v=7" defer></script>
 </body>
 </html>

@@ -32,6 +32,11 @@ func ListArticles(ctx context.Context) any {
 
 	result := []*ArticleShort{}
 	err = GetInceptionClient(ctx).FindAll("articles", query, func(article *Article) {
+		links := availableArticleLanguages(article, blog, article.SourceLanguage)
+		languages := make([]BlogLanguage, 0, len(links))
+		for _, link := range links {
+			languages = append(languages, link.Language)
+		}
 		result = append(result, &ArticleShort{
 			Id:        article.Id,
 			Title:     article.Title,
@@ -45,6 +50,7 @@ func ListArticles(ctx context.Context) any {
 			BlogSlug:  article.BlogSlug,
 			Revision:  article.Revision,
 			EditLock:  publicArticleLock(article.EditLock),
+			Languages: languages,
 		})
 	})
 	if err != nil {

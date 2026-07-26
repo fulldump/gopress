@@ -58,7 +58,7 @@ func Gopress(c *Config, version string) Runner {
 			os.Exit(-1)
 		}
 	} else {
-		log.Println("DeepSeek disabled: DEEPSEEK_APIKEY is not configured; automatic tags are unavailable")
+		log.Println("DeepSeek disabled: DEEPSEEK_APIKEY is not configured; automatic tags and translations are unavailable")
 	}
 
 	a := api.NewApi(c.Statics, version, db, fs, moderator)

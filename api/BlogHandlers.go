@@ -17,20 +17,22 @@ import (
 )
 
 type CreateBlogRequest struct {
-	Slug        string       `json:"slug"`
-	Name        string       `json:"name"`
-	Description string       `json:"description"`
-	Language    BlogLanguage `json:"language"`
-	AccentColor string       `json:"accent_color"`
-	HeaderImage string       `json:"header_image"`
+	Slug            string         `json:"slug"`
+	Name            string         `json:"name"`
+	Description     string         `json:"description"`
+	Language        BlogLanguage   `json:"language"`
+	TargetLanguages []BlogLanguage `json:"target_languages"`
+	AccentColor     string         `json:"accent_color"`
+	HeaderImage     string         `json:"header_image"`
 }
 
 type PatchBlogRequest struct {
-	Name        *string       `json:"name,omitempty"`
-	Description *string       `json:"description,omitempty"`
-	Language    *BlogLanguage `json:"language,omitempty"`
-	AccentColor *string       `json:"accent_color,omitempty"`
-	HeaderImage *string       `json:"header_image,omitempty"`
+	Name            *string         `json:"name,omitempty"`
+	Description     *string         `json:"description,omitempty"`
+	Language        *BlogLanguage   `json:"language,omitempty"`
+	TargetLanguages *[]BlogLanguage `json:"target_languages,omitempty"`
+	AccentColor     *string         `json:"accent_color,omitempty"`
+	HeaderImage     *string         `json:"header_image,omitempty"`
 }
 
 func ListBlogs(ctx context.Context) ([]*BlogWithRole, error) {
@@ -96,12 +98,16 @@ func CreateBlog(ctx context.Context, w http.ResponseWriter, r *http.Request) (*B
 	if err := validateBlogFields(input.Name, input.Description, input.Language, input.AccentColor, input.HeaderImage); err != nil {
 		return nil, invalidBlog(err.Error())
 	}
+	targetLanguages, err := normalizeTargetLanguages(input.Language, input.TargetLanguages)
+	if err != nil {
+		return nil, invalidBlog(err.Error())
+	}
 	if input.HeaderImage != "" {
 		return nil, invalidBlog("upload the header image after creating the blog")
 	}
 	now := time.Now().UTC()
 	blog := &Blog{Id: "blog_" + uuid.NewString(), Slug: input.Slug, Name: input.Name,
-		Description: input.Description, Language: input.Language, AccentColor: input.AccentColor,
+		Description: input.Description, Language: input.Language, TargetLanguages: targetLanguages, AccentColor: input.AccentColor,
 		HeaderImage: input.HeaderImage, OwnerId: auth.User.ID, OwnerNick: auth.User.Nick,
 		LegacyNicks: []string{}, CreatedOn: now, UpdatedOn: now}
 	blogSlugMu.Lock()
@@ -144,6 +150,13 @@ func PatchBlog(ctx context.Context, w http.ResponseWriter, r *http.Request) (*Bl
 	if input.Language != nil {
 		updated.Language = *input.Language
 	}
+	if input.TargetLanguages != nil {
+		updated.TargetLanguages = *input.TargetLanguages
+	}
+	updated.TargetLanguages, err = normalizeTargetLanguages(updated.Language, updated.TargetLanguages)
+	if err != nil {
+		return nil, invalidBlog(err.Error())
+	}
 	if input.AccentColor != nil {
 		updated.AccentColor = *input.AccentColor
 	}
@@ -168,6 +181,9 @@ func PatchBlog(ctx context.Context, w http.ResponseWriter, r *http.Request) (*Bl
 	}
 	if input.Language != nil {
 		patch["language"] = updated.Language
+	}
+	if input.TargetLanguages != nil || input.Language != nil {
+		patch["target_languages"] = updated.TargetLanguages
 	}
 	if input.AccentColor != nil {
 		patch["accent_color"] = updated.AccentColor

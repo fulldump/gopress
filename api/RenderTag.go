@@ -3,13 +3,13 @@ package api
 import (
 	"context"
 	"fmt"
-	"html/template"
 	"log"
 	"net/http"
 	"sort"
 
 	"github.com/fulldump/box"
 
+	"gopress/i18n"
 	"gopress/inceptiondb"
 	"gopress/templates"
 )
@@ -29,15 +29,15 @@ func RenderTag(w http.ResponseWriter, ctx context.Context) error {
 		},
 	}
 	list := []*Article{}
-	publicBlogs := publicBlogIds(ctx)
+	publicBlogs := map[string]*Blog{}
+	_ = GetInceptionClient(ctx).FindAll(blogsCollection, inceptiondb.FindQuery{Limit: maxBlogs, Filter: JSON{"$ne": JSON{"banned": true}}}, func(blog *Blog) { publicBlogs[blog.Id] = blog })
+	preferred := contentLanguageFromLocale(string(i18n.GetLocale(ctx)))
 	GetInceptionClient(ctx).FindAll("articles", params, func(article *Article) {
-		if !publicBlogs[article.BlogId] {
+		blog := publicBlogs[article.BlogId]
+		if blog == nil {
 			return
 		}
-		if article.ContentSummary == "" {
-			article.ContentSummary = template.HTML(HtmlSummary(string(article.ContentHTML), 50))
-		}
-		list = append(list, article)
+		list = append(list, preparePublicArticle(article, blog, preferred))
 	}) // todo: handle error properly
 	if len(list) == 0 {
 		return HttpError{
