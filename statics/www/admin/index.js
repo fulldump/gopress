@@ -873,16 +873,26 @@ const EditorPage = {
               <button v-if="lockState === 'conflict'" class="button quiet small" @click="reloadFromServer">Descartar y recargar</button>
             </div>
             <p v-if="error" class="notice error" role="alert">{{ error }}</p>
-            <div class="editor-heading"><input class="title-input" v-model="article.title" @input="handleTitleInput" :disabled="lockState !== 'editable'" maxlength="240" placeholder="Título del artículo" aria-label="Título del artículo"></div>
+            <div class="editor-heading"><input class="title-input" v-model="article.title" @input="handleTitleInput" :disabled="lockState !== 'editable' || actionBusy" maxlength="240" placeholder="Título del artículo" aria-label="Título del artículo"></div>
             <div class="editor-url field">
               <div class="editor-url-label"><label for="article-url">URL pública</label><span v-if="article.automatic_url && !articleIsPublished(article)" class="url-mode">Automática</span></div>
-              <div class="input-prefix"><span>{{ publicUrlPrefix }}</span><input id="article-url" v-model.trim="article.url" @input="handleUrlInput" :disabled="lockState !== 'editable'" maxlength="80" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" spellcheck="false" autocomplete="off" aria-describedby="article-url-help"></div>
+              <div class="input-prefix"><span>{{ publicUrlPrefix }}</span><input id="article-url" v-model.trim="article.url" @input="handleUrlInput" :disabled="lockState !== 'editable' || actionBusy" maxlength="80" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" spellcheck="false" autocomplete="off" aria-describedby="article-url-help"></div>
               <div id="article-url-help" class="editor-url-help">
                 <small v-if="articleIsPublished(article)">La entrada está publicada. Cambiar esta URL romperá los enlaces anteriores.</small>
                 <small v-else-if="article.automatic_url">Se actualiza automáticamente a partir del título hasta que publiques.</small>
                 <small v-else>URL personalizada. Puedes volver a generarla desde el título.</small>
-                <button v-if="!articleIsPublished(article) && !article.automatic_url" type="button" class="url-mode-button" @click="useAutomaticUrl" :disabled="lockState !== 'editable'">Usar el título automáticamente</button>
-                <button v-else-if="articleIsPublished(article)" type="button" class="url-mode-button" @click="useTitleUrl" :disabled="lockState !== 'editable'">Generar desde el título</button>
+                <button v-if="!articleIsPublished(article) && !article.automatic_url" type="button" class="url-mode-button" @click="useAutomaticUrl" :disabled="lockState !== 'editable' || actionBusy">Usar el título automáticamente</button>
+                <button v-else-if="articleIsPublished(article)" type="button" class="url-mode-button" @click="useTitleUrl" :disabled="lockState !== 'editable' || actionBusy">Generar desde el título</button>
+              </div>
+            </div>
+            <div class="editor-tags field">
+              <div class="editor-url-label"><label for="article-tags">Tags</label><span v-if="article.tags_mode === 'automatic' && automaticTagsAvailable" class="url-mode">IA al publicar</span><span v-else-if="article.tags_mode === 'automatic' && automaticTagsAvailable === false" class="url-mode unavailable">IA no configurada</span></div>
+              <input id="article-tags" v-model="tagsText" @input="handleTagsInput" :disabled="lockState !== 'editable' || actionBusy" maxlength="800" placeholder="tecnología, tutorial, español" autocomplete="off" aria-describedby="article-tags-help">
+              <div id="article-tags-help" class="editor-url-help">
+                <small v-if="article.tags_mode === 'automatic' && automaticTagsAvailable">La IA actualizará los tags al publicar. Si los editas, se conservarán manualmente.</small>
+                <small v-else-if="article.tags_mode === 'automatic' && automaticTagsAvailable === false">DeepSeek no está configurado. Añade tags manualmente o configura DEEPSEEK_APIKEY.</small>
+                <small v-else>Separa los tags con comas. Máximo 12.</small>
+                <button v-if="article.tags_mode !== 'automatic' && automaticTagsAvailable" type="button" class="url-mode-button" @click="useAutomaticTags" :disabled="lockState !== 'editable' || actionBusy">Volver a generar con IA</button>
               </div>
             </div>
             <div class="editor-surface" :class="{ 'is-readonly': lockState !== 'editable' }">
@@ -901,7 +911,7 @@ const EditorPage = {
             heartbeatAfterSeconds: 25, heartbeatTimer: null, leaseExpiryTimer: null, renewPromise: null, renewAgain: false,
             serverOffset: 0, acquiringPromise: null, saveTimer: null, savePromise: null,
             changeGeneration: 0, savedGeneration: 0, saveState: 'saved', destroyed: false,
-            navigationPending: false,
+            navigationPending: false, tagsText: '', automaticTagsAvailable: null,
         };
     },
     computed: {
@@ -948,6 +958,7 @@ const EditorPage = {
         window.addEventListener('beforeunload', this.handleBeforeUnload);
         window.addEventListener('pagehide', this.handlePageHide);
         document.addEventListener('visibilitychange', this.handleVisibilityChange);
+        this.loadCapabilities();
         await this.loadArticle();
     },
     beforeUnmount() {
@@ -970,6 +981,14 @@ const EditorPage = {
     },
     methods: {
         articleIsPublished,
+        async loadCapabilities() {
+            try {
+                const capabilities = await request('/v1/capabilities');
+                this.automaticTagsAvailable = capabilities && capabilities.automaticTags === true;
+            } catch (_) {
+                this.automaticTagsAvailable = false;
+            }
+        },
         async loadArticle() {
             const root = this.articleRoot;
             this.loading = true;
@@ -979,6 +998,9 @@ const EditorPage = {
                 const result = await request(root);
                 if (this.destroyed || root !== this.articleRoot) return;
                 this.article = entity(result, 'article');
+                if (!Array.isArray(this.article.tags)) this.article.tags = [];
+                if (!this.article.tags_mode) this.article.tags_mode = 'automatic';
+                this.tagsText = this.article.tags.join(', ');
                 this.changeGeneration = 0;
                 this.savedGeneration = 0;
                 this.saveState = 'saved';
@@ -1197,6 +1219,15 @@ const EditorPage = {
             this.article.url = articleSlug(this.article.title);
             this.markDirty();
         },
+        handleTagsInput() {
+            this.article.tags = this.tagsText.split(',').map((tag) => tag.trim()).filter(Boolean);
+            this.article.tags_mode = 'manual';
+            this.markDirty();
+        },
+        useAutomaticTags() {
+            this.article.tags_mode = 'automatic';
+            this.markDirty();
+        },
         markDirty() {
             if (this.lockState !== 'editable' || this.destroyed) return;
             this.changeGeneration += 1;
@@ -1225,6 +1256,8 @@ const EditorPage = {
             const title = this.article.title;
             const url = this.article.url;
             const automaticUrl = Boolean(this.article.automatic_url);
+            const tags = this.article.tags.slice();
+            const tagsMode = this.article.tags_mode;
             const root = this.articleRoot;
             let succeeded = false;
             this.saveState = 'saving';
@@ -1234,12 +1267,17 @@ const EditorPage = {
                     const result = await request(root, {
                         method: 'PATCH',
                         headers: { 'X-Edit-Lock-Token': token },
-                        body: { revision, title, url, automatic_url: automaticUrl, content: { type: 'editorjs', data: content } },
+                        body: { revision, title, url, automatic_url: automaticUrl, tags, tags_mode: tagsMode, content: { type: 'editorjs', data: content } },
                     });
                     const updated = entity(result, 'article') || {};
                     if (updated.revision !== undefined) this.article.revision = updated.revision;
                     if (updated.url !== undefined && generation === this.changeGeneration) this.article.url = updated.url;
                     if (updated.automatic_url !== undefined && generation === this.changeGeneration) this.article.automatic_url = updated.automatic_url;
+                    if (updated.tags !== undefined && generation === this.changeGeneration) {
+                        this.article.tags = updated.tags || [];
+                        this.tagsText = this.article.tags.join(', ');
+                    }
+                    if (updated.tags_mode !== undefined && generation === this.changeGeneration) this.article.tags_mode = updated.tags_mode;
                     if (updated.published !== undefined) this.article.published = updated.published;
                     this.savedGeneration = Math.max(this.savedGeneration, generation);
                     succeeded = true;
@@ -1283,6 +1321,7 @@ const EditorPage = {
             this.error = '';
             this.actionPromise = (async () => {
                 try {
+                    await this.setEditorReadOnly(true);
                     if (this.lockState !== 'editable' || !await this.flushSave()) return false;
                     const revision = articleRevision(this.article);
                     if (revision === undefined || revision === null) {
@@ -1296,6 +1335,7 @@ const EditorPage = {
                     });
                     const updated = entity(result, 'article') || {};
                     this.article = { ...this.article, ...updated, published: action === 'publish' };
+                    if (updated.tags !== undefined) this.tagsText = (updated.tags || []).join(', ');
                     return true;
                 } catch (error) {
                     this.error = errorMessage(error);
@@ -1303,6 +1343,7 @@ const EditorPage = {
                     else if (hasErrorCode(error, 'edit_lock_lost') || hasErrorCode(error, 'article_locked')) await this.loseLock(error);
                     return false;
                 } finally {
+                    if (this.lockState === 'editable' && !this.destroyed) await this.setEditorReadOnly(false);
                     this.actionBusy = false;
                     this.actionPromise = null;
                 }

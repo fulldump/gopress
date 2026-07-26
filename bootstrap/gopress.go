@@ -57,6 +57,8 @@ func Gopress(c *Config, version string) Runner {
 			fmt.Println("ERROR: can not initialize DeepSeek client:", err)
 			os.Exit(-1)
 		}
+	} else {
+		log.Println("DeepSeek disabled: DEEPSEEK_APIKEY is not configured; automatic tags are unavailable")
 	}
 
 	a := api.NewApi(c.Statics, version, db, fs, moderator)

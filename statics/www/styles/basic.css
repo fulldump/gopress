@@ -94,6 +94,18 @@ textarea:focus-visible {
   display: none !important;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .skip-link {
   position: fixed;
   z-index: 100;
@@ -163,6 +175,7 @@ textarea:focus-visible {
 }
 
 .auth-actions {
+  gap: 0.35rem;
   min-height: 44px;
   color: var(--color-muted);
   font-size: 0.82rem;
@@ -184,6 +197,35 @@ textarea:focus-visible {
 
 .auth-actions a:hover {
   color: var(--color-accent);
+}
+
+.global-search-button {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.global-search-button:hover {
+  background: var(--color-surface);
+  color: var(--color-accent);
+}
+
+.global-search-button svg,
+.directory-search svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.8;
 }
 
 #user_nick {
@@ -255,6 +297,39 @@ textarea:focus-visible {
   gap: 1px;
   border-block: 1px solid var(--color-surface-strong);
   background: var(--color-surface-strong);
+}
+
+.directory-search {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+  padding-bottom: 0.7rem;
+  color: var(--color-muted);
+  border-bottom: 1px solid var(--color-surface-strong);
+}
+
+.directory-search input {
+  min-width: 0;
+  padding: 0.55rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  outline: 0;
+}
+
+.directory-search input::placeholder {
+  color: var(--color-muted);
+}
+
+.directory-search:focus-within {
+  border-bottom-color: var(--color-accent);
+}
+
+#blog-search-status {
+  font-size: 0.72rem;
+  white-space: nowrap;
 }
 
 .blog-directory-card {
@@ -862,6 +937,53 @@ textarea:focus-visible {
 
 .share-dialog::backdrop {
   background: rgb(0 0 0 / 56%);
+}
+
+.search-dialog {
+  width: min(680px, calc(100% - 32px));
+}
+
+.article-search-input {
+  width: 100%;
+  margin-top: 1.75rem;
+  padding: 0.9rem 0;
+  border: 0;
+  border-bottom: 1px solid var(--color-surface-strong);
+  background: transparent;
+  color: var(--color-heading);
+  font-family: var(--font-serif);
+  font-size: clamp(1.3rem, 4vw, 1.8rem);
+}
+
+.article-search-status {
+  min-height: 1.3em;
+  margin: 0.8rem 0;
+  color: var(--color-muted);
+  font-size: 0.75rem;
+}
+
+.article-search-results {
+  display: grid;
+  border-top: 1px solid var(--color-surface-strong);
+}
+
+.article-search-result {
+  display: grid;
+  gap: 0.15rem;
+  padding: 1rem 0;
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-surface-strong);
+}
+
+.article-search-result strong {
+  color: var(--color-heading);
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+}
+
+.article-search-result span {
+  color: var(--color-muted);
+  font-size: 0.72rem;
 }
 
 .share-dialog-header {

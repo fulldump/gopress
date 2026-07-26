@@ -26,11 +26,13 @@ func PatchArticle(r *http.Request, ctx context.Context) any {
 		return err
 	}
 	input := struct {
-		Title        *string  `json:"title,omitempty"`
-		Url          *string  `json:"url,omitempty"`
-		AutomaticUrl *bool    `json:"automatic_url,omitempty"`
-		Content      *Content `json:"content,omitempty"`
-		Revision     *uint64  `json:"revision"`
+		Title        *string   `json:"title,omitempty"`
+		Url          *string   `json:"url,omitempty"`
+		AutomaticUrl *bool     `json:"automatic_url,omitempty"`
+		Tags         *[]string `json:"tags,omitempty"`
+		TagsMode     *string   `json:"tags_mode,omitempty"`
+		Content      *Content  `json:"content,omitempty"`
+		Revision     *uint64   `json:"revision"`
 	}{}
 	if err = decodeBlogJSON(box.GetResponse(ctx), r, &input); err != nil {
 		log.Println("patch article: json decode:", err)
@@ -39,8 +41,8 @@ func PatchArticle(r *http.Request, ctx context.Context) any {
 	if input.Revision == nil {
 		return invalidArticle("revision es obligatoria")
 	}
-	if input.Title == nil && input.Url == nil && input.AutomaticUrl == nil && input.Content == nil {
-		return invalidArticle("title, url, automatic_url o content son obligatorios")
+	if input.Title == nil && input.Url == nil && input.AutomaticUrl == nil && input.Tags == nil && input.TagsMode == nil && input.Content == nil {
+		return invalidArticle("title, url, tags o content son obligatorios")
 	}
 	if *input.Revision != article.Revision {
 		return articleRevisionConflict(article.Revision)
@@ -59,6 +61,21 @@ func PatchArticle(r *http.Request, ctx context.Context) any {
 	}
 	if article.Url == "" || Slug(article.Url) != article.Url {
 		return invalidArticle("url debe contener solo letras minúsculas, números y guiones, con un máximo de 80 caracteres")
+	}
+	if input.TagsMode != nil {
+		if *input.TagsMode != articleTagsAutomatic && *input.TagsMode != articleTagsManual {
+			return invalidArticle("tags_mode debe ser automatic o manual")
+		}
+		article.TagsMode = *input.TagsMode
+	}
+	if input.Tags != nil {
+		article.Tags, err = normalizeArticleTags(*input.Tags)
+		if err != nil {
+			return err
+		}
+		if input.TagsMode == nil {
+			article.TagsMode = articleTagsManual
+		}
 	}
 	if input.Content != nil {
 		article.Content = *input.Content
@@ -95,7 +112,7 @@ func PatchArticle(r *http.Request, ctx context.Context) any {
 	patched := &Article{}
 	matched, err := db.PatchOne("articles", inceptiondb.PatchQuery{Filter: filter, Patch: JSON{
 		"title": article.Title, "url": article.Url, "automatic_url": article.AutomaticUrl,
-		"content": article.Content, "content_html": article.ContentHTML,
+		"tags": article.Tags, "tags_mode": article.TagsMode, "content": article.Content, "content_html": article.ContentHTML,
 		"revision": *input.Revision + 1, "updatedOn": now,
 		"updated_by_id": auth.User.ID, "updated_by_nick": auth.User.Nick,
 	}}, patched)

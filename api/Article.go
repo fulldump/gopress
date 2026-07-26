@@ -71,6 +71,7 @@ type ArticleUserFields struct {
 	ContentHTML    template.HTML `json:"content_html"`    // it works like a cache
 	ContentSummary template.HTML `json:"content_summary"` // it works like a cache for the summary
 	Tags           []string      `json:"tags"`
+	TagsMode       string        `json:"tags_mode,omitempty"`
 }
 
 type Content struct {

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"html/template"
 	"io"
 	"net/http"
@@ -29,6 +30,14 @@ func TestPublicBlogRoutesAndLegacyRedirects(t *testing.T) {
 	if err := db.Insert("articles", article); err != nil {
 		t.Fatal(err)
 	}
+	if err := db.Insert("articles", &Article{
+		Id: "draft-only", CreatedOn: createdOn, Published: false,
+		AuthorId: "draft-writer-id", AuthorNick: "draftwriter", ArticleUserFields: ArticleUserFields{
+			Title: "Private draft", Url: "private-draft",
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
 	fs, err := localfilestore.New(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -51,8 +60,21 @@ func TestPublicBlogRoutesAndLegacyRedirects(t *testing.T) {
 		return response, string(body)
 	}
 
-	if response, body := get("/blogs"); response.StatusCode != http.StatusOK || !strings.Contains(body, "writer") {
+	if response, body := get("/blogs"); response.StatusCode != http.StatusOK || !strings.Contains(body, "writer") || strings.Contains(body, "draftwriter") || !strings.Contains(body, `id="blog-search"`) {
 		t.Fatalf("blog directory: status=%d body=%s", response.StatusCode, body)
+	}
+	if response, body := get("/v1/search/articles?q=surprises"); response.StatusCode != http.StatusOK {
+		t.Fatalf("article search: status=%d body=%s", response.StatusCode, body)
+	} else {
+		payload := struct {
+			Articles []PublicArticleSearchResult `json:"articles"`
+		}{}
+		if err := json.Unmarshal([]byte(body), &payload); err != nil || len(payload.Articles) != 1 || payload.Articles[0].Title != "C++ without surprises" || payload.Articles[0].PublicUrl != "/blog/writer/article/c++" {
+			t.Fatalf("unexpected article search payload: err=%v body=%s", err, body)
+		}
+	}
+	if response, body := get("/v1/search/articles?q=private"); response.StatusCode != http.StatusOK || strings.Contains(body, "Private draft") {
+		t.Fatalf("draft leaked through article search: status=%d body=%s", response.StatusCode, body)
 	}
 	if response, _ := get("/blogs/"); response.StatusCode != http.StatusPermanentRedirect || response.Header.Get("Location") != "/blogs" {
 		t.Fatalf("blogs slash redirect: status=%d location=%q", response.StatusCode, response.Header.Get("Location"))

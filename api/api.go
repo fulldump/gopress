@@ -118,6 +118,7 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 
 	// API endpoints
 	v1 := b.Group("/v1")
+	v1.Handle("GET", "/search/articles", SearchPublicArticles)
 	v1.Handle("GET", "/articles/{articleId}/comments", ListComments)
 	v1.Handle("POST", "/articles/{articleId}/comments", CreateComment)
 	v1.Handle("GET", "/articles/{articleId}/feedback", GetArticleFeedback).WithInterceptors(glueauth.Auth)
@@ -125,6 +126,7 @@ func NewApi(staticsDir, version string, db *inceptiondb.Client, fs filestorage.F
 	privateEndpoint := func(method, path string, handler any) *box.A {
 		return v1.Handle(method, path, handler).WithInterceptors(glueauth.Require)
 	}
+	privateEndpoint("GET", "/capabilities", GetCapabilities)
 	privateEndpoint("GET", "/articles", ListArticles)
 	privateEndpoint("POST", "/articles", CreateArticle)
 	privateEndpoint("GET", "/articles/{articleId}", GetArticle)

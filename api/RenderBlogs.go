@@ -15,11 +15,22 @@ import (
 )
 
 func RenderBlogs(ctx context.Context, w http.ResponseWriter) error {
+	db := GetInceptionClient(ctx)
+	blogsWithArticles := map[string]bool{}
+	if err := db.FindAll("articles", inceptiondb.FindQuery{Limit: maxPublicDiscoveryRows, Filter: JSON{
+		"published": true, "$ne": JSON{"banned": true},
+	}}, func(article *Article) {
+		blogsWithArticles[article.BlogId] = true
+	}); err != nil {
+		return blogStorageError("render blogs articles", err)
+	}
 	blogs := []*Blog{}
-	if err := GetInceptionClient(ctx).FindAll(blogsCollection, inceptiondb.FindQuery{Limit: maxBlogs, Filter: JSON{
+	if err := db.FindAll(blogsCollection, inceptiondb.FindQuery{Limit: maxBlogs, Filter: JSON{
 		"$ne": JSON{"banned": true},
 	}}, func(blog *Blog) {
-		blogs = append(blogs, blog)
+		if blogsWithArticles[blog.Id] {
+			blogs = append(blogs, blog)
+		}
 	}); err != nil {
 		return blogStorageError("render blogs", err)
 	}

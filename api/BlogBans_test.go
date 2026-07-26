@@ -104,6 +104,9 @@ func TestBannedArticleHidesBlogAndAllowsOwnerReview(t *testing.T) {
 			t.Fatalf("banned blog API %s returned %d %s", path, publicAPI.StatusCode, publicAPI.BodyString())
 		}
 	}
+	if search := client.Request(http.MethodGet, "/v1/search/articles?q=clean").Do(); search.StatusCode != http.StatusOK || strings.Contains(search.BodyString(), "Clean sibling") {
+		t.Fatalf("banned blog leaked through search: %d %s", search.StatusCode, search.BodyString())
+	}
 
 	owned := requestAs("owner", http.MethodGet, "/v1/blogs").Do()
 	if owned.StatusCode != http.StatusOK || !strings.Contains(owned.BodyString(), `"banned":true`) || strings.Contains(owned.BodyString(), "review_requested_on") {

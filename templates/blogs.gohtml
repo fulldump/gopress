@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+Pro:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/styles/basic.css?v=8">
+    <link rel="stylesheet" href="/styles/basic.css?v=9">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="manifest" href="/site.webmanifest">{{ .headTrailCode }}
 </head>
@@ -40,6 +40,12 @@
             <section class="content-column" aria-labelledby="blogs-title">
                 <header class="section-header"><h2 id="blogs-title">Todos los blogs</h2></header>
                 {{ if .blogs }}
+                <div class="directory-search" role="search">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg>
+                    <label class="sr-only" for="blog-search">Buscar blogs</label>
+                    <input id="blog-search" type="search" placeholder="Buscar por nombre, descripción o dirección" autocomplete="off">
+                    <span id="blog-search-status" aria-live="polite"></span>
+                </div>
                 <div class="blog-directory">
                     {{ range .blogs }}
                     <article class="blog-directory-card" style="--blog-accent: {{ .AccentColor }}">
@@ -52,6 +58,7 @@
                     </article>
                     {{ end }}
                 </div>
+                <div class="empty-state" id="blog-search-empty" hidden><h2>No hay coincidencias.</h2><p>Prueba con otro nombre o término.</p></div>
                 {{ else }}
                 <div class="empty-state"><h2>Aún no hay blogs.</h2><p>El primer espacio de publicación aparecerá aquí.</p></div>
                 {{ end }}
@@ -59,6 +66,6 @@
         </main>
         <footer class="site-footer"><div class="footer-content container"><p>GoPress es software libre construido por la comunidad.</p><nav class="footer-links" aria-label="Enlaces del proyecto"><a href="https://github.com/fulldump/gopress">GitHub</a><a href="https://www.twitch.tv/fulldump">Twitch</a><a href="https://www.youtube.com/@fulldump">YouTube</a></nav></div></footer>
     </div>
-    <script src="/public.js?v=4" defer></script>
+    <script src="/public.js?v=5" defer></script>
 </body>
 </html>

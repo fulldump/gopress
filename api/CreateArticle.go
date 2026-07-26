@@ -70,6 +70,7 @@ func CreateArticle(input *CreateArticleRequest, ctx context.Context) any {
 		ArticleUserFields: ArticleUserFields{
 			Title:        input.Title,
 			AutomaticUrl: true,
+			TagsMode:     articleTagsAutomatic,
 			Content: Content{
 				Type: "editorjs",
 				Data: json.RawMessage("{}"),

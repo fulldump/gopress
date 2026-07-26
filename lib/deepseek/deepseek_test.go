@@ -2,8 +2,10 @@ package deepseek
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -48,7 +50,6 @@ func TestClientEvaluate(t *testing.T) {
 		if got := r.Header.Get("Authorization"); got != "Bearer secret" {
 			t.Fatalf("unexpected authorization header: %s", got)
 		}
-
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"choices":[{"message":{"content":"true"}}]}`))
 	}))
@@ -75,6 +76,14 @@ func TestClientGenerateTags(t *testing.T) {
 		}
 		if got := r.Header.Get("Authorization"); got != "Bearer secret" {
 			t.Fatalf("unexpected authorization header: %s", got)
+		}
+		request := chatRequest{}
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		prompt := request.Messages[0].Content
+		if !strings.Contains(prompt, "detecta el idioma real") || strings.Contains(strings.ToLower(prompt), "tags en inglés") {
+			t.Fatalf("prompt does not request language detection: %q", prompt)
 		}
 
 		w.Header().Set("Content-Type", "application/json")

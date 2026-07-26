@@ -10,6 +10,10 @@ type ContentModerator interface {
 	Evaluate(ctx context.Context, content string) (bool, error)
 }
 
+type TagGenerator interface {
+	GenerateTags(ctx context.Context, content string) ([]string, error)
+}
+
 const contentModeratorKey = "c9c57334-1f5f-4f0d-bc59-79b74e89616d"
 
 func InjectContentModerator(moderator ContentModerator) box.I {
@@ -28,6 +32,14 @@ func GetContentModerator(ctx context.Context) ContentModerator {
 		if moderator, ok := v.(ContentModerator); ok {
 			return moderator
 		}
+	}
+	return nil
+}
+
+func GetTagGenerator(ctx context.Context) TagGenerator {
+	moderator := GetContentModerator(ctx)
+	if generator, ok := moderator.(TagGenerator); ok {
+		return generator
 	}
 	return nil
 }

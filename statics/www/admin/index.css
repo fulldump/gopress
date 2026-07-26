@@ -304,8 +304,10 @@ a { color: var(--green); }
 .title-input:focus { border-bottom-color: var(--accent); outline: 3px solid color-mix(in srgb, var(--accent) 35%, transparent); outline-offset: 5px; }
 .title-input:disabled { color: var(--ink); background: transparent; opacity: 1; }
 .editor-url { width: min(650px, 100%); margin: 0 auto 34px; }
+.editor-tags { width: min(650px, 100%); margin: -15px auto 38px; }
 .editor-url-label { display: flex; align-items: center; gap: 8px; }
 .url-mode { padding: 2px 7px; color: var(--green); background: var(--green-soft); border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+.url-mode.unavailable { color: var(--warning); background: var(--warning-soft); }
 .editor-url .input-prefix span { max-width: 65%; padding-right: 0; overflow: hidden; text-overflow: ellipsis; }
 .editor-url-help { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
 .url-mode-button { flex: 0 0 auto; padding: 0; color: var(--green); background: none; border: 0; font-size: 12px; font-weight: 750; text-decoration: underline; cursor: pointer; }
