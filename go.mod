@@ -1,8 +1,6 @@
 module gopress
 
-go 1.23.0
-
-toolchain go1.23.4
+go 1.25.0
 
 require (
 	github.com/fulldump/apitest v1.3.0
@@ -12,7 +10,7 @@ require (
 	github.com/fulldump/inceptiondb v0.0.14
 	github.com/google/uuid v1.6.0
 	github.com/otiai10/opengraph/v2 v2.1.0
-	golang.org/x/net v0.42.0
+	golang.org/x/net v0.55.0
 )
 
 require (
